@@ -1,0 +1,27 @@
+# Dependencias
+node_modules/
+web/node_modules/
+
+# Builds
+dist/
+web/dist/
+
+# Datos locales de la app (personajes, packs) — NO versionar
+.dnd-mcp/
+*.local.json
+
+# Entorno / secretos
+.env
+.env.*
+!.env.example
+
+# Logs y temporales
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+scratchpad/
+
+# Editor
+.vscode/
+.idea/

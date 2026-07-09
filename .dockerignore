@@ -1,0 +1,10 @@
+node_modules
+web/node_modules
+dist
+web/dist
+.git
+.dnd-mcp
+*.log
+scratchpad
+.env
+.env.*

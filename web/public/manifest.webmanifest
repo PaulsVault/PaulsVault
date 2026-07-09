@@ -1,0 +1,14 @@
+{
+  "name": "D&D 2024 — Gestor de personajes",
+  "short_name": "D&D 2024",
+  "description": "Gestor de personajes de D&D 2024 (SRD 5.2): hoja, combate, hechizos, inventario, compañeros y dados.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#14101f",
+  "theme_color": "#14101f",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
