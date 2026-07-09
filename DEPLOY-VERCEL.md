@@ -3,8 +3,8 @@
 La app queda 100% serverless: **Vercel** sirve la SPA y la API (función), y **Turso** (libSQL)
 guarda los datos por red. Ambos tienen plan gratuito suficiente para uso personal/pequeño.
 
-Ya está preparado en el repo: `api/[...path].js` (envuelve Express), `vercel.json`, y el store
-usa `@libsql/client` (Turso en prod, archivo local en dev).
+Ya está preparado en el repo: `api/index.js` (envuelve Express) + `vercel.json` con un rewrite que
+manda `/api/*` a esa función, y el store usa `@libsql/client` (Turso en prod, archivo local en dev).
 
 ---
 
@@ -52,7 +52,9 @@ openssl rand -hex 32          # -> SESSION_SECRET  (o cualquier cadena larga ale
 - **Repo público (plan Hobby)**: Vercel **bloquea** los deploys de commits con co-autor cuando el
   repo es **privado** (*"deployment blocked… does not support collaboration for private repositories"*).
   Solución: pon el repo **público** (no hay secretos en él; van solo en las variables de entorno de Vercel).
-- **Nombre de la función**: debe ser `api/[...path].js` (un corchete). `[[...path]]` (catch-all opcional)
-  es convención de Next.js y Vercel no lo registra como función serverless → `/api/*` daría 404.
+- **Enrutado de `/api`**: función única `api/index.js` + rewrite en `vercel.json`
+  (`{ "source": "/api/(.*)", "destination": "/api/index" }`). **Evita los catch-all** `api/[...path].js`
+  o `[[...path]]`: en pruebas el catch-all solo matcheaba rutas de un segmento (`/api/health` OK pero
+  `/api/auth/me` daba 404).
 - **Dev local**: sin variables de Turso, el store usa un archivo local (`~/.dnd-mcp/app.db` o
   `DND_DB`). `npm start` + `cd web && npm run dev` sigue funcionando igual.
