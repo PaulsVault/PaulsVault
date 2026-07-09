@@ -8,6 +8,7 @@ export function Auth({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imgFailed, setImgFailed] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,7 +25,11 @@ export function Auth({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
-        <DragonArt />
+        {imgFailed ? <DragonArt /> : (
+          <div className="dragon-scene">
+            <img className="dragon-img" src="/bahamut.png" alt="Dragón platino" onError={() => setImgFailed(true)} />
+          </div>
+        )}
         <h1 className="auth-brand">⚔️ D&amp;D 2024</h1>
         <p className="auth-tagline">
           {mode === "login" ? "Inicia sesión para ver tus personajes" : "Forja tu leyenda — crea tu cuenta"}

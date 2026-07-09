@@ -265,6 +265,14 @@ body {
 .auth-tagline { text-align: center; color: var(--platinum); margin: 0 0 8px; font-style: italic; opacity: .85; }
 
 .dragon-scene { display: flex; justify-content: center; margin: -8px 0 2px; }
+.dragon-img {
+  display: block; width: 100%; max-height: 230px; object-fit: cover; object-position: center 28%;
+  border-radius: 14px; border: 1px solid var(--gold-2);
+  box-shadow: 0 0 26px rgba(111,184,255,.28);
+  animation: dfloat 6s ease-in-out infinite;
+  -webkit-mask-image: linear-gradient(180deg, #000 76%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 76%, transparent 100%);
+}
 .dragon { width: min(300px, 78vw); height: auto; overflow: visible; filter: drop-shadow(0 6px 18px rgba(111,184,255,.35)); }
 .dragon-float { animation: dfloat 6s ease-in-out infinite; }
 .wing { transform-box: fill-box; transform-origin: 92% 62%; }
