@@ -31,7 +31,11 @@ Cualquiera de estos despliega desde GitHub y da una URL pública con poco manten
 
 - **Render / Railway / Fly.io**: build command `npm ci && npm run build:all`, start command `npm start`.
 - Necesitan un **disco persistente** (o Turso, §3) porque el sistema de archivos del contenedor es efímero.
-- Variables de entorno: `PORT` (lo pone el PaaS), `DND_DATA_DIR` o la URL de la base (§3), y los secretos de auth (§4).
+- Variables de entorno:
+  - `PORT` — lo pone el PaaS.
+  - `DND_DB` (ruta del `app.db` en el disco persistente, p. ej. `/data/app.db`) o `DND_DATA_DIR`.
+  - `SESSION_SECRET` — **obligatorio en prod**: cadena larga aleatoria para firmar las sesiones. Sin ella, se genera una al azar y las sesiones se invalidan en cada reinicio.
+  - `NODE_ENV=production` — activa la cookie `secure` (solo HTTPS).
 
 Se incluirá un `Dockerfile` para un despliegue reproducible en cualquier PaaS con contenedores.
 
@@ -72,5 +76,6 @@ sin tocar código. Solo se redistribuye el SRD 5.2.1 (CC-BY-4.0); el resto lo ca
 1. ✅ `git init` + `.gitignore` + scripts `build:all` + esta guía.
 2. ✅ `Dockerfile` + `.dockerignore` para PaaS.
 3. ✅ `src/store.ts` migrado a SQLite (`node:sqlite`). 90 tests verdes.
-4. ⏳ Auth propia (users, argon2/scrypt, JWT cookie) + `owner_id` + aislamiento por usuario en la API.
-5. ⏳ Desplegar en el PaaS elegido con disco persistente para `app.db`.
+4. ✅ Auth propia (users, `scrypt` de node:crypto, token HMAC en cookie httpOnly) + aislamiento
+   por usuario vía `AsyncLocalStorage` (`owner_id`). Frontend con login/registro/logout. 92 tests verdes.
+5. ⏳ Desplegar en el PaaS elegido con disco persistente para `app.db` y `SESSION_SECRET` fijado.

@@ -3,6 +3,7 @@ import type { CharacterSummary, ContentHit, CreateInput, Sheet } from "./types";
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch("/api" + path, {
     ...init,
+    credentials: "include",
     headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
   });
   const data = await res.json().catch(() => ({}));
@@ -16,7 +17,15 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 const enc = encodeURIComponent;
 type Dict = Record<string, unknown>;
 
+export interface AuthUser { id: string; email: string; }
+
 export const api = {
+  // Autenticación
+  me: () => req<{ user: AuthUser }>("/auth/me"),
+  register: (email: string, password: string) => req<{ user: AuthUser }>("/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }),
+  login: (email: string, password: string) => req<{ user: AuthUser }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
+  logout: () => req<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+
   // Personajes
   listCharacters: () => req<CharacterSummary[]>("/characters"),
   createCharacter: (input: CreateInput) => req<Sheet>("/characters", { method: "POST", body: JSON.stringify(input) }),

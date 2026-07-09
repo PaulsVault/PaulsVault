@@ -6,8 +6,10 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { loadDb, saveDb, dataDir, listPacks } from "../store.js";
+import { loadDb, saveDb, dataDir, listPacks, requestContext, getUserById } from "../store.js";
 import { DomainError, STATUS_BY_CODE } from "../domain/errors.js";
+import { verifyToken, signToken, SESSION_COOKIE, TOKEN_MAX_AGE_MS } from "../auth.js";
+import { registerUser, loginUser } from "../domain/auth.js";
 import * as chars from "../domain/characters.js";
 import * as inv from "../domain/inventory.js";
 import * as spells from "../domain/spells.js";
@@ -23,6 +25,19 @@ import type { Character, ContentType, Database } from "../types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+type Req = Request & { userId?: string | null };
+
+/** Parseo simple de cookies (sin dependencias). */
+function cookies(req: Request): Record<string, string> {
+  const out: Record<string, string> = {};
+  const raw = req.headers.cookie;
+  if (raw) for (const part of raw.split(";")) {
+    const i = part.indexOf("=");
+    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return out;
+}
+
 /** Carga db, resuelve el personaje, ejecuta `fn`, guarda y devuelve el resultado de `fn`. */
 function onCharacter<T>(id: string, fn: (c: Character, db: Database) => T): T {
   const db = loadDb();
@@ -37,6 +52,48 @@ const num = (v: unknown): number | undefined => (v === undefined ? undefined : N
 export function buildApp(): Express {
   const app = express();
   app.use(express.json({ limit: "12mb" }));
+
+  // ─── Sesión: fija el usuario y ejecuta el resto en el contexto del dueño ───
+  app.use((req: Req, _res, next) => {
+    const userId = verifyToken(cookies(req)[SESSION_COOKIE]);
+    req.userId = userId;
+    requestContext.run({ ownerId: userId }, () => next());
+  });
+
+  const setSession = (res: Response, userId: string) =>
+    res.cookie(SESSION_COOKIE, signToken(userId), {
+      httpOnly: true, sameSite: "lax", secure: process.env["NODE_ENV"] === "production",
+      maxAge: TOKEN_MAX_AGE_MS, path: "/",
+    });
+
+  // ─── Auth (rutas públicas) ───
+  app.post("/api/auth/register", (req: Req, res) => {
+    const user = registerUser(req.body?.email, req.body?.password);
+    setSession(res, user.id);
+    res.status(201).json({ user });
+  });
+  app.post("/api/auth/login", (req: Req, res) => {
+    const user = loginUser(req.body?.email, req.body?.password);
+    setSession(res, user.id);
+    res.json({ user });
+  });
+  app.post("/api/auth/logout", (_req, res) => {
+    res.clearCookie(SESSION_COOKIE, { path: "/" });
+    res.json({ ok: true });
+  });
+  app.get("/api/auth/me", (req: Req, res) => {
+    const u = req.userId ? getUserById(req.userId) : undefined;
+    if (!u) { res.status(401).json({ error: { code: "unauthorized", message: "No autenticado." } }); return; }
+    res.json({ user: { id: u.id, email: u.email } });
+  });
+
+  app.get("/api/health", (_req, res) => res.json({ status: "ok", app: "dnd-app" }));
+
+  // A partir de aquí, todo /api requiere sesión.
+  app.use("/api", (req: Req, res, next) => {
+    if (!req.userId) { res.status(401).json({ error: { code: "unauthorized", message: "Inicia sesión." } }); return; }
+    next();
+  });
 
   // ─── Personajes ───
   app.get("/api/characters", (_req, res) => res.json(chars.listCharacters(loadDb())));
@@ -244,7 +301,6 @@ export function buildApp(): Express {
   });
 
   // ─── Sistema ───
-  app.get("/api/health", (_req, res) => res.json({ status: "ok", app: "dnd-app" }));
   app.get("/api/server-info", (_req, res) => {
     const db = loadDb();
     res.json({
