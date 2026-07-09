@@ -66,7 +66,7 @@ export function getContentEntry(idOrName: string, type?: ContentType): PackedEnt
 }
 
 /** Importa o actualiza un content pack (mismo id = actualización). Biblioteca sin límites. */
-export function importPack(pack: ContentPack): { imported: true; packId: string; entryCount: number } {
+export async function importPack(pack: ContentPack): Promise<{ imported: true; packId: string; entryCount: number }> {
   if (!pack.id || !pack.name || !Array.isArray(pack.entries) || pack.entries.length === 0) {
     throw new DomainError("validation", "El pack debe tener id, name y al menos una entrada.");
   }
@@ -75,7 +75,7 @@ export function importPack(pack: ContentPack): { imported: true; packId: string;
       throw new DomainError("validation", `Entrada inválida en el pack: cada entrada necesita id, name y type válido (${CONTENT_TYPES.join(", ")}).`);
     }
   }
-  savePack(pack);
+  await savePack(pack);
   return { imported: true, packId: pack.id, entryCount: pack.entries.length };
 }
 
@@ -89,8 +89,8 @@ export function listContentPacks(): PackSummary[] {
   });
 }
 
-export function removePack(packId: string): { removed: true; packId: string } {
-  if (!deletePack(packId)) {
+export async function removePack(packId: string): Promise<{ removed: true; packId: string }> {
+  if (!(await deletePack(packId))) {
     throw new DomainError("not_found", `Pack "${packId}" no existe. Packs: ${listPacks().map((p) => p.id).join(", ")}`);
   }
   return { removed: true, packId };

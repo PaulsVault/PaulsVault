@@ -66,7 +66,7 @@ export interface ImportPackageResult {
 }
 
 /** Importa un paquete recibido: instala sus packs y crea los personajes con id nuevo (RF-SHARE-2). */
-export function importPackage(db: Database, pkg: unknown, opts: { overwritePacks?: boolean } = {}): ImportPackageResult {
+export async function importPackage(db: Database, pkg: unknown, opts: { overwritePacks?: boolean } = {}): Promise<ImportPackageResult> {
   const p = pkg as DndCharPackage;
   if (!p || p.format !== "dndchar" || !Array.isArray(p.characters)) {
     throw new DomainError("validation", "Paquete .dndchar inválido: falta 'format' o 'characters'.");
@@ -76,7 +76,7 @@ export function importPackage(db: Database, pkg: unknown, opts: { overwritePacks
   const existing = new Set(listPacks().map((x) => x.id));
   for (const pack of p.contentPacks ?? []) {
     if (existing.has(pack.id) && !opts.overwritePacks) { packsSkipped.push(pack.id); continue; }
-    importPack(pack); // valida y guarda (mismo id = actualización)
+    await importPack(pack); // valida y guarda (mismo id = actualización)
     packsInstalled.push(pack.id);
   }
   const characters = p.characters.map((raw) => {

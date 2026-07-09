@@ -1,0 +1,14 @@
+# Reemplaza tu-dominio.com por tu dominio real (apuntando a la IP pública de la VM).
+# Caddy saca y renueva el certificado HTTPS automáticamente (Let's Encrypt).
+tu-dominio.com {
+    encode gzip
+    reverse_proxy app:3000
+}
+
+# --- Sin dominio (solo IP, HTTP) ---
+# Si aún no tienes dominio, comenta el bloque de arriba y usa este (sin HTTPS).
+# Recuerda: sin HTTPS debes quitar NODE_ENV=production en docker-compose.yml
+# para que la cookie de sesión no sea "secure" y el login funcione.
+# :80 {
+#     reverse_proxy app:3000
+# }

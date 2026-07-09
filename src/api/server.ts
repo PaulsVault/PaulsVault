@@ -1,12 +1,12 @@
 // Servidor Express de la app: API REST (adaptadores finos sobre el dominio) + estáticos de la SPA.
-// Errores de dominio (DomainError) se mapean a códigos HTTP. Las reglas viven solo en el dominio.
+// Persistencia asíncrona (libSQL). Errores de dominio (DomainError) → códigos HTTP.
 
 import express, { type Request, type Response, type NextFunction, type Express } from "express";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { loadDb, saveDb, dataDir, listPacks, requestContext, getUserById } from "../store.js";
+import { loadDb, saveDb, dataDir, listPacks, requestContext, getUserById, init } from "../store.js";
 import { DomainError, STATUS_BY_CODE } from "../domain/errors.js";
 import { verifyToken, signToken, SESSION_COOKIE, TOKEN_MAX_AGE_MS } from "../auth.js";
 import { registerUser, loginUser } from "../domain/auth.js";
@@ -39,11 +39,11 @@ function cookies(req: Request): Record<string, string> {
 }
 
 /** Carga db, resuelve el personaje, ejecuta `fn`, guarda y devuelve el resultado de `fn`. */
-function onCharacter<T>(id: string, fn: (c: Character, db: Database) => T): T {
-  const db = loadDb();
+async function onCharacter<T>(id: string, fn: (c: Character, db: Database) => T): Promise<T> {
+  const db = await loadDb();
   const c = chars.requireCharacter(db, id);
   const result = fn(c, db);
-  saveDb(db);
+  await saveDb(db);
   return result;
 }
 
@@ -53,11 +53,15 @@ export function buildApp(): Express {
   const app = express();
   app.use(express.json({ limit: "12mb" }));
 
-  // ─── Sesión: fija el usuario y ejecuta el resto en el contexto del dueño ───
+  // ─── Sesión: inicializa el store, fija el usuario y ejecuta en el contexto del dueño ───
   app.use((req: Req, _res, next) => {
-    const userId = verifyToken(cookies(req)[SESSION_COOKIE]);
-    req.userId = userId;
-    requestContext.run({ ownerId: userId }, () => next());
+    void (async () => {
+      try {
+        await init();
+        req.userId = verifyToken(cookies(req)[SESSION_COOKIE]);
+        requestContext.run({ ownerId: req.userId }, () => next());
+      } catch (e) { next(e); }
+    })();
   });
 
   const setSession = (res: Response, userId: string) =>
@@ -67,13 +71,13 @@ export function buildApp(): Express {
     });
 
   // ─── Auth (rutas públicas) ───
-  app.post("/api/auth/register", (req: Req, res) => {
-    const user = registerUser(req.body?.email, req.body?.password);
+  app.post("/api/auth/register", async (req: Req, res) => {
+    const user = await registerUser(req.body?.email, req.body?.password);
     setSession(res, user.id);
     res.status(201).json({ user });
   });
-  app.post("/api/auth/login", (req: Req, res) => {
-    const user = loginUser(req.body?.email, req.body?.password);
+  app.post("/api/auth/login", async (req: Req, res) => {
+    const user = await loginUser(req.body?.email, req.body?.password);
     setSession(res, user.id);
     res.json({ user });
   });
@@ -81,8 +85,8 @@ export function buildApp(): Express {
     res.clearCookie(SESSION_COOKIE, { path: "/" });
     res.json({ ok: true });
   });
-  app.get("/api/auth/me", (req: Req, res) => {
-    const u = req.userId ? getUserById(req.userId) : undefined;
+  app.get("/api/auth/me", async (req: Req, res) => {
+    const u = req.userId ? await getUserById(req.userId) : undefined;
     if (!u) { res.status(401).json({ error: { code: "unauthorized", message: "No autenticado." } }); return; }
     res.json({ user: { id: u.id, email: u.email } });
   });
@@ -96,72 +100,72 @@ export function buildApp(): Express {
   });
 
   // ─── Personajes ───
-  app.get("/api/characters", (_req, res) => res.json(chars.listCharacters(loadDb())));
+  app.get("/api/characters", async (_req, res) => res.json(chars.listCharacters(await loadDb())));
 
-  app.post("/api/characters", (req, res) => {
-    const db = loadDb();
+  app.post("/api/characters", async (req, res) => {
+    const db = await loadDb();
     const c = chars.createCharacter(db, req.body as chars.CreateCharacterInput);
-    saveDb(db);
+    await saveDb(db);
     res.status(201).json(characterSheet(c));
   });
 
-  app.get("/api/characters/:id", (req, res) => {
-    const c = chars.requireCharacter(loadDb(), req.params.id);
+  app.get("/api/characters/:id", async (req, res) => {
+    const c = chars.requireCharacter(await loadDb(), req.params.id);
     const view = (req.query["view"] as chars.CharacterView) ?? "sheet";
     res.json(view === "sheet" ? characterSheet(c) : chars.getCharacterView(c, view));
   });
 
-  app.patch("/api/characters/:id", (req, res) =>
-    res.json(characterSheet(onCharacter(req.params.id, (c) => chars.updateCharacter(c, req.body as chars.UpdateCharacterInput)))));
+  app.patch("/api/characters/:id", async (req, res) =>
+    res.json(characterSheet(await onCharacter(req.params.id, (c) => chars.updateCharacter(c, req.body as chars.UpdateCharacterInput)))));
 
-  app.delete("/api/characters/:id", (req, res) => {
-    const db = loadDb();
+  app.delete("/api/characters/:id", async (req, res) => {
+    const db = await loadDb();
     const r = chars.deleteCharacter(db, req.params.id, req.query["confirm"] === "true" || req.body?.confirm === true);
-    saveDb(db);
+    await saveDb(db);
     res.json(r);
   });
 
-  app.post("/api/characters/:id/level-up", (req, res) => {
-    const r = onCharacter(req.params.id, (c) => chars.levelUp(c, req.body as chars.LevelUpInput));
+  app.post("/api/characters/:id/level-up", async (req, res) => {
+    const r = await onCharacter(req.params.id, (c) => chars.levelUp(c, req.body as chars.LevelUpInput));
     res.json({ className: r.className, classLevel: r.classLevel, levelTotal: r.levelTotal, hpGained: r.hpGained, isNewClass: r.isNewClass, sheet: characterSheet(r.character) });
   });
 
-  app.get("/api/characters/:id/export", (req, res) =>
-    res.json(chars.exportCharacter(chars.requireCharacter(loadDb(), req.params.id), (req.query["format"] as "json" | "markdown") ?? "json")));
+  app.get("/api/characters/:id/export", async (req, res) =>
+    res.json(chars.exportCharacter(chars.requireCharacter(await loadDb(), req.params.id), (req.query["format"] as "json" | "markdown") ?? "json")));
 
-  app.post("/api/characters/import", (req, res) => {
-    const db = loadDb();
+  app.post("/api/characters/import", async (req, res) => {
+    const db = await loadDb();
     const c = chars.importCharacter(db, req.body?.character ?? req.body);
-    saveDb(db);
+    await saveDb(db);
     res.status(201).json(characterSheet(c));
   });
 
-  app.post("/api/characters/:id/duplicate", (req, res) => {
-    const db = loadDb();
+  app.post("/api/characters/:id/duplicate", async (req, res) => {
+    const db = await loadDb();
     const c = chars.duplicateCharacter(db, req.params.id);
-    saveDb(db);
+    await saveDb(db);
     res.status(201).json(characterSheet(c));
   });
 
-  app.get("/api/characters/:id/modifiers", (req, res) =>
-    res.json(computeActiveModifiers(chars.requireCharacter(loadDb(), req.params.id))));
+  app.get("/api/characters/:id/modifiers", async (req, res) =>
+    res.json(computeActiveModifiers(chars.requireCharacter(await loadDb(), req.params.id))));
 
   // ─── Inventario y dinero ───
-  app.get("/api/characters/:id/inventory", (req, res) =>
-    res.json(inv.inventoryView(chars.requireCharacter(loadDb(), req.params.id))));
+  app.get("/api/characters/:id/inventory", async (req, res) =>
+    res.json(inv.inventoryView(chars.requireCharacter(await loadDb(), req.params.id))));
 
-  app.post("/api/characters/:id/inventory", (req, res) =>
-    res.status(201).json(onCharacter(req.params.id, (c) => { inv.addItem(c, req.body.item, req.body.quantity ?? 1, req.body.details); return inv.inventoryView(c); })));
+  app.post("/api/characters/:id/inventory", async (req, res) =>
+    res.status(201).json(await onCharacter(req.params.id, (c) => { inv.addItem(c, req.body.item, req.body.quantity ?? 1, req.body.details); return inv.inventoryView(c); })));
 
-  app.patch("/api/characters/:id/inventory/:itemId", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => { inv.updateItem(c, req.params.itemId, req.body.quantity, req.body.details); return inv.inventoryView(c); })));
+  app.patch("/api/characters/:id/inventory/:itemId", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => { inv.updateItem(c, req.params.itemId, req.body.quantity, req.body.details); return inv.inventoryView(c); })));
 
-  app.delete("/api/characters/:id/inventory/:itemId", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => { inv.removeItem(c, req.params.itemId, num(req.query["quantity"]) ?? 1); return inv.inventoryView(c); })));
+  app.delete("/api/characters/:id/inventory/:itemId", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => { inv.removeItem(c, req.params.itemId, num(req.query["quantity"]) ?? 1); return inv.inventoryView(c); })));
 
   for (const action of ["equip", "unequip", "attune", "unattune"] as const) {
-    app.post(`/api/characters/:id/inventory/:itemId/${action}`, (req, res) =>
-      res.json(onCharacter(req.params.id, (c) => {
+    app.post(`/api/characters/:id/inventory/:itemId/${action}`, async (req, res) =>
+      res.json(await onCharacter(req.params.id, (c) => {
         if (action === "equip") inv.equipItem(c, req.params.itemId);
         else if (action === "unequip") inv.unequipItem(c, req.params.itemId);
         else if (action === "attune") inv.attuneItem(c, req.params.itemId);
@@ -170,32 +174,32 @@ export function buildApp(): Express {
       })));
   }
 
-  app.patch("/api/characters/:id/currency", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => inv.adjustCurrency(c, req.body))));
+  app.patch("/api/characters/:id/currency", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => inv.adjustCurrency(c, req.body))));
 
   // ─── Hechizos ───
-  app.get("/api/characters/:id/spells", (req, res) =>
-    res.json(spells.spellcastingView(chars.requireCharacter(loadDb(), req.params.id))));
+  app.get("/api/characters/:id/spells", async (req, res) =>
+    res.json(spells.spellcastingView(chars.requireCharacter(await loadDb(), req.params.id))));
 
-  app.post("/api/characters/:id/spells", (req, res) =>
-    res.status(201).json(onCharacter(req.params.id, (c) => { spells.learnSpell(c, req.body.spell, req.body.level, req.body.alwaysPrepared); return spells.spellcastingView(c); })));
+  app.post("/api/characters/:id/spells", async (req, res) =>
+    res.status(201).json(await onCharacter(req.params.id, (c) => { spells.learnSpell(c, req.body.spell, req.body.level, req.body.alwaysPrepared); return spells.spellcastingView(c); })));
 
-  app.delete("/api/characters/:id/spells/:name", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => { spells.forgetSpell(c, req.params.name); return spells.spellcastingView(c); })));
+  app.delete("/api/characters/:id/spells/:name", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => { spells.forgetSpell(c, req.params.name); return spells.spellcastingView(c); })));
 
-  app.post("/api/characters/:id/spells/prepare", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => { spells.prepareSpell(c, req.body.spell); return spells.spellcastingView(c); })));
+  app.post("/api/characters/:id/spells/prepare", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => { spells.prepareSpell(c, req.body.spell); return spells.spellcastingView(c); })));
 
-  app.post("/api/characters/:id/spells/unprepare", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => { spells.unprepareSpell(c, req.body.spell); return spells.spellcastingView(c); })));
+  app.post("/api/characters/:id/spells/unprepare", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => { spells.unprepareSpell(c, req.body.spell); return spells.spellcastingView(c); })));
 
-  app.post("/api/characters/:id/spells/cast", (req, res) => {
-    const out = onCharacter(req.params.id, (c) => ({ result: spells.castSpell(c, req.body as spells.CastSpellInput), view: spells.spellcastingView(c) }));
+  app.post("/api/characters/:id/spells/cast", async (req, res) => {
+    const out = await onCharacter(req.params.id, (c) => ({ result: spells.castSpell(c, req.body as spells.CastSpellInput), view: spells.spellcastingView(c) }));
     res.json({ ...out.result, spellcasting: out.view });
   });
 
-  app.patch("/api/characters/:id/spell-slots", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => {
+  app.patch("/api/characters/:id/spell-slots", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => {
       const { action, slots, level, amount } = req.body;
       if (action === "set_max") spells.setMaxSlots(c, slots);
       else if (action === "spend") spells.spendSlot(c, level, amount);
@@ -206,8 +210,8 @@ export function buildApp(): Express {
     })));
 
   // ─── Combate ───
-  app.post("/api/characters/:id/hp", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => {
+  app.post("/api/characters/:id/hp", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => {
       const { action, amount, deathSaveResult } = req.body;
       let out: unknown = {};
       switch (action) {
@@ -223,16 +227,16 @@ export function buildApp(): Express {
       return { result: out, combat: combat.combatView(c) };
     })));
 
-  app.post("/api/characters/:id/conditions", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => {
+  app.post("/api/characters/:id/conditions", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => {
       const { action, condition, level, source, companion } = req.body;
       if (action === "apply") return combat.applyCondition(c, condition, { level, source, companion });
       if (action === "remove") return combat.removeCondition(c, condition, { level, companion });
       return { conditions: companion ? undefined : c.conditions };
     })));
 
-  app.post("/api/characters/:id/effects", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => {
+  app.post("/api/characters/:id/effects", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => {
       const { action, name, description, rounds, concentration, companion } = req.body;
       if (action === "add") combat.addEffect(c, { name, description, rounds, concentration, companion });
       else if (action === "remove") combat.removeEffect(c, name);
@@ -241,38 +245,38 @@ export function buildApp(): Express {
       return combat.combatView(c);
     })));
 
-  app.post("/api/characters/:id/rest", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => combat.rest(c, req.body.type, req.body.hitDiceToSpend ?? 0))));
+  app.post("/api/characters/:id/rest", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => combat.rest(c, req.body.type, req.body.hitDiceToSpend ?? 0))));
 
   // ─── Compañeros ───
-  app.get("/api/characters/:id/companions", (req, res) =>
-    res.json(companions.companionsView(chars.requireCharacter(loadDb(), req.params.id))));
+  app.get("/api/characters/:id/companions", async (req, res) =>
+    res.json(companions.companionsView(chars.requireCharacter(await loadDb(), req.params.id))));
 
-  app.post("/api/characters/:id/companions", (req, res) =>
-    res.status(201).json(onCharacter(req.params.id, (c) => { companions.createCompanion(c, req.body); return companions.companionsView(c); })));
+  app.post("/api/characters/:id/companions", async (req, res) =>
+    res.status(201).json(await onCharacter(req.params.id, (c) => { companions.createCompanion(c, req.body); return companions.companionsView(c); })));
 
-  app.patch("/api/characters/:id/companions/:cid", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => { companions.updateCompanion(c, req.params.cid, req.body); return companions.companionsView(c); })));
+  app.patch("/api/characters/:id/companions/:cid", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => { companions.updateCompanion(c, req.params.cid, req.body); return companions.companionsView(c); })));
 
-  app.delete("/api/characters/:id/companions/:cid", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => companions.deleteCompanion(c, req.params.cid))));
+  app.delete("/api/characters/:id/companions/:cid", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => companions.deleteCompanion(c, req.params.cid))));
 
-  app.post("/api/characters/:id/companions/:cid/damage", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => companions.damageCompanion(c, req.params.cid, req.body.amount))));
+  app.post("/api/characters/:id/companions/:cid/damage", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => companions.damageCompanion(c, req.params.cid, req.body.amount))));
 
-  app.post("/api/characters/:id/companions/:cid/heal", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => companions.healCompanion(c, req.params.cid, req.body.amount))));
+  app.post("/api/characters/:id/companions/:cid/heal", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => companions.healCompanion(c, req.params.cid, req.body.amount))));
 
   // ─── Dados y pruebas ───
   app.post("/api/roll", (req, res) =>
     res.json({ rolls: checks.rollDice(req.body.expression, req.body.advantage ?? "normal", req.body.times ?? 1) }));
 
-  app.post("/api/characters/:id/check", (req, res) =>
-    res.json(checks.check(chars.requireCharacter(loadDb(), req.params.id), req.body as checks.CheckInput)));
+  app.post("/api/characters/:id/check", async (req, res) =>
+    res.json(checks.check(chars.requireCharacter(await loadDb(), req.params.id), req.body as checks.CheckInput)));
 
   // ─── Estilo ───
-  app.patch("/api/characters/:id/style", (req, res) =>
-    res.json(onCharacter(req.params.id, (c) => customizeStyle(c, req.body))));
+  app.patch("/api/characters/:id/style", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => customizeStyle(c, req.body))));
 
   // ─── Contenido y packs ───
   app.get("/api/content", (req, res) =>
@@ -287,22 +291,22 @@ export function buildApp(): Express {
     res.json(content.getContentEntry(req.params.idOrName, req.query["type"] as ContentType | undefined)));
 
   app.get("/api/content-packs", (_req, res) => res.json(content.listContentPacks()));
-  app.post("/api/content-packs", (req, res) => res.status(201).json(content.importPack(req.body)));
-  app.delete("/api/content-packs/:id", (req, res) => res.json(content.removePack(req.params.id)));
+  app.post("/api/content-packs", async (req, res) => res.status(201).json(await content.importPack(req.body)));
+  app.delete("/api/content-packs/:id", async (req, res) => res.json(await content.removePack(req.params.id)));
 
   // ─── Entrega a terceros (.dndchar) ───
-  app.post("/api/characters/:id/package", (req, res) => res.json(sharing.packageCharacter(loadDb(), req.params.id)));
-  app.post("/api/characters/export-batch", (req, res) => res.json(sharing.packageBatch(loadDb(), req.body.ids ?? [])));
-  app.post("/api/characters/import-package", (req, res) => {
-    const db = loadDb();
-    const r = sharing.importPackage(db, req.body, { overwritePacks: req.query["overwrite"] === "true" });
-    saveDb(db);
+  app.post("/api/characters/:id/package", async (req, res) => res.json(sharing.packageCharacter(await loadDb(), req.params.id)));
+  app.post("/api/characters/export-batch", async (req, res) => res.json(sharing.packageBatch(await loadDb(), req.body.ids ?? [])));
+  app.post("/api/characters/import-package", async (req, res) => {
+    const db = await loadDb();
+    const r = await sharing.importPackage(db, req.body, { overwritePacks: req.query["overwrite"] === "true" });
+    await saveDb(db);
     res.status(201).json(r);
   });
 
   // ─── Sistema ───
-  app.get("/api/server-info", (_req, res) => {
-    const db = loadDb();
+  app.get("/api/server-info", async (_req, res) => {
+    const db = await loadDb();
     res.json({
       dataDirectory: dataDir(),
       characters: db.characters.length,

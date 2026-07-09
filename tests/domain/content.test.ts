@@ -5,21 +5,20 @@ import {
 import { DomainError } from "../../src/domain/errors.js";
 import type { ContentPack } from "../../src/types.js";
 
-// El pack SRD se siembra al primer acceso al store (via searchContent → listPacks).
-beforeEach(() => {
-  // limpia cualquier pack homebrew que un test previo dejara
-  for (const p of listContentPacks()) if (p.id !== "srd-core") removePack(p.id);
+// El SRD viene empaquetado (srd-core, srd-52-reference); el homebrew vive en la DB.
+const BUNDLED = new Set(["srd-core", "srd-52-reference"]);
+
+beforeEach(async () => {
+  for (const p of listContentPacks()) if (!BUNDLED.has(p.id)) await removePack(p.id);
 });
 
 describe("búsqueda y lectura", () => {
   it("lista las 15 condiciones del SRD", () => {
-    const r = searchContent("", { type: "condition" });
-    expect(r.total).toBe(15);
+    expect(searchContent("", { type: "condition" }).total).toBe(15);
   });
 
   it("filtra hechizos por texto", () => {
-    const r = searchContent("fire", { type: "spell" });
-    expect(r.results.some((e) => e.name === "Fire Bolt")).toBe(true);
+    expect(searchContent("fire", { type: "spell" }).results.some((e) => e.name === "Fire Bolt")).toBe(true);
   });
 
   it("getContentEntry devuelve la entrada o lanza not_found", () => {
@@ -34,27 +33,27 @@ describe("gestión de packs (biblioteca ilimitada)", () => {
     entries: [{ id: "spell:rayo-x", type: "spell", name: "Rayo X", data: { level: 2, classes: ["Wizard"] } }],
   };
 
-  it("importa un pack y su contenido aparece en la búsqueda", () => {
-    importPack(pack);
+  it("importa un pack y su contenido aparece en la búsqueda", async () => {
+    await importPack(pack);
     expect(listContentPacks().some((p) => p.id === "test-hb")).toBe(true);
     expect(searchContent("Rayo X").results.some((e) => e.name === "Rayo X")).toBe(true);
   });
 
-  it("reimportar el mismo id actualiza (no duplica)", () => {
-    importPack(pack);
-    importPack({ ...pack, version: "2.0.0" });
+  it("reimportar el mismo id actualiza (no duplica)", async () => {
+    await importPack(pack);
+    await importPack({ ...pack, version: "2.0.0" });
     expect(listContentPacks().filter((p) => p.id === "test-hb")).toHaveLength(1);
     expect(listContentPacks().find((p) => p.id === "test-hb")?.version).toBe("2.0.0");
   });
 
-  it("rechaza un pack sin entradas", () => {
-    expect(() => importPack({ id: "vacio", name: "Vacío", version: "1", source: "x", entries: [] }))
-      .toThrowError(DomainError);
+  it("rechaza un pack sin entradas", async () => {
+    await expect(importPack({ id: "vacio", name: "Vacío", version: "1", source: "x", entries: [] }))
+      .rejects.toThrowError(DomainError);
   });
 
-  it("removePack borra y luego lanza si no existe", () => {
-    importPack(pack);
-    expect(removePack("test-hb").removed).toBe(true);
-    expect(() => removePack("test-hb")).toThrowError(DomainError);
+  it("removePack borra y luego lanza si no existe", async () => {
+    await importPack(pack);
+    expect((await removePack("test-hb")).removed).toBe(true);
+    await expect(removePack("test-hb")).rejects.toThrowError(DomainError);
   });
 });

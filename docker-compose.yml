@@ -1,0 +1,36 @@
+# Despliegue con Docker Compose: la app + Caddy (HTTPS automático).
+# - La app guarda SQLite en el volumen persistente `dnddata` (sobrevive reinicios/redeploys).
+# - Caddy hace de proxy inverso y saca certificado HTTPS solo (Let's Encrypt) para tu dominio.
+#
+# Uso:  SESSION_SECRET=... docker compose up -d --build   (o define SESSION_SECRET en un archivo .env)
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      - PORT=3000
+      - DND_DB=/data/app.db
+      - SESSION_SECRET=${SESSION_SECRET}
+      - NODE_ENV=production
+    volumes:
+      - dnddata:/data
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  dnddata:
+  caddy_data:
+  caddy_config:

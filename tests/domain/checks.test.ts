@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadDb, saveDb } from "../../src/store.js";
+// Store en memoria: los tests de dominio prueban lógica sobre `db`, no persistencia.
+const loadDb = () => ({ characters: [] as never[] });
+const saveDb = (_db: unknown): void => { void _db; };
 import { createCharacter } from "../../src/domain/characters.js";
 import { addItem } from "../../src/domain/inventory.js";
 import { check, rollDice } from "../../src/domain/checks.js";

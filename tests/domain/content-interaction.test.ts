@@ -2,7 +2,9 @@
 // el personaje y su hoja: equipar recalcula CA, objetos mágicos con tipo válido y
 // sintonización, y hechizos del pack se aprenden/lanzan.
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadDb, saveDb } from "../../src/store.js";
+// Store en memoria: este test prueba la interacción del contenido con la hoja, no persistencia.
+const loadDb = () => ({ characters: [] as never[] });
+const saveDb = (_db: unknown): void => { void _db; };
 import { createCharacter } from "../../src/domain/characters.js";
 import { addItem, equipItem, requireItem } from "../../src/domain/inventory.js";
 import { castSpell, learnSpell } from "../../src/domain/spells.js";

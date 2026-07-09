@@ -1,126 +1,129 @@
-// Persistencia en SQLite (node:sqlite, síncrono e integrado en Node 24 — sin dependencias).
-// Multi-tenant: el "dueño" actual viaja por petición vía AsyncLocalStorage (lo fija la API con
-// el usuario de la sesión). El dominio no cambia; los tests corren sin contexto (dueño = null).
+// Persistencia en libSQL (@libsql/client): archivo local en dev/tests, Turso por red en prod.
+// - Personajes: por usuario (owner_id vía AsyncLocalStorage), I/O asíncrono en la capa API.
+// - Contenido: SRD empaquetado (archivos, síncrono) + homebrew global en DB con caché en memoria,
+//   de modo que listPacks() sigue siendo SÍNCRONO y el dominio no cambia.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import { AsyncLocalStorage } from "node:async_hooks";
-import { DatabaseSync } from "node:sqlite";
+import { createClient, type Client } from "@libsql/client";
 import type { Character, ContentPack, Database } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
-const DATA_DIR = process.env["DND_DATA_DIR"]
-  ? path.resolve(process.env["DND_DATA_DIR"])
-  : path.join(os.homedir(), ".dnd-mcp");
-
-const DB_FILE = process.env["DND_DB"] ?? path.join(DATA_DIR, "app.db");
 const SEED_DIR = path.join(__dirname, "data");
 
-// ─── Contexto por petición (dueño de los datos) ───
-interface RequestCtx { ownerId: string | null; }
-export const requestContext = new AsyncLocalStorage<RequestCtx>();
-export function runAsOwner<T>(ownerId: string | null, fn: () => T): T {
+function dbUrl(): string {
+  if (process.env["TURSO_DATABASE_URL"]) return process.env["TURSO_DATABASE_URL"];
+  if (process.env["DND_DB"]) return process.env["DND_DB"];
+  const dir = process.env["DND_DATA_DIR"] ? path.resolve(process.env["DND_DATA_DIR"]) : path.join(os.homedir(), ".dnd-mcp");
+  fs.mkdirSync(dir, { recursive: true });
+  return "file:" + path.join(dir, "app.db").replace(/\\/g, "/");
+}
+
+let _client: Client | null = null;
+function client(): Client {
+  if (!_client) _client = createClient({ url: dbUrl(), authToken: process.env["TURSO_AUTH_TOKEN"] });
+  return _client;
+}
+
+let _ready: Promise<void> | null = null;
+function ready(): Promise<void> {
+  if (!_ready) _ready = (async () => {
+    const c = client();
+    await c.execute("CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT)");
+    await c.execute("CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, owner_id TEXT, data TEXT NOT NULL, updated_at TEXT)");
+    await c.execute("CREATE TABLE IF NOT EXISTS content_packs (id TEXT PRIMARY KEY, data TEXT NOT NULL)");
+    await refreshPacks();
+  })();
+  return _ready;
+}
+
+// ─── Contexto de dueño (personajes) ───
+export const requestContext = new AsyncLocalStorage<{ ownerId: string | null }>();
+export function runAsOwner<T>(ownerId: string | null, fn: () => T | Promise<T>): T | Promise<T> {
   return requestContext.run({ ownerId }, fn);
 }
 function owner(): string | null {
   return requestContext.getStore()?.ownerId ?? null;
 }
 
-let _db: DatabaseSync | null = null;
-
-function db(): DatabaseSync {
-  if (_db) return _db;
-  fs.mkdirSync(path.dirname(DB_FILE), { recursive: true });
-  const d = new DatabaseSync(DB_FILE);
-  d.exec("PRAGMA journal_mode = WAL");
-  d.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      created_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS characters (
-      id TEXT PRIMARY KEY,
-      owner_id TEXT,
-      data TEXT NOT NULL,
-      updated_at TEXT
-    );
-    CREATE TABLE IF NOT EXISTS content_packs (
-      pk INTEGER PRIMARY KEY AUTOINCREMENT,
-      owner_id TEXT,
-      id TEXT NOT NULL,
-      data TEXT NOT NULL,
-      UNIQUE(owner_id, id)
-    );
-  `);
-  _db = d;
-  seedPacks();
-  return d;
+/** Debe llamarse una vez antes de servir peticiones (crea el esquema y carga los packs). */
+export function init(): Promise<void> {
+  return ready();
 }
 
-/** Siembra los packs globales incluidos (owner_id NULL) que aún no existan. */
-function seedPacks(): void {
-  if (!fs.existsSync(SEED_DIR)) return;
-  const exists = _db!.prepare("SELECT pk FROM content_packs WHERE owner_id IS NULL AND id = ?");
-  const insert = _db!.prepare("INSERT INTO content_packs (owner_id, id, data) VALUES (NULL, ?, ?)");
-  for (const f of fs.readdirSync(SEED_DIR)) {
-    if (!f.endsWith(".json")) continue;
-    try {
-      const pack = JSON.parse(fs.readFileSync(path.join(SEED_DIR, f), "utf-8")) as ContentPack;
-      if (pack.id && !exists.get(pack.id)) insert.run(pack.id, JSON.stringify(pack));
-    } catch {
-      // pack semilla corrupto: se ignora
+// ─── Content packs: SRD empaquetado (sync) + homebrew global en DB (caché) ───
+let _bundled: ContentPack[] | null = null;
+function bundled(): ContentPack[] {
+  if (_bundled) return _bundled;
+  const packs: ContentPack[] = [];
+  if (fs.existsSync(SEED_DIR)) {
+    for (const f of fs.readdirSync(SEED_DIR)) {
+      if (!f.endsWith(".json")) continue;
+      try { packs.push(JSON.parse(fs.readFileSync(path.join(SEED_DIR, f), "utf-8")) as ContentPack); } catch { /* ignora */ }
     }
+  }
+  _bundled = packs;
+  return packs;
+}
+
+let _dbPacks: ContentPack[] = [];
+async function refreshPacks(): Promise<void> {
+  const rs = await client().execute("SELECT data FROM content_packs");
+  _dbPacks = [];
+  for (const r of rs.rows) {
+    try { _dbPacks.push(JSON.parse(r["data"] as string) as ContentPack); } catch { /* ignora */ }
   }
 }
 
-// ─── Usuarios ───
-
-export interface UserRow { id: string; email: string; password_hash: string; created_at: string; }
-
-export function createUser(id: string, email: string, passwordHash: string): void {
-  db().prepare("INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)")
-    .run(id, email.toLowerCase(), passwordHash, new Date().toISOString());
+export function listPacks(): ContentPack[] {
+  return [...bundled(), ..._dbPacks];
 }
 
-export function getUserByEmail(email: string): UserRow | undefined {
-  return db().prepare("SELECT id, email, password_hash, created_at FROM users WHERE email = ?").get(email.toLowerCase()) as UserRow | undefined;
+export async function savePack(pack: ContentPack): Promise<void> {
+  await ready();
+  await client().execute({
+    sql: "INSERT INTO content_packs (id, data) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data",
+    args: [pack.id, JSON.stringify(pack)],
+  });
+  await refreshPacks();
 }
 
-export function getUserById(id: string): UserRow | undefined {
-  return db().prepare("SELECT id, email, password_hash, created_at FROM users WHERE id = ?").get(id) as UserRow | undefined;
+export async function deletePack(packId: string): Promise<boolean> {
+  await ready();
+  const info = await client().execute({ sql: "DELETE FROM content_packs WHERE id = ?", args: [packId] });
+  await refreshPacks();
+  return Number(info.rowsAffected ?? 0) > 0;
 }
 
 // ─── Personajes (scoped por dueño) ───
 
-export function loadDb(): Database {
-  const rows = db().prepare("SELECT data FROM characters WHERE owner_id IS ? ORDER BY updated_at DESC").all(owner()) as { data: string }[];
-  return { characters: rows.map((r) => JSON.parse(r.data) as Character) };
+export async function loadDb(): Promise<Database> {
+  await ready();
+  const rs = await client().execute({ sql: "SELECT data FROM characters WHERE owner_id IS ? ORDER BY updated_at DESC", args: [owner()] });
+  return { characters: rs.rows.map((r) => JSON.parse(r["data"] as string) as Character) };
 }
 
-export function saveDb(database: Database): void {
-  const d = db();
+export async function saveDb(database: Database): Promise<void> {
+  await ready();
+  const c = client();
   const own = owner();
-  const ids = new Set(database.characters.map((c) => c.id));
-  const existing = d.prepare("SELECT id FROM characters WHERE owner_id IS ?").all(own) as { id: string }[];
-  const upsert = d.prepare(
-    "INSERT INTO characters (id, owner_id, data, updated_at) VALUES (?, ?, ?, ?) " +
-    "ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
-  );
-  const del = d.prepare("DELETE FROM characters WHERE id = ? AND owner_id IS ?");
-  d.exec("BEGIN");
-  try {
-    for (const c of database.characters) upsert.run(c.id, own, JSON.stringify(c), c.updatedAt ?? new Date().toISOString());
-    for (const row of existing) if (!ids.has(row.id)) del.run(row.id, own);
-    d.exec("COMMIT");
-  } catch (e) {
-    d.exec("ROLLBACK");
-    throw e;
+  const rs = await c.execute({ sql: "SELECT id FROM characters WHERE owner_id IS ?", args: [own] });
+  const ids = new Set(database.characters.map((ch) => ch.id));
+  const stmts: { sql: string; args: (string | null)[] }[] = [];
+  for (const ch of database.characters) {
+    stmts.push({
+      sql: "INSERT INTO characters (id, owner_id, data, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
+      args: [ch.id, own, JSON.stringify(ch), ch.updatedAt ?? new Date().toISOString()],
+    });
   }
+  for (const row of rs.rows) {
+    const rid = row["id"] as string;
+    if (!ids.has(rid)) stmts.push({ sql: "DELETE FROM characters WHERE id = ? AND owner_id IS ?", args: [rid, own] });
+  }
+  if (stmts.length) await c.batch(stmts, "write");
 }
 
 export function getCharacter(database: Database, idOrName: string): Character {
@@ -140,31 +143,30 @@ export function touch(c: Character): void {
   c.updatedAt = new Date().toISOString();
 }
 
-// ─── Content packs (globales NULL + los del dueño) ───
+// ─── Usuarios ───
 
-export function listPacks(): ContentPack[] {
-  const rows = db().prepare("SELECT data FROM content_packs WHERE owner_id IS NULL OR owner_id IS ?").all(owner()) as { data: string }[];
-  const packs: ContentPack[] = [];
-  for (const r of rows) {
-    try { packs.push(JSON.parse(r.data) as ContentPack); } catch { /* pack corrupto: ignora */ }
-  }
-  return packs;
+export interface UserRow { id: string; email: string; password_hash: string; created_at: string; }
+
+export async function createUser(id: string, email: string, passwordHash: string): Promise<void> {
+  await ready();
+  await client().execute({
+    sql: "INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, ?)",
+    args: [id, email.toLowerCase(), passwordHash, new Date().toISOString()],
+  });
 }
 
-export function savePack(pack: ContentPack): void {
-  const d = db();
-  const own = owner();
-  const existing = d.prepare("SELECT pk FROM content_packs WHERE owner_id IS ? AND id = ?").get(own, pack.id) as { pk: number } | undefined;
-  if (existing) d.prepare("UPDATE content_packs SET data = ? WHERE pk = ?").run(JSON.stringify(pack), existing.pk);
-  else d.prepare("INSERT INTO content_packs (owner_id, id, data) VALUES (?, ?, ?)").run(own, pack.id, JSON.stringify(pack));
+export async function getUserByEmail(email: string): Promise<UserRow | undefined> {
+  await ready();
+  const rs = await client().execute({ sql: "SELECT id, email, password_hash, created_at FROM users WHERE email = ?", args: [email.toLowerCase()] });
+  return rs.rows[0] as unknown as UserRow | undefined;
 }
 
-export function deletePack(packId: string): boolean {
-  // Solo borra un pack del dueño actual (no los globales, salvo contexto sin dueño).
-  const info = db().prepare("DELETE FROM content_packs WHERE owner_id IS ? AND id = ?").run(owner(), packId);
-  return info.changes > 0;
+export async function getUserById(id: string): Promise<UserRow | undefined> {
+  await ready();
+  const rs = await client().execute({ sql: "SELECT id, email, password_hash, created_at FROM users WHERE id = ?", args: [id] });
+  return rs.rows[0] as unknown as UserRow | undefined;
 }
 
 export function dataDir(): string {
-  return path.dirname(DB_FILE);
+  return dbUrl();
 }
