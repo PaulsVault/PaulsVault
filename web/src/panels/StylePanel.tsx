@@ -27,6 +27,15 @@ export function StylePanel({ id, sheet, reload }: { id: string; sheet: Sheet; re
     finally { setBusy(false); }
   }
 
+  function onUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1_500_000) { setNote("⚠️ Imagen muy grande (máx ~1.5 MB). Usa una más pequeña o una URL."); return; }
+    const reader = new FileReader();
+    reader.onload = () => { setArtUrl(String(reader.result)); setNote("Imagen cargada — pulsa «Guardar estilo»."); };
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div className="stack">
       {note && <p className="note">{note}</p>}
@@ -45,9 +54,13 @@ export function StylePanel({ id, sheet, reload }: { id: string; sheet: Sheet; re
           <label className="field"><span>Layout</span>
             <select value={layout} onChange={(e) => setLayout(e.target.value)}>{LAYOUTS.map((l) => <option key={l}>{l}</option>)}</select>
           </label>
-          <label className="field span2"><span>URL del retrato</span>
+          <label className="field span2"><span>Retrato (URL o data:image)</span>
             <input value={artUrl} onChange={(e) => setArtUrl(e.target.value)} placeholder="https://… o data:image/…" />
           </label>
+          <label className="field span2"><span>…o sube una imagen desde tu dispositivo</span>
+            <input type="file" accept="image/*" onChange={onUpload} />
+          </label>
+          {artUrl && <div className="field span2 portrait-preview"><img src={artUrl} alt="retrato" /></div>}
           <label className="field inline span2"><input type="checkbox" checked={showPortrait} onChange={(e) => setShowPortrait(e.target.checked)} /> Mostrar retrato</label>
           <label className="field span2"><span>CSS personalizado</span>
             <textarea value={customCss} onChange={(e) => setCustomCss(e.target.value)} rows={4} placeholder=".panel { border-radius: 4px; }" />

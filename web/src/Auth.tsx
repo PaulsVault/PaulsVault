@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api, type AuthUser } from "./api";
+import { DragonArt } from "./DragonArt";
 
 export function Auth({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -23,9 +24,10 @@ export function Auth({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
   return (
     <div className="auth-wrap">
       <div className="auth-card">
+        <DragonArt />
         <h1 className="auth-brand">⚔️ D&amp;D 2024</h1>
-        <p className="muted" style={{ textAlign: "center", marginTop: 0 }}>
-          {mode === "login" ? "Inicia sesión para ver tus personajes" : "Crea tu cuenta"}
+        <p className="auth-tagline">
+          {mode === "login" ? "Inicia sesión para ver tus personajes" : "Forja tu leyenda — crea tu cuenta"}
         </p>
         <form className="stack" onSubmit={submit}>
           <label className="field"><span>Email</span>
