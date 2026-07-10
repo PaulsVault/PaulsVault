@@ -14,6 +14,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const [speciesName, setSpeciesName] = useState("");
   const [background, setBackground] = useState("");
   const [level, setLevel] = useState(1);
+  const [bgFeat, setBgFeat] = useState<string | null>(null);
   const [abilities, setAbilities] = useState<Record<AbilityKey, number>>({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
 
   useEffect(() => {
@@ -23,6 +24,11 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
       setClassName(cl[0]?.name ?? ""); setSpeciesName(sp[0]?.name ?? ""); setBackground(bg[0]?.name ?? "");
     })().catch((e) => setError((e as Error).message));
   }, []);
+
+  useEffect(() => {
+    if (!background) { setBgFeat(null); return; }
+    void api.getEntry(background).then((e) => setBgFeat((e.data["feat"] as string) ?? null)).catch(() => setBgFeat(null));
+  }, [background]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,6 +80,8 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
             {backgrounds.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>
         </label>
+
+        {bgFeat && <p className="muted small span2" style={{ margin: "-6px 0 0" }}>🎁 Otorga la dote de origen: <b>{bgFeat}</b> (aparecerá en «Rasgos y dotes»).</p>}
 
         <fieldset className="abilities-input span2">
           <legend>Características</legend>

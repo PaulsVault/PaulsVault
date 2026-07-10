@@ -19,6 +19,9 @@ export function characterSheet(c: Character): Record<string, unknown> {
     .filter((s) => s.level === 0)
     .map((s) => ({ name: s.name }));
 
+  const classList = c.classes.map((cl) => ({ name: cl.name, subclass: cl.subclass ?? null, level: cl.level }));
+  const features = c.features.map((f) => ({ name: f.name, source: f.source, description: f.description ?? null }));
+
   return {
     ...base,
     ac: mods.ac.final,
@@ -29,6 +32,9 @@ export function characterSheet(c: Character): Record<string, unknown> {
     saveDetails,
     weapons,
     cantrips,
+    classList,
+    features,
+    alignment: c.alignment ?? null,
     modifiers: mods,
   };
 }

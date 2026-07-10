@@ -59,6 +59,7 @@ export interface LevelUpInput {
   subclass?: string;
   hpRoll?: number;
   abilityIncreases?: Partial<Abilities>;
+  feat?: string; // dote en vez de mejora de característica (niveles 4/8/12/16/19)
 }
 
 export interface LevelUpResult {
@@ -187,6 +188,14 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
     createdAt: now,
     updatedAt: now,
   };
+  // Dote de origen que otorga el trasfondo (nivel 1).
+  const bg = findEntry(input.background, "background");
+  const bgFeat = bg?.data["feat"] as string | undefined;
+  if (bgFeat) {
+    const fe = findEntry(bgFeat.replace(/\s*\(.*/, "").trim(), "feat");
+    c.features.push({ name: bgFeat, source: "Trasfondo (dote de origen)", description: (fe?.data["summary"] as string | undefined) });
+  }
+
   recalcSlots(c);
   db.characters.push(c);
   return c;
@@ -280,6 +289,11 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
       const key = k as AbilityKey;
       c.abilities[key] = Math.min(20, c.abilities[key] + (v ?? 0));
     }
+  }
+
+  if (input.feat) {
+    const fe = findEntry(input.feat.replace(/\s*\(.*/, "").trim(), "feat");
+    c.features.push({ name: input.feat, source: `Dote (nivel ${cls.level})`, description: (fe?.data["summary"] as string | undefined) });
   }
 
   if (input.hpRoll && input.hpRoll > cls.hitDie) {

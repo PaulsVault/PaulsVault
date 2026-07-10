@@ -51,7 +51,6 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
   const accent = s.style.accentColor ?? "#7c5cff";
   const hasSpells = !!s.spellcasting;
   const tabs = TABS.filter((t) => t !== "Conjuros" || hasSpells);
-  const primaryClass = s.classes.split(" / ")[0].replace(/\s*\([^)]*\)/, "").replace(/\s+\d+$/, "").trim();
 
   async function exportJson() {
     const r = await api.exportCharacter(id, "json") as { character: unknown };
@@ -86,7 +85,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
       </div>
 
       {levelUp && (
-        <LevelUpDialog id={id} defaultClass={primaryClass} onClose={() => setLevelUp(false)} onDone={() => { setLevelUp(false); void reload(); }} />
+        <LevelUpDialog id={id} classList={s.classList} onClose={() => setLevelUp(false)} onDone={() => { setLevelUp(false); void reload(); }} />
       )}
 
       {roll && <DiceRoll roll={roll} onClose={() => setRoll(null)} />}

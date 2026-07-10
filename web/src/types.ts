@@ -51,6 +51,9 @@ export interface Sheet {
   saveDetails: Record<AbilityKey, string>;
   weapons: { id: string; name: string; damage: string | null; equipped: boolean }[];
   cantrips: { name: string }[];
+  classList: { name: string; subclass: string | null; level: number }[];
+  features: { name: string; source: string; description: string | null }[];
+  alignment: string | null;
   spellcasting: null | {
     dc: number; attack: number; ability: string;
     slots: Record<string, { max: number; used: number }>;

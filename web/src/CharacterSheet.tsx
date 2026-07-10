@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ABILITIES, ABILITY_LABEL, type AbilityKey, type Sheet } from "./types";
 
 const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
@@ -14,6 +15,7 @@ export interface RollReq { type: string; target?: string; label: string; critica
 
 export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r: RollReq) => void }) {
   const m = s.modifiers;
+  const [openFeat, setOpenFeat] = useState<string | null>(null);
   const dmgFaces = (dmg: string | null) => { const x = dmg?.match(/d(\d+)/); return x ? Number(x[1]) : undefined; };
 
   return (
@@ -100,6 +102,24 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
                 <li key={ct.name} className="weapon-row">
                   <span>{ct.name}</span>
                   <button className="btn small" onClick={() => onRoll({ type: "spell_attack", label: `${ct.name} — ataque de conjuro` })}>Ataque de conjuro</button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {s.features.length > 0 && (
+          <section className="panel">
+            <h2>Rasgos y dotes</h2>
+            <ul className="line-list">
+              {s.features.map((f) => (
+                <li key={`${f.name}-${f.source}`} style={{ display: "block", cursor: f.description ? "pointer" : "default" }}
+                  onClick={() => f.description && setOpenFeat(openFeat === f.name ? null : f.name)}>
+                  <div className="row" style={{ justifyContent: "space-between" }}>
+                    <span><b>{f.name}</b>{f.description && <span className="muted"> {openFeat === f.name ? "▲" : "▼"}</span>}</span>
+                    <span className="muted small">{f.source}</span>
+                  </div>
+                  {openFeat === f.name && f.description && <p className="spell-desc">{f.description}</p>}
                 </li>
               ))}
             </ul>
