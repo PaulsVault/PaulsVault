@@ -301,3 +301,40 @@ if (want("items")) {
   entries.sort((a, b) => a.name.localeCompare(b.name));
   writePack("dnd2024-items", "D&D 2024 — Objetos y equipo", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
 }
+
+// ─── Subclases (con rasgos por nivel) ───
+function convertSubclasses(classJson) {
+  const features = classJson.subclassFeature ?? [];
+  const out = [];
+  for (const sc of classJson.subclass ?? []) {
+    if (!SOURCES_2024.has(sc.source)) continue;
+    const feats = features
+      .filter((f) => f.className === sc.className && f.subclassShortName === sc.shortName && f.subclassSource === sc.source)
+      .sort((a, b) => a.level - b.level)
+      .map((f) => ({ level: f.level, name: f.name, summary: text(f.entries) }));
+    const introIdx = feats.findIndex((f) => f.name === sc.name); // rasgo introductorio = descripción de la subclase
+    const summary = (introIdx >= 0 ? feats[introIdx].summary : feats[0]?.summary) ?? "";
+    out.push({ id: slug(sc.name, "subclass"), type: "subclass", name: sc.name, data: {
+      class: sc.className,
+      summary,
+      features: feats.filter((_, i) => i !== introIdx),
+      source: sc.source,
+    } });
+  }
+  return out;
+}
+if (want("subclasses")) {
+  const dir = path.join(DATA_DIR, "class");
+  const entries = [];
+  const seen = new Set();
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.startsWith("class-") || !f.endsWith(".json")) continue;
+    for (const e of convertSubclasses(readJson(path.join(dir, f)))) {
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      entries.push(e);
+    }
+  }
+  entries.sort((a, b) => a.data.class.localeCompare(b.data.class) || a.name.localeCompare(b.name));
+  writePack("dnd2024-subclasses", "D&D 2024 — Subclases", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
+}
