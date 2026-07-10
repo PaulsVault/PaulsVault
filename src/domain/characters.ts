@@ -21,8 +21,10 @@ export interface CreateCharacterInput {
   level?: number;
   species: string;
   background: string;
-  abilities: Abilities;
-  skills?: string[];
+  abilities: Abilities;            // puntuaciones base (antes del bono de trasfondo)
+  abilityBonuses?: Partial<Abilities>; // +2/+1 del trasfondo (2024), a sumar sobre las base
+  skills?: string[];               // habilidades elegidas de la clase
+  tools?: string[];
   alignment?: string;
   playerName?: string;
   appearance?: string;
@@ -165,7 +167,15 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
   const level = input.level ?? 1;
   const speed = input.speed ?? 30;
   const def = classDefaults(input.className);
-  const conMod = abilityMod(input.abilities.con);
+  // Aplica el bono de característica del trasfondo (+2/+1 en 2024) sobre las puntuaciones base.
+  const abilities: Abilities = { ...input.abilities };
+  if (input.abilityBonuses) {
+    for (const [k, v] of Object.entries(input.abilityBonuses)) {
+      const key = k as AbilityKey;
+      abilities[key] = (abilities[key] ?? 10) + (v ?? 0);
+    }
+  }
+  const conMod = abilityMod(abilities.con);
   // PG: máximo del dado a nivel 1 + promedio por nivel adicional (regla estándar).
   const avg = Math.floor(def.hitDie / 2) + 1;
   const maxHp = Math.max(1, def.hitDie + conMod + (level - 1) * (avg + conMod));
@@ -180,7 +190,7 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
     background: input.background,
     alignment: input.alignment,
     classes: [cls],
-    abilities: input.abilities,
+    abilities,
     hp: { max: maxHp, current: maxHp, temp: 0 },
     hitDice: [{ die: def.hitDie, total: level, used: 0 }],
     deathSaves: { successes: 0, failures: 0 },
@@ -191,7 +201,7 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
       saves: def.saves,
       skills: input.skills ?? [],
       expertise: [],
-      tools: [],
+      tools: input.tools ?? [],
       languages: ["Common"],
       weapons: [],
       armor: [],
@@ -218,6 +228,11 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
     const fe = findEntry(bgFeat.replace(/\s*\(.*/, "").trim(), "feat");
     c.features.push({ name: bgFeat, source: "Trasfondo (dote de origen)", description: (fe?.data["summary"] as string | undefined) });
   }
+  // Competencias del trasfondo: habilidades fijas + herramienta, sumadas a las elegidas de la clase.
+  const bgSkills = (bg?.data["skills"] as string[] | undefined) ?? [];
+  if (bgSkills.length) c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...bgSkills])];
+  const bgTool = bg?.data["tool"] as string | undefined;
+  if (bgTool) c.proficiencies.tools = [...new Set([...c.proficiencies.tools, bgTool])];
 
   // Rasgos de clase por cada nivel y rasgos de subclase (si se eligió a nivel 3+).
   for (let l = 1; l <= level; l++) addClassFeatures(c, input.className, l);

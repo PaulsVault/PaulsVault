@@ -60,7 +60,7 @@ const text = (entries) => renderEntries(entries).join(" ").replace(/\s+/g, " ").
 
 const slug = (name, type) => `${type}:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 const readJson = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
-const cap = (s) => s.replace(/\b\w/g, (c) => c.toUpperCase());
+const cap = (s) => s.replace(/(^|\s)\w/g, (c) => c.toUpperCase()); // no capitaliza tras apóstrofo
 const SIZE = { T: "Tiny", S: "Small", M: "Medium", L: "Large", H: "Huge", G: "Gargantuan" };
 
 // "magic initiate; cleric|xphb" → "Magic Initiate (Cleric)"
@@ -196,9 +196,18 @@ function convertBackground(bg) {
   const skills = bg.skillProficiencies?.[0]
     ? Object.keys(bg.skillProficiencies[0]).filter((k) => k !== "choose" && k !== "any")
     : [];
+  // Las 3 características que el trasfondo permite mejorar (+2/+1 en 2024).
+  const abilities = bg.ability?.[0]?.choose?.weighted?.from ?? bg.ability?.[0]?.choose?.from ?? [];
+  // Herramienta con competencia (primera concreta; "anyGamingSet" → "Gaming Set").
+  let toolKey = bg.toolProficiencies?.[0]
+    ? Object.keys(bg.toolProficiencies[0]).filter((k) => k !== "choose" && k !== "any")[0]
+    : undefined;
+  if (toolKey) toolKey = cap(toolKey.split("|")[0].replace(/^any/i, "").replace(/([a-z])([A-Z])/g, "$1 $2").trim());
   return { id: slug(bg.name, "background"), type: "background", name: bg.name, data: {
     feat: featKey ? refName(featKey) : undefined,
+    abilities,
     skills,
+    tool: toolKey || undefined,
     summary: text(bg.entries),
     source: bg.source,
   } };

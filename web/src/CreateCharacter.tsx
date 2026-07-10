@@ -1,6 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
 import { ABILITIES, ABILITY_LABEL, type AbilityKey, type ContentHit, type Sheet } from "./types";
+
+const STANDARD = [15, 14, 13, 12, 10, 8];
+const PB_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
+const PB_BUDGET = 27;
+const roll4d6 = () => { const d = () => Math.floor(Math.random() * 6) + 1; const r = [d(), d(), d(), d()].sort((a, b) => b - a); return r[0] + r[1] + r[2]; };
+const mod = (score: number) => Math.floor((score - 10) / 2);
+const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
+
+const SKILL_LABEL: Record<string, string> = {
+  acrobatics: "Acrobacias", "animal handling": "T. con Animales", arcana: "Arcanos", athletics: "Atletismo",
+  deception: "Engaño", history: "Historia", insight: "Perspicacia", intimidation: "Intimidación",
+  investigation: "Investigación", medicine: "Medicina", nature: "Naturaleza", perception: "Percepción",
+  performance: "Interpretación", persuasion: "Persuasión", religion: "Religión", "sleight of hand": "Juego de Manos",
+  stealth: "Sigilo", survival: "Supervivencia",
+};
+const ALL_SKILLS = Object.keys(SKILL_LABEL);
+
+type Method = "standard" | "pointbuy" | "roll" | "manual";
+interface BgData { abilities?: string[]; skills?: string[]; tool?: string; feat?: string }
+interface ClassData { skillChoices?: number; skillOptions?: string[] }
 
 export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void; onCreated: (s: Sheet) => void }) {
   const [classes, setClasses] = useState<ContentHit[]>([]);
@@ -14,94 +34,223 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const [speciesName, setSpeciesName] = useState("");
   const [background, setBackground] = useState("");
   const [level, setLevel] = useState(1);
-  const [bgFeat, setBgFeat] = useState<string | null>(null);
-  const [abilities, setAbilities] = useState<Record<AbilityKey, number>>({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+
+  // Método de puntuaciones
+  const [method, setMethod] = useState<Method>("standard");
+  const [pool, setPool] = useState<number[]>(STANDARD);                                   // valores a repartir (standard/roll)
+  const [assign, setAssign] = useState<Record<AbilityKey, number | null>>({ str: null, dex: null, con: null, int: null, wis: null, cha: null }); // ability → índice del pool
+  const [scores, setScores] = useState<Record<AbilityKey, number>>({ str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 }); // pointbuy/manual
+
+  // Trasfondo: bono +2/+1
+  const [bg, setBg] = useState<BgData | null>(null);
+  const [bonusMode, setBonusMode] = useState<"2-1" | "1-1-1">("2-1");
+  const [plus2, setPlus2] = useState<AbilityKey | "">("");
+  const [plus1, setPlus1] = useState<AbilityKey | "">("");
+
+  // Clase: habilidades a elegir
+  const [cls, setCls] = useState<ClassData | null>(null);
+  const [chosenSkills, setChosenSkills] = useState<string[]>([]);
 
   useEffect(() => {
     void (async () => {
-      const [cl, sp, bg] = await Promise.all([api.content("class"), api.content("species"), api.content("background")]);
-      setClasses(cl); setSpecies(sp); setBackgrounds(bg);
-      setClassName(cl[0]?.name ?? ""); setSpeciesName(sp[0]?.name ?? ""); setBackground(bg[0]?.name ?? "");
+      const [cl, sp, bgs] = await Promise.all([api.content("class"), api.content("species"), api.content("background")]);
+      setClasses(cl); setSpecies(sp); setBackgrounds(bgs);
+      setClassName(cl[0]?.name ?? ""); setSpeciesName(sp[0]?.name ?? ""); setBackground(bgs[0]?.name ?? "");
     })().catch((e) => setError((e as Error).message));
   }, []);
 
   useEffect(() => {
-    if (!background) { setBgFeat(null); return; }
-    void api.getEntry(background).then((e) => setBgFeat((e.data["feat"] as string) ?? null)).catch(() => setBgFeat(null));
+    if (!background) return;
+    void api.getEntry(background).then((e) => {
+      setBg(e.data as BgData); setPlus2(""); setPlus1("");
+    }).catch(() => setBg(null));
   }, [background]);
+
+  useEffect(() => {
+    if (!className) return;
+    void api.getEntry(className).then((e) => { setCls(e.data as ClassData); setChosenSkills([]); }).catch(() => setCls(null));
+  }, [className]);
+
+  // Puntuaciones base según el método
+  const base: Record<AbilityKey, number> = useMemo(() => {
+    if (method === "pointbuy" || method === "manual") return scores;
+    return Object.fromEntries(ABILITIES.map((a) => [a, assign[a] != null ? pool[assign[a]!] : 10])) as Record<AbilityKey, number>;
+  }, [method, scores, assign, pool]);
+
+  const abilityBonuses: Partial<Record<AbilityKey, number>> = useMemo(() => {
+    if (bonusMode === "1-1-1") return Object.fromEntries((bg?.abilities ?? []).map((a) => [a, 1]));
+    const out: Partial<Record<AbilityKey, number>> = {};
+    if (plus2) out[plus2] = 2;
+    if (plus1) out[plus1] = (out[plus1] ?? 0) + 1;
+    return out;
+  }, [bonusMode, bg, plus2, plus1]);
+
+  const pbUsed = ABILITIES.reduce((s, a) => s + (PB_COST[scores[a]] ?? 0), 0);
+  const skillOptions = cls?.skillOptions?.[0] === "*" ? ALL_SKILLS : (cls?.skillOptions ?? []);
+  const skillChoices = cls?.skillChoices ?? 0;
+  const bgSkills = bg?.skills ?? [];
+
+  // Validaciones
+  const assignedOk = method === "pointbuy" ? pbUsed <= PB_BUDGET
+    : method === "manual" ? true
+    : ABILITIES.every((a) => assign[a] != null);
+  const bonusOk = bonusMode === "1-1-1" ? (bg?.abilities?.length ?? 0) > 0 : (plus2 && plus1 && plus2 !== plus1);
+  const skillsOk = skillChoices === 0 || chosenSkills.length === skillChoices;
+  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk;
+
+  function setAssignFor(a: AbilityKey, idx: number | null) {
+    setAssign((prev) => {
+      const next = { ...prev };
+      // libera el índice si otra característica lo tenía
+      for (const k of ABILITIES) if (next[k] === idx) next[k] = null;
+      next[a] = idx;
+      return next;
+    });
+  }
+  function rollScores() { setPool(Array.from({ length: 6 }, roll4d6)); setAssign({ str: null, dex: null, con: null, int: null, wis: null, cha: null }); }
+  function pbSet(a: AbilityKey, v: number) { if (v < 8 || v > 15) return; setScores((s) => ({ ...s, [a]: v })); }
+  function toggleSkill(sk: string) {
+    setChosenSkills((cur) => cur.includes(sk) ? cur.filter((x) => x !== sk) : cur.length < skillChoices ? [...cur, sk] : cur);
+  }
+
+  function switchMethod(m: Method) {
+    setMethod(m);
+    if (m === "standard") { setPool(STANDARD); setAssign({ str: null, dex: null, con: null, int: null, wis: null, cha: null }); }
+    if (m === "roll") { rollScores(); }
+    if (m === "pointbuy") setScores({ str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 });
+    if (m === "manual") setScores({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true); setError(null);
     try {
-      const sheet = await api.createCharacter({ name, className, species: speciesName, background, level, abilities });
+      const sheet = await api.createCharacter({
+        name, className, species: speciesName, background, level,
+        abilities: base, abilityBonuses, skills: chosenSkills,
+      });
       onCreated(sheet);
-    } catch (err) {
-      setError((err as Error).message);
-      setBusy(false);
-    }
+    } catch (err) { setError((err as Error).message); setBusy(false); }
   }
 
   return (
     <section className="create">
-      <div className="library-head">
-        <h1>Nuevo personaje</h1>
-        <button className="btn" onClick={onCancel}>← Volver</button>
-      </div>
+      <div className="library-head"><h1>Nuevo personaje</h1><button className="btn" onClick={onCancel}>← Volver</button></div>
 
       <form className="form" onSubmit={submit}>
-        <label className="field span2">
-          <span>Nombre</span>
+        <label className="field span2"><span>Nombre</span>
           <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del personaje" />
         </label>
 
-        <label className="field">
-          <span>Clase</span>
-          <select value={className} onChange={(e) => setClassName(e.target.value)}>
-            {classes.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
+        <label className="field"><span>Clase</span>
+          <select value={className} onChange={(e) => setClassName(e.target.value)}>{classes.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
         </label>
-
-        <label className="field">
-          <span>Nivel</span>
+        <label className="field"><span>Nivel</span>
           <input type="number" min={1} max={20} value={level} onChange={(e) => setLevel(Number(e.target.value))} />
         </label>
-
-        <label className="field">
-          <span>Especie</span>
-          <select value={speciesName} onChange={(e) => setSpeciesName(e.target.value)}>
-            {species.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
+        <label className="field"><span>Especie</span>
+          <select value={speciesName} onChange={(e) => setSpeciesName(e.target.value)}>{species.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
+        </label>
+        <label className="field"><span>Trasfondo</span>
+          <select value={background} onChange={(e) => setBackground(e.target.value)}>{backgrounds.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
         </label>
 
-        <label className="field">
-          <span>Trasfondo</span>
-          <select value={background} onChange={(e) => setBackground(e.target.value)}>
-            {backgrounds.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
-        </label>
-
-        {bgFeat && <p className="muted small span2" style={{ margin: "-6px 0 0" }}>🎁 Otorga la dote de origen: <b>{bgFeat}</b> (aparecerá en «Rasgos y dotes»).</p>}
-
+        {/* ── Puntuaciones ── */}
         <fieldset className="abilities-input span2">
           <legend>Características</legend>
-          <div className="abil-grid">
-            {ABILITIES.map((a) => (
-              <label key={a} className="abil-field">
-                <span>{ABILITY_LABEL[a]}</span>
-                <input type="number" min={1} max={30} value={abilities[a]}
-                  onChange={(e) => setAbilities({ ...abilities, [a]: Number(e.target.value) })} />
-              </label>
+          <div className="row wrap" style={{ marginBottom: 8 }}>
+            {(["standard", "pointbuy", "roll", "manual"] as Method[]).map((m) => (
+              <label key={m} className="inline"><input type="radio" checked={method === m} onChange={() => switchMethod(m)} /> {({ standard: "Array estándar", pointbuy: "Point Buy", roll: "Tirar dados", manual: "Manual" })[m]}</label>
             ))}
+            {method === "roll" && <button type="button" className="btn small" onClick={rollScores}>🎲 Volver a tirar</button>}
+            {method === "pointbuy" && <span className={`muted small${pbUsed > PB_BUDGET ? " error" : ""}`}>Puntos: {pbUsed}/{PB_BUDGET}</span>}
           </div>
+
+          {(method === "standard" || method === "roll") && (
+            <>
+              <p className="muted small">Valores a repartir: {pool.map((v, i) => <b key={i} style={{ marginRight: 8 }}>{v}</b>)}</p>
+              <div className="abil-grid">
+                {ABILITIES.map((a) => (
+                  <label key={a} className="abil-field"><span>{ABILITY_LABEL[a]} {abilityBonuses[a] ? <em className="muted">{fmt(abilityBonuses[a]!)}</em> : ""}</span>
+                    <select value={assign[a] ?? ""} onChange={(e) => setAssignFor(a, e.target.value === "" ? null : Number(e.target.value))}>
+                      <option value="">—</option>
+                      {pool.map((v, i) => (
+                        <option key={i} value={i} disabled={ABILITIES.some((k) => k !== a && assign[k] === i)}>{v}</option>
+                      ))}
+                    </select>
+                    <span className="muted small">= {base[a] + (abilityBonuses[a] ?? 0)} ({fmt(mod(base[a] + (abilityBonuses[a] ?? 0)))})</span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+
+          {(method === "pointbuy" || method === "manual") && (
+            <div className="abil-grid">
+              {ABILITIES.map((a) => (
+                <label key={a} className="abil-field"><span>{ABILITY_LABEL[a]} {abilityBonuses[a] ? <em className="muted">{fmt(abilityBonuses[a]!)}</em> : ""}</span>
+                  {method === "pointbuy"
+                    ? <select value={scores[a]} onChange={(e) => pbSet(a, Number(e.target.value))}>{[8, 9, 10, 11, 12, 13, 14, 15].map((v) => <option key={v} value={v}>{v} ({PB_COST[v]}p)</option>)}</select>
+                    : <input type="number" min={1} max={30} value={scores[a]} onChange={(e) => setScores({ ...scores, [a]: Number(e.target.value) })} />}
+                  <span className="muted small">= {base[a] + (abilityBonuses[a] ?? 0)} ({fmt(mod(base[a] + (abilityBonuses[a] ?? 0)))})</span>
+                </label>
+              ))}
+            </div>
+          )}
         </fieldset>
 
-        {error && <p className="error span2">⚠️ {error}</p>}
+        {/* ── Bono del trasfondo ── */}
+        <fieldset className="abilities-input span2">
+          <legend>Mejora de característica del trasfondo{bg?.abilities?.length ? ` (${bg.abilities.map((a) => ABILITY_LABEL[a as AbilityKey]).join(", ")})` : ""}</legend>
+          {!bg?.abilities?.length ? <p className="muted small">Este trasfondo no define características (elige otro o usa Manual).</p> : (
+            <>
+              <div className="row wrap">
+                <label className="inline"><input type="radio" checked={bonusMode === "2-1"} onChange={() => setBonusMode("2-1")} /> +2 y +1</label>
+                <label className="inline"><input type="radio" checked={bonusMode === "1-1-1"} onChange={() => setBonusMode("1-1-1")} /> +1 a las tres</label>
+              </div>
+              {bonusMode === "2-1" && (
+                <div className="row wrap" style={{ marginTop: 6 }}>
+                  <label className="field"><span>+2 a</span>
+                    <select value={plus2} onChange={(e) => setPlus2(e.target.value as AbilityKey)}>
+                      <option value="">—</option>
+                      {bg.abilities.map((a) => <option key={a} value={a}>{ABILITY_LABEL[a as AbilityKey]}</option>)}
+                    </select>
+                  </label>
+                  <label className="field"><span>+1 a</span>
+                    <select value={plus1} onChange={(e) => setPlus1(e.target.value as AbilityKey)}>
+                      <option value="">—</option>
+                      {bg.abilities.filter((a) => a !== plus2).map((a) => <option key={a} value={a}>{ABILITY_LABEL[a as AbilityKey]}</option>)}
+                    </select>
+                  </label>
+                </div>
+              )}
+            </>
+          )}
+          {bg?.feat && <p className="muted small" style={{ margin: "6px 0 0" }}>🎁 Dote de origen: <b>{bg.feat}</b>{bgSkills.length ? ` · Competencias: ${bgSkills.map((s) => SKILL_LABEL[s] ?? s).join(", ")}` : ""}{bg.tool ? ` · ${bg.tool}` : ""}</p>}
+        </fieldset>
 
+        {/* ── Habilidades de clase ── */}
+        {skillChoices > 0 && (
+          <fieldset className="abilities-input span2">
+            <legend>Habilidades de clase — elige {skillChoices} ({chosenSkills.length}/{skillChoices})</legend>
+            <div className="chips">
+              {skillOptions.map((sk) => {
+                const already = bgSkills.includes(sk);
+                const on = chosenSkills.includes(sk);
+                return (
+                  <button type="button" key={sk} className={`chip${on ? " removable" : ""}`} disabled={already}
+                    title={already ? "Ya la da tu trasfondo" : ""} onClick={() => toggleSkill(sk)}>
+                    {on ? "✓ " : ""}{SKILL_LABEL[sk] ?? sk}{already ? " (trasfondo)" : ""}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+        )}
+
+        {error && <p className="error span2">⚠️ {error}</p>}
         <div className="span2 form-actions">
-          <button className="btn primary" type="submit" disabled={busy || !name || !className}>
-            {busy ? "Creando…" : "Crear personaje"}
-          </button>
+          <button className="btn primary" type="submit" disabled={busy || !canSubmit}>{busy ? "Creando…" : "Crear personaje"}</button>
         </div>
       </form>
     </section>
