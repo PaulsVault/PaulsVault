@@ -10,7 +10,8 @@
     "start": "node dist/index.js",
     "dev": "tsc --watch",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sync:2024": "node scripts/sync-2024.mjs"
   },
   "keywords": [],
   "author": "",

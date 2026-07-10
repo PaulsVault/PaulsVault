@@ -28,3 +28,6 @@ scratchpad/
 
 # Contenido con copyright convertido de 5etools (uso privado, NO se publica)
 data-private/
+
+# Datos de 5etools descargados por el script de sincronización (uso privado)
+.5etools/
