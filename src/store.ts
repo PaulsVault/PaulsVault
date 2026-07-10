@@ -35,6 +35,7 @@ function ready(): Promise<void> {
     await c.execute("CREATE TABLE IF NOT EXISTS users (id TEXT PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at TEXT)");
     await c.execute("CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, owner_id TEXT, data TEXT NOT NULL, updated_at TEXT)");
     await c.execute("CREATE TABLE IF NOT EXISTS content_packs (id TEXT PRIMARY KEY, data TEXT NOT NULL)");
+    await c.execute("CREATE TABLE IF NOT EXISTS invites (id TEXT PRIMARY KEY, token TEXT UNIQUE NOT NULL, created_by TEXT, label TEXT, expires_at TEXT, used_by TEXT, used_at TEXT, created_at TEXT NOT NULL)");
     await refreshPacks();
   })();
   return _ready;
@@ -165,6 +166,56 @@ export async function getUserById(id: string): Promise<UserRow | undefined> {
   await ready();
   const rs = await client().execute({ sql: "SELECT id, email, password_hash, created_at FROM users WHERE id = ?", args: [id] });
   return rs.rows[0] as unknown as UserRow | undefined;
+}
+
+export async function countUsers(): Promise<number> {
+  await ready();
+  const rs = await client().execute("SELECT COUNT(*) AS n FROM users");
+  return Number((rs.rows[0] as unknown as { n: number }).n ?? 0);
+}
+
+export async function getFirstUserId(): Promise<string | null> {
+  await ready();
+  const rs = await client().execute("SELECT id FROM users ORDER BY created_at ASC LIMIT 1");
+  return (rs.rows[0] as unknown as { id: string } | undefined)?.id ?? null;
+}
+
+// ─── Invitaciones ───
+
+export interface InviteRow {
+  id: string; token: string; created_by: string | null; label: string | null;
+  expires_at: string | null; used_by: string | null; used_at: string | null; created_at: string;
+}
+
+export async function createInvite(row: InviteRow): Promise<void> {
+  await ready();
+  await client().execute({
+    sql: "INSERT INTO invites (id, token, created_by, label, expires_at, used_by, used_at, created_at) VALUES (?,?,?,?,?,?,?,?)",
+    args: [row.id, row.token, row.created_by, row.label, row.expires_at, row.used_by, row.used_at, row.created_at],
+  });
+}
+
+export async function getInviteByToken(token: string): Promise<InviteRow | undefined> {
+  await ready();
+  const rs = await client().execute({ sql: "SELECT * FROM invites WHERE token = ?", args: [token] });
+  return rs.rows[0] as unknown as InviteRow | undefined;
+}
+
+export async function markInviteUsed(token: string, userId: string): Promise<void> {
+  await ready();
+  await client().execute({ sql: "UPDATE invites SET used_by = ?, used_at = ? WHERE token = ?", args: [userId, new Date().toISOString(), token] });
+}
+
+export async function listInvites(): Promise<InviteRow[]> {
+  await ready();
+  const rs = await client().execute("SELECT * FROM invites ORDER BY created_at DESC");
+  return rs.rows as unknown as InviteRow[];
+}
+
+export async function deleteInvite(id: string): Promise<boolean> {
+  await ready();
+  const info = await client().execute({ sql: "DELETE FROM invites WHERE id = ? AND used_by IS NULL", args: [id] });
+  return Number(info.rowsAffected ?? 0) > 0;
 }
 
 export function dataDir(): string {

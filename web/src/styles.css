@@ -366,6 +366,7 @@ body {
 .area-glyph { display: flex; align-items: center; gap: 12px; margin: 6px 0 10px; }
 .area-glyph-txt { display: flex; flex-direction: column; line-height: 1.25; }
 .spell-mech { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; font-size: .8rem; color: var(--muted); }
+.invite-url { word-break: break-all; margin-top: 2px; }
 
 @media (max-width: 560px) {
   .form { grid-template-columns: 1fr; }

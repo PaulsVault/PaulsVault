@@ -10,6 +10,7 @@ import { loadDb, saveDb, dataDir, listPacks, requestContext, getUserById, init }
 import { DomainError, STATUS_BY_CODE } from "../domain/errors.js";
 import { verifyToken, signToken, SESSION_COOKIE, TOKEN_MAX_AGE_MS } from "../auth.js";
 import { registerUser, loginUser } from "../domain/auth.js";
+import { isAdmin, createInviteFor, listInviteViews, revokeInvite } from "../domain/invites.js";
 import * as chars from "../domain/characters.js";
 import * as inv from "../domain/inventory.js";
 import * as spells from "../domain/spells.js";
@@ -51,7 +52,10 @@ const num = (v: unknown): number | undefined => (v === undefined ? undefined : N
 
 export function buildApp(): Express {
   const app = express();
+  app.set("trust proxy", true); // respeta X-Forwarded-Proto (https en Vercel) para los enlaces de invitación
   app.use(express.json({ limit: "12mb" }));
+
+  const baseUrl = (req: Request) => `${req.protocol}://${req.get("host")}`;
 
   // ─── Sesión: inicializa el store, fija el usuario y ejecuta en el contexto del dueño ───
   app.use((req: Req, _res, next) => {
@@ -72,7 +76,7 @@ export function buildApp(): Express {
 
   // ─── Auth (rutas públicas) ───
   app.post("/api/auth/register", async (req: Req, res) => {
-    const user = await registerUser(req.body?.email, req.body?.password);
+    const user = await registerUser(req.body?.email, req.body?.password, req.body?.invite);
     setSession(res, user.id);
     res.status(201).json({ user });
   });
@@ -88,7 +92,7 @@ export function buildApp(): Express {
   app.get("/api/auth/me", async (req: Req, res) => {
     const u = req.userId ? await getUserById(req.userId) : undefined;
     if (!u) { res.status(401).json({ error: { code: "unauthorized", message: "No autenticado." } }); return; }
-    res.json({ user: { id: u.id, email: u.email } });
+    res.json({ user: { id: u.id, email: u.email }, isAdmin: await isAdmin(u.id) });
   });
 
   app.get("/api/health", (_req, res) => res.json({ status: "ok", app: "dnd-app" }));
@@ -98,6 +102,16 @@ export function buildApp(): Express {
     if (!req.userId) { res.status(401).json({ error: { code: "unauthorized", message: "Inicia sesión." } }); return; }
     next();
   });
+
+  // ─── Administración: invitaciones (solo admin) ───
+  app.use("/api/admin", async (req: Req, res, next) => {
+    if (!(await isAdmin(req.userId))) { res.status(403).json({ error: { code: "forbidden", message: "Solo el administrador puede gestionar invitaciones." } }); return; }
+    next();
+  });
+  app.get("/api/admin/invites", async (req, res) => res.json({ invites: await listInviteViews(baseUrl(req)) }));
+  app.post("/api/admin/invites", async (req: Req, res) =>
+    res.status(201).json(await createInviteFor(req.userId!, req.body?.label, num(req.body?.expiresInDays), baseUrl(req))));
+  app.delete("/api/admin/invites/:id", async (req, res) => { await revokeInvite(req.params.id); res.json({ ok: true }); });
 
   // ─── Personajes ───
   app.get("/api/characters", async (_req, res) => res.json(chars.listCharacters(await loadDb())));

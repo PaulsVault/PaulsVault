@@ -18,13 +18,19 @@ const enc = encodeURIComponent;
 type Dict = Record<string, unknown>;
 
 export interface AuthUser { id: string; email: string; }
+export interface Invite { id: string; token: string; label: string | null; url: string; used: boolean; usedAt: string | null; expiresAt: string | null; createdAt: string; }
 
 export const api = {
   // Autenticación
-  me: () => req<{ user: AuthUser }>("/auth/me"),
-  register: (email: string, password: string) => req<{ user: AuthUser }>("/auth/register", { method: "POST", body: JSON.stringify({ email, password }) }),
+  me: () => req<{ user: AuthUser; isAdmin: boolean }>("/auth/me"),
+  register: (email: string, password: string, invite?: string) => req<{ user: AuthUser }>("/auth/register", { method: "POST", body: JSON.stringify({ email, password, invite }) }),
   login: (email: string, password: string) => req<{ user: AuthUser }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   logout: () => req<{ ok: boolean }>("/auth/logout", { method: "POST" }),
+
+  // Administración: invitaciones (solo admin)
+  listInvites: () => req<{ invites: Invite[] }>("/admin/invites").then((r) => r.invites),
+  createInvite: (body: { label?: string; expiresInDays?: number }) => req<Invite>("/admin/invites", { method: "POST", body: JSON.stringify(body) }),
+  deleteInvite: (id: string) => req<{ ok: boolean }>(`/admin/invites/${enc(id)}`, { method: "DELETE" }),
 
   // Personajes
   listCharacters: () => req<CharacterSummary[]>("/characters"),

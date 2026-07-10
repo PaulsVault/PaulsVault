@@ -4,9 +4,11 @@ import { DragonArt } from "./DragonArt";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function Auth({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const urlInvite = new URLSearchParams(window.location.search).get("invite") ?? "";
+  const [mode, setMode] = useState<"login" | "register">(urlInvite ? "register" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [invite, setInvite] = useState(urlInvite);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imgFailed, setImgFailed] = useState(false);
@@ -15,7 +17,7 @@ export function Auth({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
     e.preventDefault();
     setBusy(true); setError(null);
     try {
-      const { user } = mode === "login" ? await api.login(email, password) : await api.register(email, password);
+      const { user } = mode === "login" ? await api.login(email, password) : await api.register(email, password, invite.trim());
       onAuthed(user);
     } catch (err) {
       setError((err as Error).message);
@@ -34,7 +36,7 @@ export function Auth({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
         )}
         <h1 className="auth-brand">⚔️ D&amp;D 2024</h1>
         <p className="auth-tagline">
-          {mode === "login" ? "Inicia sesión para ver tus personajes" : "Forja tu leyenda — crea tu cuenta"}
+          {mode === "login" ? "Inicia sesión para ver tus personajes" : "Registro solo por invitación — crea tu cuenta"}
         </p>
         <form className="stack" onSubmit={submit}>
           <label className="field"><span>Email</span>
@@ -43,8 +45,13 @@ export function Auth({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
           <label className="field"><span>Contraseña {mode === "register" && <em className="muted small">(mín. 8)</em>}</span>
             <input type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={8} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
           </label>
+          {mode === "register" && (
+            <label className="field"><span>Código de invitación</span>
+              <input value={invite} onChange={(e) => setInvite(e.target.value)} placeholder="Abre tu enlace de invitación o pega el código" required />
+            </label>
+          )}
           {error && <p className="error">⚠️ {error}</p>}
-          <button className="btn primary" type="submit" disabled={busy || !email || password.length < 8}>
+          <button className="btn primary" type="submit" disabled={busy || !email || password.length < 8 || (mode === "register" && !invite.trim())}>
             {busy ? "…" : mode === "login" ? "Entrar" : "Crear cuenta"}
           </button>
         </form>

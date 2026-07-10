@@ -81,10 +81,36 @@ describe("API smoke (con auth)", () => {
     expect((body["results"] as { name: string }[]).some((r) => r.name === "Fire Bolt")).toBe(true);
   });
 
-  it("segundo usuario no ve los personajes del primero (aislamiento)", async () => {
-    cookie = ""; // cerrar sesión local
-    await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email: "otro@test.com", password: "secret123" }) });
+  it("registro sin invitación se rechaza (el primer usuario ya existe)", async () => {
+    const prev = cookie; cookie = "";
+    const reg = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email: "sininvite@test.com", password: "secret123" }) });
+    expect(reg.status).toBe(400);
+    cookie = prev; // recupera la sesión del primer usuario (admin)
+  });
+
+  it("segundo usuario (con invitación del admin) no ve los personajes del primero", async () => {
+    // smoke@test.com es el primer usuario → admin (bootstrap); genera una invitación
+    const invite = await api("/api/admin/invites", { method: "POST", body: JSON.stringify({ label: "mesa" }) });
+    expect(invite.status).toBe(201);
+    const token = invite.body["token"] as string;
+
+    cookie = ""; // cerrar sesión y registrar al segundo usuario con la invitación
+    const reg = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email: "otro@test.com", password: "secret123", invite: token }) });
+    expect(reg.status).toBe(201);
     const list = await api("/api/characters");
     expect((list.body as unknown as unknown[]).length).toBe(0); // no ve a "API Hero" ni "Atado"
+  });
+
+  it("la invitación es de un solo uso (reusarla falla)", async () => {
+    cookie = "";
+    await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: "smoke@test.com", password: "secret123" }) }); // admin
+    const invite = await api("/api/admin/invites", { method: "POST", body: JSON.stringify({}) });
+    const token = invite.body["token"] as string;
+    cookie = "";
+    const first = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email: "u1@test.com", password: "secret123", invite: token }) });
+    expect(first.status).toBe(201);
+    cookie = "";
+    const second = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email: "u2@test.com", password: "secret123", invite: token }) });
+    expect(second.status).toBe(409);
   });
 });
