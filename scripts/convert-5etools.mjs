@@ -60,6 +60,27 @@ const text = (entries) => renderEntries(entries).join(" ").replace(/\s+/g, " ").
 
 const slug = (name, type) => `${type}:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 const readJson = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
+const cap = (s) => s.replace(/\b\w/g, (c) => c.toUpperCase());
+const SIZE = { T: "Tiny", S: "Small", M: "Medium", L: "Large", H: "Huge", G: "Gargantuan" };
+
+// "magic initiate; cleric|xphb" → "Magic Initiate (Cleric)"
+function refName(ref) {
+  const base = String(ref).split("|")[0];
+  const [name, sub] = base.split(";").map((s) => s.trim());
+  return sub ? `${cap(name)} (${cap(sub)})` : cap(name);
+}
+function renderPrereq(pre) {
+  if (!Array.isArray(pre)) return undefined;
+  const parts = [];
+  for (const p of pre) {
+    if (p.level) parts.push(`Nivel ${p.level.level ?? p.level}`);
+    if (p.ability) for (const a of p.ability) for (const [k, v] of Object.entries(a)) parts.push(`${k.toUpperCase()} ${v}`);
+    if (p.race) parts.push(p.race.map((r) => cap(r.name ?? r)).join("/"));
+    if (p.spellcasting || p.spellcasting2020) parts.push("saber lanzar conjuros");
+    if (p.other) parts.push(deTag(p.other));
+  }
+  return parts.length ? parts.join(", ") : undefined;
+}
 
 function writePack(id, name, source, entries) {
   const pack = { id, name, version: "1.0.0", source, description: `${entries.length} entradas convertidas de 5etools (uso privado).`, entries };
@@ -148,4 +169,69 @@ if (want("spells")) {
   }
   entries.sort((a, b) => a.data.level - b.data.level || a.name.localeCompare(b.name));
   writePack("dnd2024-spells", "D&D 2024 — Hechizos", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
+}
+
+// ─── Dotes ───
+function convertFeat(ft) {
+  return { id: slug(ft.name, "feat"), type: "feat", name: ft.name, data: {
+    summary: text(ft.entries),
+    category: ft.category,
+    prerequisite: renderPrereq(ft.prerequisite),
+    source: ft.source,
+  } };
+}
+if (want("feats")) {
+  const entries = [];
+  for (const ft of readJson(path.join(DATA_DIR, "feats.json")).feat ?? []) {
+    if (!SOURCES_2024.has(ft.source) || ft.name === "Ability Score Improvement") continue;
+    entries.push(convertFeat(ft));
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  writePack("dnd2024-feats", "D&D 2024 — Dotes", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
+}
+
+// ─── Trasfondos ───
+function convertBackground(bg) {
+  const featKey = bg.feats?.[0] ? Object.keys(bg.feats[0])[0] : undefined;
+  const skills = bg.skillProficiencies?.[0]
+    ? Object.keys(bg.skillProficiencies[0]).filter((k) => k !== "choose" && k !== "any")
+    : [];
+  return { id: slug(bg.name, "background"), type: "background", name: bg.name, data: {
+    feat: featKey ? refName(featKey) : undefined,
+    skills,
+    summary: text(bg.entries),
+    source: bg.source,
+  } };
+}
+if (want("backgrounds")) {
+  const entries = [];
+  for (const bg of readJson(path.join(DATA_DIR, "backgrounds.json")).background ?? []) {
+    if (!SOURCES_2024.has(bg.source) || bg._copy) continue;
+    entries.push(convertBackground(bg));
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  writePack("dnd2024-backgrounds", "D&D 2024 — Trasfondos", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
+}
+
+// ─── Especies ───
+function convertRace(r) {
+  const speed = typeof r.speed === "number" ? r.speed : (r.speed?.walk ?? 30);
+  const traits = (r.entries ?? []).filter((e) => e && e.name).map((e) => `${deTag(e.name)}: ${text(e.entries)}`);
+  if (r.darkvision) traits.unshift(`Visión en la oscuridad ${r.darkvision} ft`);
+  if (Array.isArray(r.resist)) traits.push(`Resistencia: ${r.resist.map((x) => cap(typeof x === "string" ? x : x.resist ?? "")).join(", ")}`);
+  return { id: slug(r.name, "species"), type: "species", name: r.name, data: {
+    size: (r.size ?? ["M"]).map((s) => SIZE[s] ?? s).join(" o "),
+    speed,
+    traits,
+    source: r.source,
+  } };
+}
+if (want("species")) {
+  const entries = [];
+  for (const r of readJson(path.join(DATA_DIR, "races.json")).race ?? []) {
+    if (!SOURCES_2024.has(r.source) || r._copy) continue;
+    entries.push(convertRace(r));
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  writePack("dnd2024-species", "D&D 2024 — Especies", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
 }
