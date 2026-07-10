@@ -41,6 +41,8 @@ export interface Modifiers {
   saves: Record<AbilityKey, RollLine & { autofail: boolean }>;
   incapacitated: boolean;
   active: string[];
+  critRange: number;
+  initiativeFlat: number;
 }
 
 export interface Sheet {
@@ -60,6 +62,7 @@ export interface Sheet {
   classList: { name: string; subclass: string | null; level: number }[];
   features: { name: string; source: string; description: string | null }[];
   speciesTraits: string[];
+  critRange: number;
   personality: Personality;
   journal: JournalEntry[];
   appearance: string | null;

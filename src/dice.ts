@@ -85,15 +85,20 @@ export function rollExpression(expr: string): RollDetail {
 /** d20 con ventaja/desventaja + modificador. */
 export function d20Roll(
   modifier: number,
-  mode: "normal" | "advantage" | "disadvantage" = "normal"
+  mode: "normal" | "advantage" | "disadvantage" = "normal",
+  critThreshold = 20
 ): RollDetail {
-  if (mode === "normal") return rollExpression(`1d20${modifier >= 0 ? "+" : ""}${modifier}`);
-  const op = mode === "advantage" ? "kh1" : "kl1";
-  const r = rollExpression(`2d20${op}${modifier >= 0 ? "+" : ""}${modifier}`);
+  let r: RollDetail;
+  if (mode === "normal") {
+    r = rollExpression(`1d20${modifier >= 0 ? "+" : ""}${modifier}`);
+  } else {
+    const op = mode === "advantage" ? "kh1" : "kl1";
+    r = rollExpression(`2d20${op}${modifier >= 0 ? "+" : ""}${modifier}`);
+    r.breakdown = `(${mode === "advantage" ? "ventaja" : "desventaja"}) ${r.breakdown}`;
+  }
   const kept = r.rolls[0]?.kept[0];
-  if (kept === 20) r.crit = "critical";
-  else if (kept === 1) r.crit = "fumble";
+  if (kept === 1) r.crit = "fumble";
+  else if (kept !== undefined && kept >= critThreshold) r.crit = "critical";
   else r.crit = undefined;
-  r.breakdown = `(${mode === "advantage" ? "ventaja" : "desventaja"}) ${r.breakdown}`;
   return r;
 }

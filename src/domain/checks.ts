@@ -6,9 +6,18 @@ import {
   ABILITIES, SKILLS, abilityMod, fmt, proficiencyBonus,
   saveBonus, skillBonus, spellStats, totalLevel,
 } from "../rules.js";
+import { computeActiveModifiers } from "./modifiers.js";
 import type { AbilityKey, Character } from "../types.js";
 
 export type RollMode = "normal" | "advantage" | "disadvantage";
+
+/** Combina dos modos de tirada (2024: ventaja + desventaja se anulan). */
+function combineMode(a: RollMode, b: RollMode): RollMode {
+  const adv = a === "advantage" || b === "advantage";
+  const dis = a === "disadvantage" || b === "disadvantage";
+  if (adv && dis) return "normal";
+  return adv ? "advantage" : dis ? "disadvantage" : "normal";
+}
 
 /** Tira una expresión de dados, opcionalmente con ventaja/desventaja (d20 simple) y repetición. */
 export function rollDice(expression: string, advantage: RollMode = "normal", times = 1): RollDetail[] {
@@ -44,9 +53,12 @@ export function check(c: Character, input: CheckInput): CheckResult {
   const bonus = input.bonus ?? 0;
   const critical = input.critical ?? false;
   const pb = proficiencyBonus(totalLevel(c));
+  const M = computeActiveModifiers(c);
 
   let mod: number;
   let detail: string;
+  let effMode: RollMode = advantage;
+  let critThreshold = 20;
 
   switch (type) {
     case "skill": {
@@ -71,8 +83,9 @@ export function check(c: Character, input: CheckInput): CheckResult {
       break;
     }
     case "initiative": {
-      mod = abilityMod(c.abilities.dex) + c.initiativeBonus;
-      detail = `DES(${fmt(abilityMod(c.abilities.dex))})${c.initiativeBonus ? ` + extra(${fmt(c.initiativeBonus)})` : ""}`;
+      mod = abilityMod(c.abilities.dex) + c.initiativeBonus + M.initiativeFlat;
+      detail = `DES(${fmt(abilityMod(c.abilities.dex))})${c.initiativeBonus ? ` + extra(${fmt(c.initiativeBonus)})` : ""}${M.initiativeFlat ? ` + rasgos(${fmt(M.initiativeFlat)})` : ""}`;
+      effMode = combineMode(advantage, M.initiative.mode);
       break;
     }
     case "spell_attack": {
@@ -100,6 +113,9 @@ export function check(c: Character, input: CheckInput): CheckResult {
       if (type === "attack") {
         mod = abMod + pb + magic;
         detail = `${ranged ? "DES" : finesse && dexMod > strMod ? "DES(finesse)" : "FUE"}(${fmt(abMod)}) + comp(${fmt(pb)})${magic ? ` + mágico(${fmt(magic)})` : ""}`;
+        critThreshold = M.critRange;
+        effMode = combineMode(advantage, M.attack.mode);
+        if (M.critRange < 20) detail += ` · crítico ${M.critRange}-20`;
         break;
       }
       // damage
@@ -117,7 +133,7 @@ export function check(c: Character, input: CheckInput): CheckResult {
   }
 
   const total = mod + bonus;
-  const r = d20Roll(total, advantage);
+  const r = d20Roll(total, effMode, critThreshold);
   return {
     type,
     target: input.target ?? null,

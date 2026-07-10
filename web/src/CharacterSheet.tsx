@@ -79,7 +79,7 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
 
         {s.weapons.length > 0 && (
           <section className="panel">
-            <h2>Armas</h2>
+            <h2>Armas {s.critRange < 20 && <span className="muted small">· crítico {s.critRange}-20</span>}</h2>
             <ul className="line-list">
               {s.weapons.map((w) => (
                 <li key={w.id} className="weapon-row">

@@ -6,7 +6,7 @@
 // condición o efecto puede traer su propio `mechanics: StatModifier[]` (homebrew por packs).
 
 import { findEntry } from "./content.js";
-import { ABILITIES, computeAC } from "../rules.js";
+import { ABILITIES, computeAC, proficiencyBonus, totalLevel } from "../rules.js";
 import type { AbilityKey, ActiveEffect, Character, StatModifier } from "../types.js";
 
 export type RollMode = "normal" | "advantage" | "disadvantage";
@@ -44,6 +44,26 @@ const SPELL_MECHANICS: Record<string, StatModifier[]> = {
   "hunter's mark": [{ target: "damage", op: "add", value: "1d6" }],
 };
 
+// ─── Mecánicas de rasgos de clase/subclase y dotes (siempre activos) ───
+// Solo los rasgos con efecto numérico limpio y visible en la hoja. El resto se
+// listan con su texto (no se aplican mecánicamente). Ampliable por más entradas.
+interface FeatureEffect {
+  mods?: StatModifier[];
+  critRange?: number;          // umbral de crítico natural (19 = 19-20, 18 = 18-20)
+  initiativeProficiency?: boolean; // suma el bono de competencia a la iniciativa (Alert)
+}
+const FEATURE_MECHANICS: Record<string, FeatureEffect> = {
+  "alert": { initiativeProficiency: true },
+  "mobile": { mods: [{ target: "speed", op: "add", value: 10 }] },
+  "improved critical": { critRange: 19 },
+  "superior critical": { critRange: 18 },
+  "remarkable athlete": { mods: [{ target: "initiative", op: "advantage" }] },
+};
+
+function featureKey(name: string): string {
+  return name.replace(/\s*\(.*/, "").trim().toLowerCase();
+}
+
 function conditionMechanics(name: string): StatModifier[] {
   const entry = findEntry(name, "condition");
   const fromContent = entry?.data?.["mechanics"];
@@ -77,10 +97,12 @@ export interface ComputedModifiers {
   saves: Record<AbilityKey, RollLine & { autofail: boolean }>;
   incapacitated: boolean;
   active: string[];
+  critRange: number;       // umbral de crítico natural del personaje (20 normal, 19/18 con rasgos)
+  initiativeFlat: number;  // suma de bonos numéricos a la iniciativa (dotes, Exhaustion…)
 }
 
-/** Reúne todos los modificadores activos (condiciones + Exhaustion + efectos propios). */
-function collect(c: Character): { mods: SourcedMod[]; active: string[]; incapacitated: boolean } {
+/** Reúne todos los modificadores activos (condiciones + Exhaustion + efectos + rasgos/dotes). */
+function collect(c: Character): { mods: SourcedMod[]; active: string[]; incapacitated: boolean; critRange: number } {
   const mods: SourcedMod[] = [];
   const active: string[] = [];
   let incapacitated = false;
@@ -106,7 +128,17 @@ function collect(c: Character): { mods: SourcedMod[]; active: string[]; incapaci
     if (mechs.length) active.push(e.name);
     for (const m of mechs) mods.push({ ...m, source: e.name });
   }
-  return { mods, active, incapacitated };
+
+  // Rasgos de clase/subclase y dotes con efecto mecánico (siempre activos).
+  let critRange = 20;
+  for (const f of c.features) {
+    const fx = FEATURE_MECHANICS[featureKey(f.name)];
+    if (!fx) continue;
+    if (fx.mods) for (const m of fx.mods) mods.push({ ...m, source: f.name });
+    if (fx.initiativeProficiency) mods.push({ target: "initiative", op: "add", value: proficiencyBonus(totalLevel(c)), source: f.name });
+    if (fx.critRange && fx.critRange < critRange) critRange = fx.critRange;
+  }
+  return { mods, active, incapacitated, critRange };
 }
 
 function rollLine(mods: SourcedMod[], target: StatModifier["target"], ability?: AbilityKey): RollLine {
@@ -128,7 +160,10 @@ function formatBonus(v: number | string): string {
 }
 
 export function computeActiveModifiers(c: Character): ComputedModifiers {
-  const { mods, active, incapacitated } = collect(c);
+  const { mods, active, incapacitated, critRange } = collect(c);
+  const initiativeFlat = mods
+    .filter((m) => m.target === "initiative" && m.op === "add" && typeof m.value === "number")
+    .reduce((sum, m) => sum + (m.value as number), 0);
 
   // CA: base (armadura) → sets (mayor) → sumas → multiplicadores → suelo (min).
   const acBase = computeAC(c).ac;
@@ -174,5 +209,7 @@ export function computeActiveModifiers(c: Character): ComputedModifiers {
     saves,
     incapacitated,
     active,
+    critRange,
+    initiativeFlat,
   };
 }

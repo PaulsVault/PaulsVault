@@ -34,6 +34,8 @@ export function characterSheet(c: Character): Record<string, unknown> {
     acBase: mods.ac.base,
     speed: mods.speed.final,
     speedBase: mods.speed.base,
+    initiative: (base["initiative"] as number) + mods.initiativeFlat,
+    critRange: mods.critRange,
     skillDetails,
     saveDetails,
     weapons,
