@@ -235,3 +235,69 @@ if (want("species")) {
   entries.sort((a, b) => a.name.localeCompare(b.name));
   writePack("dnd2024-species", "D&D 2024 — Especies", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
 }
+
+// ─── Objetos y equipo ───
+const ITEM_TYPE = {
+  M: "weapon", R: "weapon", A: "ammunition", AF: "ammunition",
+  LA: "armor", MA: "armor", HA: "armor", S: "shield",
+  P: "consumable", SC: "consumable",
+  RD: "wondrous", WD: "wondrous", RG: "wondrous", W: "wondrous",
+  AT: "tool", T: "tool", INS: "tool", GS: "tool",
+  $: "treasure", TG: "treasure", $C: "treasure",
+  G: "gear", SCF: "gear", OTH: "other", MNT: "other", VEH: "other", SHP: "other", AIR: "other",
+};
+const ARMOR_CAT = { LA: "light", MA: "medium", HA: "heavy", S: "shield" };
+const DMG_TYPE = { S: "slashing", P: "piercing", B: "bludgeoning" };
+const PROP = { F: "finesse", L: "light", H: "heavy", T: "thrown", V: "versatile", A: "ammunition", R: "reach", "2H": "two-handed", LD: "loading", RLD: "reload", S: "special", BF: "burst fire", RN: "range", N: "net" };
+const stripSrc = (s) => String(s).split("|")[0];
+
+function costStr(value) {
+  if (value == null) return undefined;
+  if (value % 100 === 0) return `${value / 100} gp`;
+  if (value % 10 === 0) return `${value / 10} sp`;
+  return `${value} cp`;
+}
+
+function convertItem(it) {
+  const code = it.type ? stripSrc(it.type) : (it.weapon ? "M" : it.armor ? "LA" : it.wondrous ? "W" : "G");
+  const itemType = ITEM_TYPE[code] ?? (it.weapon ? "weapon" : it.armor ? "armor" : it.wondrous ? "wondrous" : "gear");
+  const props = (it.property ?? []).map((p) => PROP[stripSrc(p)] ?? stripSrc(p).toLowerCase());
+  if (Array.isArray(it.mastery)) props.push(`maestría: ${it.mastery.map(stripSrc).join("/")}`);
+  const bonus = it.bonusWeapon ?? it.bonusAc ?? it.bonusSpellAttack ?? it.bonusWeaponAttack;
+  const magicBonus = bonus ? Number(String(bonus).replace(/[^\d-]/g, "")) || undefined : undefined;
+  const head = [];
+  if (it.rarity && it.rarity !== "none") head.push(`Rareza: ${it.rarity}.`);
+  if (it.reqAttune) head.push(typeof it.reqAttune === "string" ? `Requiere sintonización ${it.reqAttune}.` : "Requiere sintonización.");
+  const description = [head.join(" "), text(it.entries)].filter(Boolean).join(" ") || undefined;
+  return { id: slug(it.name, "item"), type: "item", name: it.name, data: {
+    itemType,
+    weight: it.weight,
+    cost: costStr(it.value),
+    requiresAttunement: !!it.reqAttune,
+    armorClass: it.ac,
+    armorCategory: ARMOR_CAT[code],
+    damage: it.dmg1 ? `${it.dmg1} ${DMG_TYPE[it.dmgType] ?? it.dmgType ?? ""}`.trim() : undefined,
+    properties: props.length ? props : undefined,
+    magicBonus,
+    rarity: it.rarity && it.rarity !== "none" ? it.rarity : undefined,
+    description,
+    source: it.source,
+  } };
+}
+if (want("items")) {
+  const entries = [];
+  const seen = new Set();
+  const add = (arr) => {
+    for (const it of arr ?? []) {
+      if (!SOURCES_2024.has(it.source) || it._copy) continue;
+      const e = convertItem(it);
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      entries.push(e);
+    }
+  };
+  add(readJson(path.join(DATA_DIR, "items-base.json")).baseitem);
+  add(readJson(path.join(DATA_DIR, "items.json")).item);
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  writePack("dnd2024-items", "D&D 2024 — Objetos y equipo", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
+}

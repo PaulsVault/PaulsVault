@@ -65,12 +65,12 @@ export function addItem(c: Character, item: string, quantity = 1, details?: Item
     equipped: false,
     requiresAttunement: details?.requiresAttunement ?? (cd["requiresAttunement"] as boolean | undefined) ?? false,
     attuned: false,
-    description: details?.description ?? (typeof cd["cost"] === "string" ? `Coste: ${cd["cost"]}` : undefined),
+    description: details?.description ?? (cd["description"] as string | undefined) ?? (typeof cd["cost"] === "string" ? `Coste: ${cd["cost"]}` : undefined),
     armorClass: details?.armorClass ?? (cd["armorClass"] as number | undefined),
     armorCategory: details?.armorCategory ?? (cd["armorCategory"] as InventoryItem["armorCategory"]),
     damage: details?.damage ?? (cd["damage"] as string | undefined),
     properties: details?.properties ?? (cd["properties"] as string[] | undefined),
-    magicBonus: details?.magicBonus,
+    magicBonus: details?.magicBonus ?? (cd["magicBonus"] as number | undefined),
     containerId: null,
   };
   c.inventory.push(it);
