@@ -25,3 +25,6 @@ scratchpad/
 # Editor
 .vscode/
 .idea/
+
+# Contenido con copyright convertido de 5etools (uso privado, NO se publica)
+data-private/
