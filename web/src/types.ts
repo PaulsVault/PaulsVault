@@ -47,6 +47,10 @@ export interface Sheet {
   passivePerception: number;
   saves: Record<AbilityKey, number>;
   skills: Record<string, number>;
+  skillDetails: Record<string, string>;
+  saveDetails: Record<AbilityKey, string>;
+  weapons: { id: string; name: string; damage: string | null; equipped: boolean }[];
+  cantrips: { name: string }[];
   spellcasting: null | {
     dc: number; attack: number; ability: string;
     slots: Record<string, { max: number; used: number }>;

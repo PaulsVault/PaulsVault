@@ -3,7 +3,10 @@ import { api } from "./api";
 import type { Sheet } from "./types";
 import { download, fileNameFor } from "./download";
 import { LevelUpDialog } from "./LevelUpDialog";
+import { DiceRoll, type RollView } from "./DiceRoll";
 import { CharacterSheet } from "./CharacterSheet";
+
+export interface RollRequest { type: string; target?: string; label: string; advantage?: string; critical?: boolean; faces?: number; }
 import { CombatPanel } from "./panels/CombatPanel";
 import { SpellsPanel } from "./panels/SpellsPanel";
 import { InventoryPanel } from "./panels/InventoryPanel";
@@ -19,6 +22,20 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Hoja");
   const [levelUp, setLevelUp] = useState(false);
+  const [roll, setRoll] = useState<RollView | null>(null);
+
+  async function doRoll(req: RollRequest) {
+    try {
+      const r = await api.check(id, { type: req.type, target: req.target, advantage: req.advantage ?? "normal", critical: req.critical }) as Record<string, unknown>;
+      if (r["type"] === "damage") {
+        setRoll({ label: req.label + " · daño", total: r["total"] as number, breakdown: r["breakdown"] as string, detail: String(r["damageType"] ?? ""), faces: req.faces });
+      } else {
+        setRoll({ label: req.label, total: r["roll"] as number, breakdown: r["breakdown"] as string, detail: r["modifierDetail"] as string, crit: (r["crit"] as "critical" | "fumble" | null) ?? null });
+      }
+    } catch (e) {
+      setRoll({ label: "⚠️ " + req.label, total: 0, breakdown: (e as Error).message });
+    }
+  }
 
   const reload = useCallback(async () => {
     try { setSheet(await api.getSheet(id)); setError(null); }
@@ -72,6 +89,8 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
         <LevelUpDialog id={id} defaultClass={primaryClass} onClose={() => setLevelUp(false)} onDone={() => { setLevelUp(false); void reload(); }} />
       )}
 
+      {roll && <DiceRoll roll={roll} onClose={() => setRoll(null)} />}
+
       <header className="sheet-header">
         {s.style.showPortrait !== false && (
           <div className="portrait" aria-hidden>
@@ -97,7 +116,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
       </nav>
 
       <div className="tab-body">
-        {tab === "Hoja" && <CharacterSheet sheet={s} />}
+        {tab === "Hoja" && <CharacterSheet sheet={s} onRoll={doRoll} />}
         {tab === "Combate" && <CombatPanel id={id} sheet={s} reload={reload} />}
         {tab === "Conjuros" && hasSpells && <SpellsPanel id={id} sheet={s} reload={reload} />}
         {tab === "Inventario" && <InventoryPanel id={id} reload={reload} />}

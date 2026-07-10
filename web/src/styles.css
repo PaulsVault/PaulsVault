@@ -295,8 +295,45 @@ body {
 .portrait-preview img { max-width: 120px; max-height: 120px; border-radius: 12px; border: 2px solid var(--gold); object-fit: cover; }
 
 @media (prefers-reduced-motion: reduce) {
-  .dragon-float, .wing, .eye, .dragon-glow, .sp { animation: none; }
+  .dragon-float, .wing, .eye, .dragon-glow, .sp, .d20.spin, .d20.landed { animation: none; }
 }
+
+/* ── Tiradas desde la hoja ── */
+.roll-hint { text-align: center; margin: 0 0 2px; }
+.clickable { cursor: pointer; }
+.line-list li.clickable { border-radius: 8px; padding-left: 6px; padding-right: 6px; transition: background .12s; }
+.line-list li.clickable:hover { background: rgba(232,196,122,.10); }
+.abil-card.clickable { border: 1px solid transparent; width: 100%; font: inherit; color: inherit; }
+.abil-card.clickable:hover { border-color: var(--gold); box-shadow: 0 0 12px rgba(232,196,122,.2); }
+.stat.clickable { cursor: pointer; }
+.stat.clickable:hover { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset; }
+.weapon-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+
+/* ── Overlay de dado ── */
+.roll-overlay { position: fixed; inset: 0; background: rgba(6,4,12,.72); display: grid; place-items: center; z-index: 60; padding: 16px; animation: fadein .15s; }
+@keyframes fadein { from { opacity: 0 } to { opacity: 1 } }
+.roll-card {
+  background: linear-gradient(180deg, rgba(30,26,52,.97), rgba(18,16,34,.98));
+  border: 1px solid var(--gold-2); border-radius: 18px; padding: 22px 26px;
+  width: min(340px, 92vw); text-align: center; display: grid; gap: 12px; justify-items: center;
+  box-shadow: 0 0 50px rgba(63,54,120,.6);
+}
+.roll-label { font-family: var(--font-display); color: var(--gold); font-size: 1.1rem; }
+.d20 { position: relative; width: 120px; height: 120px; display: grid; place-items: center; }
+.d20-shape { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 4px 14px rgba(124,92,255,.5)); }
+.d20-shape polygon { fill: var(--accent); stroke: #fff; stroke-width: 1.5; }
+.d20-facet { fill: rgba(255,255,255,.22) !important; stroke: none !important; }
+.d20-facet2 { fill: rgba(0,0,0,.18) !important; stroke: none !important; }
+.d20-num { position: relative; z-index: 1; font-family: var(--font-display); font-size: 2.6rem; font-weight: 900; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+.d20.spin { animation: dspin .55s linear; }
+.d20.landed { animation: dpop .35s cubic-bezier(.2,1.6,.4,1); }
+.d20.crit .d20-shape polygon { fill: var(--good); }
+.d20.fumble .d20-shape polygon { fill: var(--danger); }
+@keyframes dspin { 0% { transform: rotate(0) scale(.9) } 100% { transform: rotate(360deg) scale(1) } }
+@keyframes dpop { 0% { transform: scale(.7) } 60% { transform: scale(1.12) } 100% { transform: scale(1) } }
+.roll-tag { font-family: var(--font-display); font-size: 1rem; padding: 2px 12px; border-radius: 999px; }
+.roll-breakdown { color: var(--platinum); font-size: .92rem; }
+.roll-detail { color: var(--muted); font-size: .82rem; }
 
 @media (max-width: 560px) {
   .form { grid-template-columns: 1fr; }
