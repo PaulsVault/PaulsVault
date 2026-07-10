@@ -5,6 +5,16 @@ import type { Sheet } from "../types";
 const THEMES = ["classic", "dark", "parchment", "arcane", "infernal", "nature"];
 const LAYOUTS = ["classic", "compact", "spellcaster", "landscape"];
 
+// Plantillas rápidas: aplican tema + acento + tipografía de un clic.
+const TEMPLATES: { name: string; theme: string; accentColor: string; fontFamily: string }[] = [
+  { name: "🏆 Épico dorado", theme: "arcane", accentColor: "#c79a3f", fontFamily: '"Cinzel", Georgia, serif' },
+  { name: "🔮 Arcano violeta", theme: "arcane", accentColor: "#7c5cff", fontFamily: "" },
+  { name: "🔥 Infernal", theme: "infernal", accentColor: "#e0533b", fontFamily: "" },
+  { name: "🌿 Bosque", theme: "nature", accentColor: "#4caf72", fontFamily: "" },
+  { name: "🌊 Marino", theme: "dark", accentColor: "#2f8fd0", fontFamily: "" },
+  { name: "📜 Pergamino", theme: "parchment", accentColor: "#a9842a", fontFamily: "Georgia, serif" },
+];
+
 export function StylePanel({ id, sheet, reload }: { id: string; sheet: Sheet; reload: () => Promise<void> }) {
   const st = sheet.style;
   const [theme, setTheme] = useState(st.theme ?? "classic");
@@ -13,14 +23,20 @@ export function StylePanel({ id, sheet, reload }: { id: string; sheet: Sheet; re
   const [layout, setLayout] = useState(st.layout ?? "classic");
   const [showPortrait, setShowPortrait] = useState(st.showPortrait !== false);
   const [artUrl, setArtUrl] = useState(st.artUrl ?? "");
+  const [diceColor, setDiceColor] = useState(st.tokens?.dice ?? st.accentColor ?? "#7c5cff");
   const [customCss, setCustomCss] = useState(st.customCss ?? "");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
+  function applyTemplate(t: (typeof TEMPLATES)[number]) {
+    setTheme(t.theme); setAccentColor(t.accentColor); setFontFamily(t.fontFamily); setDiceColor(t.accentColor);
+    setNote(`Plantilla «${t.name}» aplicada — pulsa «Guardar estilo».`);
+  }
+
   async function save() {
     setBusy(true); setNote(null);
     try {
-      await api.style(id, { theme, accentColor, fontFamily: fontFamily || undefined, layout, showPortrait, artUrl, customCss });
+      await api.style(id, { theme, accentColor, fontFamily: fontFamily || undefined, layout, showPortrait, artUrl, customCss, tokens: { ...(st.tokens ?? {}), dice: diceColor } });
       await reload();
       setNote("Estilo guardado ✓");
     } catch (e) { setNote("⚠️ " + (e as Error).message); }
@@ -39,6 +55,19 @@ export function StylePanel({ id, sheet, reload }: { id: string; sheet: Sheet; re
   return (
     <div className="stack">
       {note && <p className="note">{note}</p>}
+
+      <section className="panel">
+        <h2>Plantillas rápidas</h2>
+        <div className="template-row">
+          {TEMPLATES.map((t) => (
+            <button key={t.name} className="btn small template-chip" onClick={() => applyTemplate(t)} style={{ borderColor: t.accentColor }}>
+              <span className="swatch" style={{ background: t.accentColor }} />{t.name}
+            </button>
+          ))}
+        </div>
+        <p className="muted small">Aplican tema, acento, tipografía y color de dados de una vez. El modo claro/oscuro global se cambia con el botón ☀️/🌙 de la barra superior.</p>
+      </section>
+
       <section className="panel">
         <h2>Apariencia de la hoja</h2>
         <div className="form">
@@ -47,6 +76,9 @@ export function StylePanel({ id, sheet, reload }: { id: string; sheet: Sheet; re
           </label>
           <label className="field"><span>Color de acento</span>
             <input type="color" value={accentColor} onChange={(e) => setAccentColor(e.target.value)} style={{ height: 42, padding: 4 }} />
+          </label>
+          <label className="field"><span>🎲 Color de dados</span>
+            <input type="color" value={diceColor} onChange={(e) => setDiceColor(e.target.value)} style={{ height: 42, padding: 4 }} />
           </label>
           <label className="field"><span>Tipografía (CSS font-family)</span>
             <input value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} placeholder="p.ej. Georgia, serif" />

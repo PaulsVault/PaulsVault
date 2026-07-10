@@ -50,6 +50,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
 
   const s = sheet;
   const accent = s.style.accentColor ?? "#7c5cff";
+  const diceColor = s.style.tokens?.dice ?? accent;
   const hasSpells = !!s.spellcasting;
   const tabs = TABS.filter((t) => t !== "Conjuros" || hasSpells);
 
@@ -67,7 +68,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
   }
 
   return (
-    <div className="sheet-wrap" style={{ ["--accent" as string]: accent, fontFamily: s.style.fontFamily }}>
+    <div className="sheet-wrap" style={{ ["--accent" as string]: accent, ["--dice" as string]: diceColor, fontFamily: s.style.fontFamily }}>
       <div className="sheet-top">
         <button className="btn" onClick={onBack}>← Biblioteca</button>
         {s.modifiers.active.length > 0 && (

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api, type AuthUser } from "./api";
 import { DragonArt } from "./DragonArt";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function Auth({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
   const [mode, setMode] = useState<"login" | "register">("login");
@@ -24,6 +25,7 @@ export function Auth({ onAuthed }: { onAuthed: (u: AuthUser) => void }) {
 
   return (
     <div className="auth-wrap">
+      <div className="auth-theme-toggle"><ThemeToggle /></div>
       <div className="auth-card">
         {imgFailed ? <DragonArt /> : (
           <div className="dragon-scene">

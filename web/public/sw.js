@@ -1,7 +1,7 @@
 // Service worker: RED-PRIMERO para la navegación (HTML) → tras cada deploy carga la última
 // versión (evita pantallas en blanco por caché vieja). Assets con hash: caché primero.
 // API: siempre a la red. Sube CACHE (v2, v3…) para invalidar cachés viejas.
-const CACHE = "dnd-app-v2";
+const CACHE = "dnd-app-v3";
 const SHELL = ["/", "/index.html", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (e) => {

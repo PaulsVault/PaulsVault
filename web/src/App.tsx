@@ -4,6 +4,7 @@ import { Auth } from "./Auth";
 import { CharacterLibrary } from "./CharacterLibrary";
 import { CharacterView } from "./CharacterView";
 import { ContentBrowser } from "./ContentBrowser";
+import { ThemeToggle } from "./ThemeToggle";
 
 type View = { name: "library" } | { name: "sheet"; id: string } | { name: "content" };
 
@@ -32,6 +33,7 @@ export function App() {
         <button className={`tab${view.name === "library" ? " active" : ""}`} onClick={() => setView({ name: "library" })}>Personajes</button>
         <button className={`tab${view.name === "content" ? " active" : ""}`} onClick={() => setView({ name: "content" })}>Contenido</button>
         <span className="topbar-user">{user.email}</span>
+        <ThemeToggle />
         <button className="btn small" onClick={logout}>Salir</button>
       </header>
 
