@@ -50,9 +50,25 @@ export function computeAC(c: Character): { ac: number; formula: string } {
   let base: number;
   let formula: string;
   if (!armor) {
-    base = 10 + dex;
-    formula = `10 + DES(${fmt(dex)})`;
-    // Nota: Defensa sin armadura (Bárbaro/Monje) se refleja con acOverride o un efecto
+    // Defensa sin armadura: 10 + DES, o la mejor variante según rasgos/clase (se elige la mayor).
+    const has = (n: string) => c.features.some((f) => f.name.toLowerCase().includes(n));
+    const hasClass = (n: string) => c.classes.some((cl) => cl.name.toLowerCase() === n);
+    const options = [{ ac: 10 + dex, formula: `10 + DES(${fmt(dex)})` }];
+    if (has("draconic resilience")) {
+      const cha = abilityMod(c.abilities.cha);
+      options.push({ ac: 10 + dex + cha, formula: `10 + DES(${fmt(dex)}) + CAR(${fmt(cha)})` });
+    }
+    if (hasClass("barbarian") && has("unarmored defense")) {
+      const con = abilityMod(c.abilities.con);
+      options.push({ ac: 10 + dex + con, formula: `10 + DES(${fmt(dex)}) + CON(${fmt(con)})` });
+    }
+    if (hasClass("monk") && has("unarmored defense")) {
+      const wis = abilityMod(c.abilities.wis);
+      options.push({ ac: 10 + dex + wis, formula: `10 + DES(${fmt(dex)}) + SAB(${fmt(wis)})` });
+    }
+    const best = options.reduce((a, b) => (b.ac > a.ac ? b : a));
+    base = best.ac;
+    formula = best.formula;
   } else {
     const bonus = armor.magicBonus ?? 0;
     const armorBase = (armor.armorClass ?? 10) + bonus;

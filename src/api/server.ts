@@ -144,6 +144,11 @@ export function buildApp(): Express {
     res.json({ className: r.className, classLevel: r.classLevel, levelTotal: r.levelTotal, hpGained: r.hpGained, isNewClass: r.isNewClass, sheet: characterSheet(r.character) });
   });
 
+  app.post("/api/characters/:id/level-down", async (req, res) => {
+    const r = await onCharacter(req.params.id, (c) => chars.levelDown(c, req.body?.className));
+    res.json({ className: r.className, classLevel: r.classLevel, levelTotal: r.levelTotal, hpLost: r.hpLost, classRemoved: r.classRemoved, sheet: characterSheet(r.character) });
+  });
+
   // Diario de campaña/sesión
   app.post("/api/characters/:id/journal", async (req, res) =>
     res.status(201).json(characterSheet(await onCharacter(req.params.id, (c) => { chars.addJournalEntry(c, req.body as chars.JournalInput); return c; }))));

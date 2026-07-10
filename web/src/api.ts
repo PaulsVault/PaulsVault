@@ -39,6 +39,7 @@ export const api = {
   updateCharacter: (id: string, set: Dict) => req<Sheet>(`/characters/${enc(id)}`, { method: "PATCH", body: JSON.stringify(set) }),
   deleteCharacter: (id: string) => req<unknown>(`/characters/${enc(id)}?confirm=true`, { method: "DELETE" }),
   levelUp: (id: string, body: Dict) => req<Dict>(`/characters/${enc(id)}/level-up`, { method: "POST", body: JSON.stringify(body) }),
+  levelDown: (id: string, body: Dict = {}) => req<Dict>(`/characters/${enc(id)}/level-down`, { method: "POST", body: JSON.stringify(body) }),
 
   // Diario de campaña/sesión
   addJournal: (id: string, body: Dict) => req<Sheet>(`/characters/${enc(id)}/journal`, { method: "POST", body: JSON.stringify(body) }),

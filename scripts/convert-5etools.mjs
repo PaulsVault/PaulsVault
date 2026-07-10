@@ -216,9 +216,9 @@ if (want("backgrounds")) {
 // ─── Especies ───
 function convertRace(r) {
   const speed = typeof r.speed === "number" ? r.speed : (r.speed?.walk ?? 30);
+  // Los rasgos ya vienen descritos en las entradas (incluida la visión en la oscuridad y resistencias);
+  // no los duplicamos con texto propio en español.
   const traits = (r.entries ?? []).filter((e) => e && e.name).map((e) => `${deTag(e.name)}: ${text(e.entries)}`);
-  if (r.darkvision) traits.unshift(`Visión en la oscuridad ${r.darkvision} ft`);
-  if (Array.isArray(r.resist)) traits.push(`Resistencia: ${r.resist.map((x) => cap(typeof x === "string" ? x : x.resist ?? "")).join(", ")}`);
   return { id: slug(r.name, "species"), type: "species", name: r.name, data: {
     size: (r.size ?? ["M"]).map((s) => SIZE[s] ?? s).join(" o "),
     speed,

@@ -3,6 +3,7 @@ import { api } from "./api";
 import { ABILITIES, ABILITY_LABEL, type AbilityKey, type ContentHit } from "./types";
 
 const ASI_LEVELS = new Set([4, 8, 12, 16, 19]);
+const HIT_DICE: Record<string, number> = { Barbarian: 12, Fighter: 10, Paladin: 10, Ranger: 10, Bard: 8, Cleric: 8, Druid: 8, Monk: 8, Rogue: 8, Warlock: 8, Artificer: 8, Sorcerer: 6, Wizard: 6 };
 
 export function LevelUpDialog({ id, classList, onClose, onDone }: {
   id: string;
@@ -50,6 +51,14 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
 
   const selectedFeat = feats.find((f) => f.name === feat);
   const selectedSubclass = subclasses.find((s) => s.name === subclass);
+  const hitDie = HIT_DICE[className] ?? 8;
+
+  async function rollHp() {
+    try {
+      const r = (await api.roll(`1d${hitDie}`)) as { rolls: { total: number }[] };
+      setHpRoll(r.rolls[0].total);
+    } catch { /* ignora errores de red aquí */ }
+  }
 
   async function submit() {
     setBusy(true); setError(null);
@@ -109,7 +118,12 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
             <div className="row wrap">
               <label className="inline"><input type="radio" checked={hpMode === "average"} onChange={() => setHpMode("average")} /> Promedio fijo</label>
               <label className="inline"><input type="radio" checked={hpMode === "roll"} onChange={() => setHpMode("roll")} /> Tirada</label>
-              {hpMode === "roll" && <input type="number" min={1} max={12} value={hpRoll} onChange={(e) => setHpRoll(Number(e.target.value))} style={{ maxWidth: 80 }} />}
+              {hpMode === "roll" && (
+                <>
+                  <button type="button" className="btn small primary" onClick={rollHp}>🎲 Tirar d{hitDie}</button>
+                  <input type="number" min={1} max={hitDie} value={hpRoll} onChange={(e) => setHpRoll(Number(e.target.value))} style={{ maxWidth: 80 }} title="Resultado de la tirada (editable)" />
+                </>
+              )}
             </div>
           </fieldset>
 

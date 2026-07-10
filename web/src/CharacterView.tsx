@@ -43,6 +43,12 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
     catch (e) { setError((e as Error).message); }
   }, [id]);
 
+  async function doLevelDown() {
+    if (!window.confirm("¿Bajar un nivel? Se quita el último nivel ganado: PG (promedio), rasgos de clase/subclase/dote de ese nivel y un dado de golpe. Los aumentos de característica (ASI) no se revierten automáticamente.")) return;
+    try { await api.levelDown(id); await reload(); }
+    catch (e) { window.alert("⚠️ " + (e as Error).message); }
+  }
+
   useEffect(() => { void reload(); }, [reload]);
 
   if (error) return <div><button className="btn" onClick={onBack}>← Volver</button><p className="error">⚠️ {error}</p></div>;
@@ -80,6 +86,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
         <div className="spacer" />
         <div className="row wrap">
           <button className="btn small" onClick={() => setLevelUp(true)}>⬆ Subir nivel</button>
+          <button className="btn small" onClick={doLevelDown}>⬇ Bajar nivel</button>
           <button className="btn small" onClick={exportJson} title="Exportar JSON">⬇ JSON</button>
           <button className="btn small" onClick={exportMd} title="Exportar hoja Markdown">⬇ MD</button>
           <button className="btn small" onClick={exportPackage} title="Paquete .dndchar autocontenido">⬇ .dndchar</button>
@@ -123,7 +130,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
         {tab === "Conjuros" && hasSpells && <SpellsPanel id={id} sheet={s} reload={reload} />}
         {tab === "Inventario" && <InventoryPanel id={id} reload={reload} />}
         {tab === "Compañeros" && <CompanionsPanel id={id} />}
-        {tab === "Dados" && <DiceTray id={id} />}
+        {tab === "Dados" && <DiceTray id={id} inspiration={s.inspiration} reload={reload} />}
         {tab === "Estilo" && <StylePanel id={id} sheet={s} reload={reload} />}
       </div>
     </div>

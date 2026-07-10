@@ -367,6 +367,8 @@ body {
 .area-glyph-txt { display: flex; flex-direction: column; line-height: 1.25; }
 .spell-mech { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; font-size: .8rem; color: var(--muted); }
 .invite-url { word-break: break-all; margin-top: 2px; }
+.stat.hoverable { cursor: help; }
+.panel.inspire-on { border-color: var(--gold, var(--accent)); box-shadow: 0 0 16px rgba(232,196,122,.28); }
 
 @media (max-width: 560px) {
   .form { grid-template-columns: 1fr; }

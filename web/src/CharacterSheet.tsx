@@ -18,16 +18,21 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
   const [openFeat, setOpenFeat] = useState<string | null>(null);
   const dmgFaces = (dmg: string | null) => { const x = dmg?.match(/d(\d+)/); return x ? Number(x[1]) : undefined; };
 
+  // Detalles de cálculo, mostrados al pasar el cursor (hover), no siempre visibles.
+  const acDetail = s.acFormula + (m.ac.sources.length ? " · " + m.ac.sources.join(", ") : "");
+  const speedDetail = `Base ${s.speedBase} ft` + (m.speed.sources.length ? " · " + m.speed.sources.join(", ") : "");
+  const initDetail = `DES(${fmt(s.abilities.dex.mod)})` + (m.initiative.bonuses.length ? " + " + m.initiative.bonuses.join(", ") : "");
+
   return (
     <div className="sheet-grid">
-      <p className="muted small roll-hint">🎲 Toca una habilidad, salvación, característica, iniciativa, arma o truco para tirar.</p>
+      <p className="muted small roll-hint">🎲 Toca una habilidad, salvación, característica, iniciativa, arma o truco para tirar. Pasa el cursor sobre un valor para ver de dónde sale.</p>
 
       <section className="stat-row">
-        <Stat label="CA" value={s.ac} sub={s.ac !== s.acBase ? `base ${s.acBase}` : s.acFormula} highlight={s.ac !== s.acBase} />
-        <Stat label="Velocidad" value={`${s.speed} ft`} sub={s.speed !== s.speedBase ? `base ${s.speedBase}` : undefined} highlight={s.speed !== s.speedBase} />
-        <Stat label="Iniciativa" value={fmt(s.initiative)} sub={modeBadge(m.initiative.mode) || "🎲 tirar"} onClick={() => onRoll({ type: "initiative", label: "Iniciativa" })} />
-        <Stat label="Comp." value={fmt(s.proficiencyBonus)} />
-        <Stat label="Perc. pasiva" value={s.passivePerception} />
+        <Stat label="CA" value={s.ac} detail={acDetail} highlight={s.ac !== s.acBase} />
+        <Stat label="Velocidad" value={`${s.speed} ft`} detail={speedDetail} highlight={s.speed !== s.speedBase} />
+        <Stat label="Iniciativa" value={fmt(s.initiative)} detail={initDetail} sub={modeBadge(m.initiative.mode) || "🎲 tirar"} onClick={() => onRoll({ type: "initiative", label: "Iniciativa" })} />
+        <Stat label="Comp." value={fmt(s.proficiencyBonus)} detail="Bono de competencia (según tu nivel)" />
+        <Stat label="Perc. pasiva" value={s.passivePerception} detail="10 + tu bono de Percepción" />
       </section>
 
       <div className="sheet-cols">
@@ -132,9 +137,9 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
   );
 }
 
-function Stat({ label, value, sub, highlight, onClick }: { label: string; value: string | number; sub?: string; highlight?: boolean; onClick?: () => void }) {
+function Stat({ label, value, sub, detail, highlight, onClick }: { label: string; value: string | number; sub?: string; detail?: string; highlight?: boolean; onClick?: () => void }) {
   return (
-    <div className={`stat${highlight ? " changed" : ""}${onClick ? " clickable" : ""}`} onClick={onClick}>
+    <div className={`stat${highlight ? " changed" : ""}${onClick ? " clickable" : detail ? " hoverable" : ""}`} onClick={onClick} title={detail}>
       <span className="stat-label">{label}</span>
       <span className="stat-value">{value}</span>
       {sub && <span className="stat-sub">{sub}</span>}

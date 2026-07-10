@@ -6,11 +6,17 @@ interface Entry { text: string; total?: number; crit?: string | null; }
 
 const QUICK = ["1d20", "1d4", "1d6", "1d8", "1d10", "1d12", "2d6", "4d6kh3", "1d100"];
 
-export function DiceTray({ id }: { id: string }) {
+export function DiceTray({ id, inspiration, reload }: { id: string; inspiration: boolean; reload: () => Promise<void> }) {
   const [expr, setExpr] = useState("1d20");
   const [adv, setAdv] = useState("normal");
   const [log, setLog] = useState<Entry[]>([]);
   const [busy, setBusy] = useState(false);
+
+  async function toggleInspiration(value: boolean) {
+    setBusy(true);
+    try { await api.updateCharacter(id, { inspiration: value }); await reload(); }
+    finally { setBusy(false); }
+  }
 
   function push(e: Entry) { setLog((l) => [e, ...l].slice(0, 30)); }
 
@@ -36,6 +42,16 @@ export function DiceTray({ id }: { id: string }) {
 
   return (
     <div className="stack">
+      <section className={`panel${inspiration ? " inspire-on" : ""}`}>
+        <h2>✨ Inspiración heroica</h2>
+        <label className="inline">
+          <input type="checkbox" checked={inspiration} disabled={busy} onChange={(e) => toggleInspiration(e.target.checked)} />
+          {inspiration
+            ? " La tienes: puedes repetir una tirada de d20. Desmárcala cuando la gastes."
+            : " No la tienes ahora. Márcala si tu DM te la concede."}
+        </label>
+      </section>
+
       <section className="panel">
         <h2>Tirar dados</h2>
         <div className="row">

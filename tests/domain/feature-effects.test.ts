@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { createCharacter, levelUp } from "../../src/domain/characters.js";
+import { createCharacter, levelDown, levelUp } from "../../src/domain/characters.js";
 import { computeActiveModifiers } from "../../src/domain/modifiers.js";
+import { computeAC } from "../../src/rules.js";
 import type { Abilities, Database } from "../../src/types.js";
 
 const ABIL: Abilities = { str: 16, dex: 14, con: 14, int: 10, wis: 10, cha: 10 };
@@ -29,5 +30,32 @@ describe("efectos mecánicos de rasgos y dotes", () => {
     const m = computeActiveModifiers(c);
     expect(m.critRange).toBe(20);
     expect(m.initiativeFlat).toBe(0);
+  });
+
+  it("Draconic Resilience: CA sin armadura = 10 + DES + CAR", () => {
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "Drac", className: "Sorcerer", subclass: "Draconic Sorcery", level: 3, species: "Human", background: "Sage",
+        abilities: { str: 8, dex: 14, con: 12, int: 10, wis: 10, cha: 16 } });
+    expect(c.features.some((f) => f.name === "Draconic Resilience")).toBe(true);
+    expect(computeAC(c).ac).toBe(15); // 10 + DES(+2) + CAR(+3)
+  });
+});
+
+describe("bajar de nivel (levelDown)", () => {
+  it("revierte el nivel, quita PG y los rasgos de ese nivel; al bajar de 3 pierde la subclase", () => {
+    const c = fighter(2);
+    levelUp(c, { className: "Fighter", subclass: "Champion" }); // nivel 3 con Champion
+    expect(c.classes[0].subclass).toBe("Champion");
+    const hpAt3 = c.hp.max;
+    const r = levelDown(c);
+    expect(r.levelTotal).toBe(2);
+    expect(c.classes[0].level).toBe(2);
+    expect(c.classes[0].subclass).toBeUndefined();
+    expect(c.features.some((f) => f.name === "Improved Critical")).toBe(false);
+    expect(c.hp.max).toBeLessThan(hpAt3);
+  });
+
+  it("no deja bajar de nivel 1", () => {
+    expect(() => levelDown(fighter(1))).toThrow();
   });
 });

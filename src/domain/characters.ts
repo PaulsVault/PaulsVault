@@ -353,6 +353,54 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   };
 }
 
+export interface LevelDownResult {
+  character: Character; className: string; classLevel: number; levelTotal: number; hpLost: number; classRemoved: boolean;
+}
+
+/** Baja un nivel (reverso de levelUp): quita PG (promedio), rasgos de clase/subclase/dote de ese nivel y el dado. */
+export function levelDown(c: Character, className?: string): LevelDownResult {
+  if (totalLevel(c) <= 1) throw new DomainError("rule", `${c.name} ya está a nivel 1 (mínimo).`);
+  const cls = className
+    ? c.classes.find((x) => x.name.toLowerCase() === className.toLowerCase())
+    : c.classes[c.classes.length - 1];
+  if (!cls) throw new DomainError("not_found", `${c.name} no tiene la clase "${className}".`);
+  const oldLevel = cls.level;
+
+  // Quita los rasgos ganados en este nivel (clase, subclase y dote), identificados por su fuente.
+  c.features = c.features.filter((f) => f.source !== `${cls.name} nivel ${oldLevel}`
+    && (!cls.subclass || f.source !== `${cls.subclass} nivel ${oldLevel}`)
+    && f.source !== `Dote (nivel ${oldLevel})`);
+
+  // PG: reversa del promedio (dado/2+1 + mod CON).
+  const conMod = abilityMod(c.abilities.con);
+  const hpLost = Math.max(1, Math.floor(cls.hitDie / 2) + 1 + conMod);
+  c.hp.max = Math.max(1, c.hp.max - hpLost);
+  c.hp.current = Math.min(c.hp.current, c.hp.max);
+
+  const hd = c.hitDice.find((h) => h.die === cls.hitDie);
+  if (hd) { hd.total = Math.max(0, hd.total - 1); hd.used = Math.min(hd.used, hd.total); }
+
+  cls.level -= 1;
+
+  // Al bajar de nivel 3 se pierde la subclase y todos sus rasgos.
+  if (cls.subclass && cls.level < 3) {
+    const sub = cls.subclass;
+    c.features = c.features.filter((f) => !f.source.startsWith(`${sub} nivel`));
+    cls.subclass = undefined;
+  }
+
+  let classRemoved = false;
+  if (cls.level <= 0) {
+    c.classes = c.classes.filter((x) => x !== cls);
+    if (hd && hd.total <= 0) c.hitDice = c.hitDice.filter((h) => h !== hd);
+    classRemoved = true;
+  }
+
+  recalcSlots(c);
+  touch(c);
+  return { character: c, className: cls.name, classLevel: cls.level, levelTotal: totalLevel(c), hpLost, classRemoved };
+}
+
 // ─── Diario de campaña/sesión ───
 
 export interface JournalInput { date?: string; title?: string; campaign?: string; body: string; }
