@@ -130,6 +130,16 @@ export function buildApp(): Express {
     res.json({ className: r.className, classLevel: r.classLevel, levelTotal: r.levelTotal, hpGained: r.hpGained, isNewClass: r.isNewClass, sheet: characterSheet(r.character) });
   });
 
+  // Diario de campaña/sesión
+  app.post("/api/characters/:id/journal", async (req, res) =>
+    res.status(201).json(characterSheet(await onCharacter(req.params.id, (c) => { chars.addJournalEntry(c, req.body as chars.JournalInput); return c; }))));
+
+  app.patch("/api/characters/:id/journal/:entryId", async (req, res) =>
+    res.json(characterSheet(await onCharacter(req.params.id, (c) => { chars.updateJournalEntry(c, req.params.entryId, req.body as Partial<chars.JournalInput>); return c; }))));
+
+  app.delete("/api/characters/:id/journal/:entryId", async (req, res) =>
+    res.json(characterSheet(await onCharacter(req.params.id, (c) => { chars.deleteJournalEntry(c, req.params.entryId); return c; }))));
+
   app.get("/api/characters/:id/export", async (req, res) =>
     res.json(chars.exportCharacter(chars.requireCharacter(await loadDb(), req.params.id), (req.query["format"] as "json" | "markdown") ?? "json")));
 

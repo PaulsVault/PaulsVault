@@ -34,6 +34,11 @@ export const api = {
   deleteCharacter: (id: string) => req<unknown>(`/characters/${enc(id)}?confirm=true`, { method: "DELETE" }),
   levelUp: (id: string, body: Dict) => req<Dict>(`/characters/${enc(id)}/level-up`, { method: "POST", body: JSON.stringify(body) }),
 
+  // Diario de campaña/sesión
+  addJournal: (id: string, body: Dict) => req<Sheet>(`/characters/${enc(id)}/journal`, { method: "POST", body: JSON.stringify(body) }),
+  updateJournal: (id: string, entryId: string, body: Dict) => req<Sheet>(`/characters/${enc(id)}/journal/${enc(entryId)}`, { method: "PATCH", body: JSON.stringify(body) }),
+  deleteJournal: (id: string, entryId: string) => req<Sheet>(`/characters/${enc(id)}/journal/${enc(entryId)}`, { method: "DELETE" }),
+
   // Contenido
   content: (type: string, query = "") => req<{ results: ContentHit[] }>(`/content?type=${type}&limit=500${query ? `&query=${enc(query)}` : ""}`).then((r) => r.results),
   spells: (opts: { query?: string; spellClass?: string; spellLevel?: number } = {}) =>

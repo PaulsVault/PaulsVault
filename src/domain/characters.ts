@@ -9,7 +9,7 @@ import {
   slotsForCasterLevel, totalLevel,
 } from "../rules.js";
 import type {
-  AbilityKey, Abilities, Character, ClassLevel, Database, FeatureUses,
+  AbilityKey, Abilities, Character, ClassLevel, Database, FeatureUses, JournalEntry, Personality,
 } from "../types.js";
 
 // ─── Tipos de entrada ───
@@ -43,6 +43,7 @@ export interface UpdateCharacterInput {
   appearance?: string;
   backstory?: string;
   notes?: string;
+  personality?: Personality;
   abilities?: Partial<Abilities>;
   addSkills?: string[];
   removeSkills?: string[];
@@ -271,6 +272,7 @@ export function updateCharacter(c: Character, set: UpdateCharacterInput): Charac
   if (set.appearance !== undefined) c.appearance = set.appearance;
   if (set.backstory !== undefined) c.backstory = set.backstory;
   if (set.notes !== undefined) c.notes = set.notes;
+  if (set.personality) c.personality = { ...c.personality, ...set.personality };
   if (set.abilities) Object.assign(c.abilities, set.abilities);
   const lower = (arr: string[]) => arr.map((s) => s.toLowerCase());
   if (set.addSkills) c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...set.addSkills])];
@@ -349,6 +351,44 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
     isNewClass,
     subclass: input.subclass,
   };
+}
+
+// ─── Diario de campaña/sesión ───
+
+export interface JournalInput { date?: string; title?: string; campaign?: string; body: string; }
+
+export function addJournalEntry(c: Character, input: JournalInput): JournalEntry {
+  if (!input.body?.trim()) throw new DomainError("validation", "La entrada del diario no puede estar vacía.");
+  const entry: JournalEntry = {
+    id: newId("jrn"),
+    date: input.date?.trim() || new Date().toISOString().slice(0, 10),
+    title: input.title?.trim() || undefined,
+    campaign: input.campaign?.trim() || undefined,
+    body: input.body.trim(),
+    createdAt: new Date().toISOString(),
+  };
+  c.journal = [...(c.journal ?? []), entry];
+  touch(c);
+  return entry;
+}
+
+export function updateJournalEntry(c: Character, entryId: string, set: Partial<JournalInput>): JournalEntry {
+  const e = (c.journal ?? []).find((x) => x.id === entryId);
+  if (!e) throw new DomainError("not_found", `Entrada de diario "${entryId}" no encontrada.`);
+  if (set.date !== undefined && set.date.trim()) e.date = set.date.trim();
+  if (set.title !== undefined) e.title = set.title.trim() || undefined;
+  if (set.campaign !== undefined) e.campaign = set.campaign.trim() || undefined;
+  if (set.body !== undefined && set.body.trim()) e.body = set.body.trim();
+  touch(c);
+  return e;
+}
+
+export function deleteJournalEntry(c: Character, entryId: string): { deleted: true; id: string } {
+  const before = (c.journal ?? []).length;
+  c.journal = (c.journal ?? []).filter((x) => x.id !== entryId);
+  if (c.journal.length === before) throw new DomainError("not_found", `Entrada de diario "${entryId}" no encontrada.`);
+  touch(c);
+  return { deleted: true, id: entryId };
 }
 
 export function deleteCharacter(db: Database, idOrName: string, confirm: boolean): { deleted: true; id: string; name: string } {

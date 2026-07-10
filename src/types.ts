@@ -181,9 +181,29 @@ export interface Character {
   appearance?: string;
   backstory?: string;
   notes?: string;
+  personality?: Personality;
+  journal?: JournalEntry[];
   xp?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Rasgos de rol (PHB 2024): personalidad, ideales, vínculos y defectos. */
+export interface Personality {
+  traits?: string;
+  ideals?: string;
+  bonds?: string;
+  flaws?: string;
+}
+
+/** Entrada del diario de campaña/sesión, fechada, para trackear la historia del personaje. */
+export interface JournalEntry {
+  id: string;
+  date: string;        // fecha de la sesión (YYYY-MM-DD)
+  title?: string;
+  campaign?: string;
+  body: string;
+  createdAt: string;
 }
 
 // ─── Content packs ───

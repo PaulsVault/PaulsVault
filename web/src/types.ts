@@ -26,6 +26,12 @@ export interface SheetStyle {
 
 export interface RollLine { mode: "normal" | "advantage" | "disadvantage"; bonuses: string[]; }
 
+export interface Personality { traits?: string; ideals?: string; bonds?: string; flaws?: string; }
+
+export interface JournalEntry {
+  id: string; date: string; title?: string; campaign?: string; body: string; createdAt: string;
+}
+
 export interface Modifiers {
   ac: { base: number; final: number; sources: string[] };
   speed: { base: number; final: number; sources: string[] };
@@ -53,6 +59,12 @@ export interface Sheet {
   cantrips: { name: string }[];
   classList: { name: string; subclass: string | null; level: number }[];
   features: { name: string; source: string; description: string | null }[];
+  speciesTraits: string[];
+  personality: Personality;
+  journal: JournalEntry[];
+  appearance: string | null;
+  backstory: string | null;
+  notes: string | null;
   alignment: string | null;
   spellcasting: null | {
     dc: number; attack: number; ability: string;

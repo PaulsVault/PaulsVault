@@ -8,13 +8,14 @@ import { CharacterSheet } from "./CharacterSheet";
 
 export interface RollRequest { type: string; target?: string; label: string; advantage?: string; critical?: boolean; faces?: number; }
 import { CombatPanel } from "./panels/CombatPanel";
+import { InfoPanel } from "./panels/InfoPanel";
 import { SpellsPanel } from "./panels/SpellsPanel";
 import { InventoryPanel } from "./panels/InventoryPanel";
 import { CompanionsPanel } from "./panels/CompanionsPanel";
 import { DiceTray } from "./panels/DiceTray";
 import { StylePanel } from "./panels/StylePanel";
 
-const TABS = ["Hoja", "Combate", "Conjuros", "Inventario", "Compañeros", "Dados", "Estilo"] as const;
+const TABS = ["Hoja", "Info", "Combate", "Conjuros", "Inventario", "Compañeros", "Dados", "Estilo"] as const;
 type Tab = (typeof TABS)[number];
 
 export function CharacterView({ id, onBack }: { id: string; onBack: () => void }) {
@@ -116,6 +117,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
 
       <div className="tab-body">
         {tab === "Hoja" && <CharacterSheet sheet={s} onRoll={doRoll} />}
+        {tab === "Info" && <InfoPanel id={id} sheet={s} reload={reload} />}
         {tab === "Combate" && <CombatPanel id={id} sheet={s} reload={reload} />}
         {tab === "Conjuros" && hasSpells && <SpellsPanel id={id} sheet={s} reload={reload} />}
         {tab === "Inventario" && <InventoryPanel id={id} reload={reload} />}
