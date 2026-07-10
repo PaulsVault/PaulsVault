@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { AreaGlyph } from "../AreaGlyph";
+import { DiceRoll, type RollView } from "../DiceRoll";
 import type { ContentHit, Sheet } from "../types";
 
-interface Known { name: string; level: number; prepared: boolean; alwaysPrepared?: boolean; concentration?: boolean; source: string; summary?: string; }
+interface Mech { kind?: string; save?: string; attack?: boolean; damage?: string; baseDamage?: string; damageType?: string; range?: string; shape?: string; areaSize?: number; area?: string; }
+interface Known { name: string; level: number; prepared: boolean; alwaysPrepared?: boolean; concentration?: boolean; source: string; summary?: string; mechanics?: Mech; }
 interface SpellView { saveDC: number | null; attackBonus: number | null; slots: Record<string, { max: number; used: number }>; pactSlots?: { level: number; max: number; used: number } | null; concentratingOn?: string | null; spells: Known[]; }
+interface CastInfo { spell: string; castAt: number; upcast: boolean; saveDC: number | null; attackBonus: number | null; concentration: boolean; concentrationBroken?: string; summary?: string; mech: Mech; }
+
+const SAVE_LABEL: Record<string, string> = { str: "Fuerza", dex: "Destreza", con: "Constitución", int: "Inteligencia", wis: "Sabiduría", cha: "Carisma" };
+const fmt = (n: number | null) => (n == null ? "" : n >= 0 ? `+${n}` : `${n}`);
 
 export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; reload: () => Promise<void> }) {
   const [view, setView] = useState<SpellView | null>(null);
@@ -12,6 +19,8 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
   const [found, setFound] = useState<ContentHit[]>([]);
   const [note, setNote] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
+  const [castInfo, setCastInfo] = useState<CastInfo | null>(null);
+  const [dmgRoll, setDmgRoll] = useState<RollView | null>(null);
 
   async function refresh() { setView((await api.getSpells(id)) as unknown as SpellView); }
   useEffect(() => { void refresh(); }, [id]);
@@ -24,18 +33,30 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
   }
 
   async function cast(name: string, level?: number) {
-    setBusy(true); setNote(null);
+    setBusy(true); setNote(null); setCastInfo(null);
     try {
       const r = (await api.castSpell(id, { spell: name, level })) as Record<string, unknown>;
       await refresh(); await reload();
-      const parts = [`✨ Lanzas ${r["spell"]}${r["upcast"] ? ` a nivel ${r["castAt"]}` : ""}.`];
-      if (r["saveDC"] != null) parts.push(`CD de salvación ${r["saveDC"]}.`);
-      if (r["concentration"]) parts.push("🌀 Concentración activa.");
-      if (r["concentrationBroken"]) parts.push(`Rompe la concentración en «${r["concentrationBroken"]}».`);
-      if (r["summary"]) parts.push(`— ${r["summary"]}`);
-      setNote(parts.join(" "));
+      setCastInfo({
+        spell: String(r["spell"]), castAt: Number(r["castAt"]), upcast: Boolean(r["upcast"]),
+        saveDC: (r["saveDC"] as number) ?? null, attackBonus: (r["attackBonus"] as number) ?? null,
+        concentration: Boolean(r["concentration"]), concentrationBroken: r["concentrationBroken"] as string | undefined,
+        summary: r["summary"] as string | undefined, mech: (r["mechanics"] ?? {}) as Mech,
+      });
     } catch (e) { setNote("⚠️ " + (e as Error).message); }
     finally { setBusy(false); }
+  }
+
+  async function rollDamage(m: Mech) {
+    if (!m.damage) return;
+    try {
+      const res = (await api.roll(m.damage)) as { rolls: { total: number; breakdown: string }[] };
+      const roll = res.rolls[0];
+      setDmgRoll({
+        label: `${m.kind === "heal" ? "Curación" : "Daño"}${m.damageType ? ` de ${m.damageType}` : ""} · ${m.damage}`,
+        total: roll.total, breakdown: roll.breakdown, faces: Number(m.damage.split("d")[1]) || 6,
+      });
+    } catch (e) { setNote("⚠️ " + (e as Error).message); }
   }
 
   async function search() {
@@ -49,6 +70,28 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
   return (
     <div className="stack">
       {note && <p className="note">{note}</p>}
+      {dmgRoll && <DiceRoll roll={dmgRoll} onClose={() => setDmgRoll(null)} />}
+
+      {castInfo && (
+        <section className="panel cast-result">
+          <button className="icon-btn cast-close" onClick={() => setCastInfo(null)} title="Cerrar">✕</button>
+          <div className="cast-title">✨ Lanzas {castInfo.spell}{castInfo.upcast ? ` a nivel ${castInfo.castAt}` : ""}</div>
+          <div className="cast-meta">
+            {castInfo.mech.save && <span className="chip">🛡️ Salvación de {SAVE_LABEL[castInfo.mech.save] ?? castInfo.mech.save} · CD {castInfo.saveDC}</span>}
+            {castInfo.mech.attack && <span className="chip">🎯 Ataque de conjuro {fmt(castInfo.attackBonus)}</span>}
+            {!castInfo.mech.save && !castInfo.mech.attack && castInfo.saveDC != null && <span className="chip">CD {castInfo.saveDC}</span>}
+            {castInfo.concentration && <span className="chip">🌀 Concentración</span>}
+            {castInfo.concentrationBroken && <span className="chip danger">rompe «{castInfo.concentrationBroken}»</span>}
+          </div>
+          {castInfo.mech.shape && <AreaGlyph shape={castInfo.mech.shape} size={castInfo.mech.areaSize} range={castInfo.mech.range} />}
+          {castInfo.mech.damage && (
+            <button className="btn primary dmg-btn" onClick={() => rollDamage(castInfo.mech)}>
+              🎲 Tirar {castInfo.mech.kind === "heal" ? "curación" : "daño"} {castInfo.mech.damage}{castInfo.mech.damageType ? ` (${castInfo.mech.damageType})` : ""}
+            </button>
+          )}
+          {castInfo.summary && <p className="spell-desc">{castInfo.summary}</p>}
+        </section>
+      )}
 
       <section className="panel">
         <h2>Slots {sheet.spellcasting && <span className="muted small">· CD {sheet.spellcasting.dc} · ataque {sheet.spellcasting.attack >= 0 ? "+" : ""}{sheet.spellcasting.attack}</span>}</h2>
@@ -96,6 +139,14 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
               <div className="spell-head" onClick={() => sp.summary && setOpen(open === sp.name ? null : sp.name)} style={{ cursor: sp.summary ? "pointer" : "default" }}>
                 <b>{sp.name} {sp.summary && <span className="muted">{open === sp.name ? "▲" : "▼"}</span>}</b>
                 <span className="muted small">{sp.level === 0 ? "Truco" : `Nv ${sp.level}`}{sp.concentration ? " · 🌀 concentración" : ""}{sp.prepared ? " · preparado" : ""}</span>
+                {(sp.mechanics?.save || sp.mechanics?.attack || sp.mechanics?.damage || sp.mechanics?.area) && (
+                  <div className="spell-mech">
+                    {sp.mechanics.save && <span>🛡️ {SAVE_LABEL[sp.mechanics.save] ?? sp.mechanics.save}</span>}
+                    {sp.mechanics.attack && <span>🎯 ataque</span>}
+                    {sp.mechanics.damage && <span>{sp.mechanics.kind === "heal" ? "❤️" : "💥"} {sp.mechanics.baseDamage}{sp.mechanics.damageType ? ` ${sp.mechanics.damageType}` : ""}</span>}
+                    {sp.mechanics.area && <span>🔵 {sp.mechanics.area}</span>}
+                  </div>
+                )}
                 {open === sp.name && sp.summary && <p className="spell-desc">{sp.summary}</p>}
               </div>
               <div className="spell-actions">

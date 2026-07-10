@@ -6,6 +6,91 @@ import { DomainError } from "./errors.js";
 import { newId, spellStats } from "../rules.js";
 import type { Character, KnownSpell } from "../types.js";
 
+// ─── Extracción de mecánicas del texto del conjuro (salvación, daño, área) ───
+
+// El SRD viene en dos packs: srd-core (resúmenes en español abreviado) y
+// srd-52-reference (prosa en inglés). El parser entiende ambos idiomas.
+const ABILITY_BY_NAME: Record<string, string> = {
+  strength: "str", dexterity: "dex", constitution: "con", intelligence: "int", wisdom: "wis", charisma: "cha",
+  fue: "str", des: "dex", con: "con", int: "int", sab: "wis", car: "cha",
+  fuerza: "str", destreza: "dex", "constitución": "con", constitucion: "con",
+  inteligencia: "int", "sabiduría": "wis", sabiduria: "wis", carisma: "cha",
+};
+const TYPE_MAP: Record<string, string> = {
+  acid: "Ácido", bludgeoning: "Contundente", cold: "Frío", fire: "Fuego", force: "Fuerza",
+  lightning: "Relámpago", necrotic: "Necrótico", piercing: "Perforante", poison: "Veneno",
+  psychic: "Psíquico", radiant: "Radiante", slashing: "Cortante", thunder: "Trueno",
+  "ácido": "Ácido", acido: "Ácido", contundente: "Contundente", "frío": "Frío", frio: "Frío",
+  fuego: "Fuego", "relámpago": "Relámpago", relampago: "Relámpago", rayo: "Relámpago",
+  "necrótico": "Necrótico", necrotico: "Necrótico", perforante: "Perforante", veneno: "Veneno",
+  "psíquico": "Psíquico", psiquico: "Psíquico", radiante: "Radiante", cortante: "Cortante", trueno: "Trueno",
+};
+const SHAPE_MAP: Record<string, string> = {
+  sphere: "sphere", cone: "cone", cube: "cube", line: "line", cylinder: "cylinder", emanation: "emanation",
+  esfera: "sphere", cono: "cone", cubo: "cube", "línea": "line", linea: "line",
+  cilindro: "cylinder", "emanación": "emanation", "emanacion": "emanation",
+};
+const SHAPE_LABEL: Record<string, string> = {
+  sphere: "Esfera", cone: "Cono", cube: "Cubo", line: "Línea", cylinder: "Cilindro", emanation: "Emanación",
+};
+
+export interface SpellMechanics {
+  kind?: "damage" | "heal"; // qué representan los dados
+  save?: string;            // característica de salvación del objetivo: "dex", "con"…
+  attack?: boolean;         // requiere tirada de ataque de conjuro
+  damage?: string;          // dados ajustados al nivel lanzado, p.ej. "10d6"
+  baseDamage?: string;      // dados base sin upcasting
+  damageType?: string;      // "Fuego", "Frío"…
+  range?: string;           // alcance (dato estructurado del conjuro)
+  shape?: string;           // "sphere" | "cone" | "cube" | "line" | "cylinder" | "emanation"
+  areaSize?: number;        // tamaño del área en pies
+  area?: string;            // etiqueta legible, p.ej. "20 ft Esfera"
+}
+
+/** Extrae salvación, daño/curación (con upcasting), tipo y área del resumen (ES/EN) del conjuro. */
+export function spellMechanics(data: Record<string, unknown>, castAt?: number, spellLevel?: number): SpellMechanics {
+  const summary = String(data["summary"] ?? "");
+  const m: SpellMechanics = {};
+  if (data["range"]) m.range = String(data["range"]);
+
+  const save = summary.match(/(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma)\s+saving throw/i)
+    ?? summary.match(/salvaci[óo]n\s+(?:de\s+)?(FUE|DES|CON|INT|SAB|CAR|Fuerza|Destreza|Constituci[óo]n|Inteligencia|Sabidur[íi]a|Carisma)/i);
+  if (save) m.save = ABILITY_BY_NAME[save[1].toLowerCase()];
+  if (/spell attack|ataque de conjuro/i.test(summary)) m.attack = true;
+
+  // Tipo de daño: inglés "X damage", español "NdM(+N) de X" o "daño X".
+  const enT = summary.match(/\b(acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poison|psychic|radiant|slashing|thunder)\s+damage/i);
+  const esT = summary.match(/\d+d\d+(?:\s*[+\-]\s*\d+)?\s+de\s+([a-záéíóú]+)/i) ?? summary.match(/da[ñn]o\s+(?:de\s+)?([a-záéíóú]+)/i);
+  const typeWord = (enT?.[1] ?? esT?.[1])?.toLowerCase();
+  if (typeWord && TYPE_MAP[typeWord]) m.damageType = TYPE_MAP[typeWord];
+
+  const heal = /\b(regains?|hit points|healing)\b/i.test(summary) || /\bcura\b|curaci[óo]n|recupera|puntos de golpe|\bPG\b/i.test(summary);
+
+  const dice = summary.match(/(\d+)d(\d+)/);
+  if (dice) {
+    const faces = Number(dice[2]);
+    let count = Number(dice[1]);
+    m.baseDamage = `${count}d${faces}`;
+    m.kind = m.damageType ? "damage" : heal ? "heal" : "damage";
+    const up = summary.match(/increases by (\d+)d(\d+)/i) ?? summary.match(/\+\s*(\d+)d(\d+)\s+por nivel/i);
+    if (up && castAt !== undefined && spellLevel !== undefined && castAt > spellLevel && Number(up[2]) === faces) {
+      count += Number(up[1]) * (castAt - spellLevel);
+    }
+    m.damage = `${count}d${faces}`;
+  }
+
+  // Área: inglés "20-foot-radius Sphere" / "60-foot Cone"; español "Esfera de 20 ft".
+  const enA = summary.match(/(\d+)-foot(?:-radius)?\s+(Sphere|Cone|Cube|Line|Cylinder|Emanation)/i);
+  const esA = summary.match(/(Esfera|Cono|Cubo|L[íi]nea|Cilindro|Emanaci[óo]n)\s+de\s+(\d+)/i);
+  const enR = summary.match(/(\d+)-foot radius/i);
+  if (enA) { m.areaSize = Number(enA[1]); m.shape = SHAPE_MAP[enA[2].toLowerCase()]; }
+  else if (esA) { m.areaSize = Number(esA[2]); m.shape = SHAPE_MAP[esA[1].toLowerCase()]; }
+  else if (enR) { m.areaSize = Number(enR[1]); m.shape = "sphere"; }
+  if (m.shape && m.areaSize) m.area = `${m.areaSize} ft · ${SHAPE_LABEL[m.shape]}`;
+
+  return m;
+}
+
 export function spellcastingView(c: Character): Record<string, unknown> {
   const sc = c.spellcasting;
   const stats = spellStats(c);
@@ -23,6 +108,7 @@ export function spellcastingView(c: Character): Record<string, unknown> {
       ...(s.concentration ? { concentration: true } : {}),
       source: s.source,
       summary: (findEntry(s.name, "spell")?.data["summary"] as string | undefined) ?? undefined,
+      mechanics: spellMechanics((findEntry(s.name, "spell")?.data ?? {}) as Record<string, unknown>),
     })),
   };
 }
@@ -92,6 +178,7 @@ export interface CastResult {
   saveDC: number | null;
   attackBonus: number | null;
   summary?: string;
+  mechanics?: SpellMechanics;
 }
 
 export function castSpell(c: Character, input: CastSpellInput): CastResult {
@@ -165,6 +252,7 @@ export function castSpell(c: Character, input: CastSpellInput): CastResult {
     saveDC: stats?.dc ?? null,
     attackBonus: stats?.attack ?? null,
     summary: (cd["summary"] as string) ?? undefined,
+    mechanics: spellMechanics(cd, castAt, spellLevel),
   };
 }
 
