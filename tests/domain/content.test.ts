@@ -5,8 +5,8 @@ import {
 import { DomainError } from "../../src/domain/errors.js";
 import type { ContentPack } from "../../src/types.js";
 
-// El SRD viene empaquetado (srd-core, srd-52-reference); el homebrew vive en la DB.
-const BUNDLED = new Set(["srd-core", "srd-52-reference"]);
+// El SRD viene empaquetado (srd-core, srd-52-reference, srd-subclasses); el homebrew vive en la DB.
+const BUNDLED = new Set(["srd-core", "srd-52-reference", "srd-subclasses"]);
 
 beforeEach(async () => {
   for (const p of listContentPacks()) if (!BUNDLED.has(p.id)) await removePack(p.id);

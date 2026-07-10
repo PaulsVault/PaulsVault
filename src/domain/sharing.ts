@@ -1,7 +1,7 @@
 // Dominio de entrega a terceros: paquete portable `.dndchar` autocontenido.
 // Un paquete lleva uno o varios personajes + los content packs homebrew que referencian,
 // para que otra persona los reciba y use idénticos. No incluye los packs oficiales
-// (srd-core, srd-52-reference), que se asumen disponibles en cualquier instalación.
+// (srd-core, srd-52-reference, srd-subclasses), que se asumen disponibles en cualquier instalación.
 
 import { listPacks } from "../store.js";
 import { DomainError } from "./errors.js";
@@ -9,7 +9,7 @@ import { importCharacter, requireCharacter } from "./characters.js";
 import { importPack } from "./content.js";
 import type { Character, ContentPack, Database } from "../types.js";
 
-export const OFFICIAL_PACKS = new Set(["srd-core", "srd-52-reference"]);
+export const OFFICIAL_PACKS = new Set(["srd-core", "srd-52-reference", "srd-subclasses"]);
 
 export interface DndCharPackage {
   format: "dndchar";

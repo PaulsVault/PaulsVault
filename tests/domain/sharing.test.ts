@@ -10,7 +10,7 @@ import type { Abilities, ContentPack, Database } from "../../src/types.js";
 const newDb = (): Database => ({ characters: [] });
 
 const ABIL: Abilities = { str: 8, dex: 14, con: 12, int: 16, wis: 12, cha: 10 };
-const BUNDLED = new Set(["srd-core", "srd-52-reference"]);
+const BUNDLED = new Set(["srd-core", "srd-52-reference", "srd-subclasses"]);
 
 const HB: ContentPack = {
   id: "myhb", name: "Homebrew propio", version: "1.0.0", source: "Homebrew",

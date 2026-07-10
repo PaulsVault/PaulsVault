@@ -12,6 +12,7 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
 }) {
   const [classes, setClasses] = useState<ContentHit[]>([]);
   const [feats, setFeats] = useState<ContentHit[]>([]);
+  const [subclasses, setSubclasses] = useState<ContentHit[]>([]);
   const [className, setClassName] = useState(classList[0]?.name ?? "");
   const [subclass, setSubclass] = useState("");
   const [hpMode, setHpMode] = useState<"average" | "roll">("average");
@@ -27,6 +28,15 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
     void api.content("feat").then((f) => { setFeats(f); setFeat((prev) => prev || f[0]?.name || ""); });
   }, []);
 
+  // Subclases disponibles para la clase seleccionada (el dato data.class coincide con el nombre).
+  useEffect(() => {
+    if (!className) { setSubclasses([]); return; }
+    void api.content("subclass", className).then((subs) => {
+      setSubclasses(subs);
+      setSubclass(subs[0]?.name ?? "");
+    });
+  }, [className]);
+
   const existing = classList.find((c) => c.name.toLowerCase() === className.toLowerCase());
   const resultingLevel = existing ? existing.level + 1 : 1;
   const grantsSubclass = resultingLevel === 3 && !existing?.subclass;
@@ -39,6 +49,7 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   }, [classList, classes]);
 
   const selectedFeat = feats.find((f) => f.name === feat);
+  const selectedSubclass = subclasses.find((s) => s.name === subclass);
 
   async function submit() {
     setBusy(true); setError(null);
@@ -79,9 +90,18 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
           <p className="muted small span2" style={{ margin: "-6px 0 0" }}>Sube a nivel {resultingLevel} de {className}.</p>
 
           {grantsSubclass && (
-            <label className="field span2"><span>✨ Subclase (se elige a nivel 3)</span>
-              <input value={subclass} onChange={(e) => setSubclass(e.target.value)} placeholder="p.ej. Evoker, Champion, Life Domain…" />
-            </label>
+            <div className="field span2"><span>✨ Subclase (se elige a nivel 3)</span>
+              {subclasses.length > 0 ? (
+                <>
+                  <select value={subclass} onChange={(e) => setSubclass(e.target.value)}>
+                    {subclasses.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+                  {selectedSubclass?.preview && <p className="spell-desc">{selectedSubclass.preview}</p>}
+                </>
+              ) : (
+                <input value={subclass} onChange={(e) => setSubclass(e.target.value)} placeholder="Escribe la subclase…" />
+              )}
+            </div>
           )}
 
           <fieldset className="abilities-input span2">

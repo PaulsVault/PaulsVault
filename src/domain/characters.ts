@@ -133,6 +133,28 @@ export function recalcSlots(c: Character): void {
   }
 }
 
+/** Añade los rasgos de clase del nivel dado (keyFeatures del contenido), sin duplicar. */
+export function addClassFeatures(c: Character, className: string, level: number): void {
+  const entry = findEntry(className, "class");
+  const kf = entry?.data["keyFeatures"] as Record<string, string[]> | undefined;
+  for (const name of kf?.[String(level)] ?? []) {
+    if (name === "Subclass" || name === "Subclase") continue; // placeholder: la subclase se elige aparte
+    if (!c.features.some((f) => f.name === name)) {
+      c.features.push({ name, source: `${className} nivel ${level}` });
+    }
+  }
+}
+
+/** Añade los rasgos de subclase del nivel dado (features del contenido), sin duplicar. */
+export function addSubclassFeatures(c: Character, subclassName: string, level: number): void {
+  const entry = findEntry(subclassName, "subclass");
+  const feats = (entry?.data["features"] as { level: number; name: string; summary?: string }[] | undefined) ?? [];
+  for (const f of feats) {
+    if (f.level !== level || c.features.some((x) => x.name === f.name)) continue;
+    c.features.push({ name: f.name, source: `${subclassName} nivel ${level}`, description: f.summary });
+  }
+}
+
 // ─── Operaciones ───
 
 export function createCharacter(db: Database, input: CreateCharacterInput): Character {
@@ -195,6 +217,10 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
     const fe = findEntry(bgFeat.replace(/\s*\(.*/, "").trim(), "feat");
     c.features.push({ name: bgFeat, source: "Trasfondo (dote de origen)", description: (fe?.data["summary"] as string | undefined) });
   }
+
+  // Rasgos de clase por cada nivel y rasgos de subclase (si se eligió a nivel 3+).
+  for (let l = 1; l <= level; l++) addClassFeatures(c, input.className, l);
+  if (input.subclass && level >= 3) for (let l = 3; l <= level; l++) addSubclassFeatures(c, input.subclass, l);
 
   recalcSlots(c);
   db.characters.push(c);
@@ -283,6 +309,10 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   }
   cls.level += 1;
   if (input.subclass) cls.subclass = input.subclass;
+
+  // Rasgos ganados en este nivel de clase y de subclase.
+  addClassFeatures(c, cls.name, cls.level);
+  if (cls.subclass) addSubclassFeatures(c, cls.subclass, cls.level);
 
   if (input.abilityIncreases) {
     for (const [k, v] of Object.entries(input.abilityIncreases)) {

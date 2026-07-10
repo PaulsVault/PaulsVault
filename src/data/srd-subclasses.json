@@ -1,0 +1,90 @@
+{
+  "id": "srd-subclasses",
+  "name": "SRD 5.2.1 — Subclases (D&D 2024)",
+  "version": "1.0.0",
+  "source": "System Reference Document 5.2.1, © 2024 Wizards of the Coast LLC. Licencia CC-BY-4.0. Resúmenes propios de las subclases del SRD.",
+  "description": "Una subclase por clase (SRD 5.2.1) con sus rasgos por nivel. Amplía o reemplaza con content packs.",
+  "entries": [
+    { "id": "subclass:berserker", "type": "subclass", "name": "Path of the Berserker", "data": { "class": "Barbarian", "summary": "Bárbaro que canaliza la furia en violencia arrolladora.", "features": [
+      { "level": 3, "name": "Frenzy", "summary": "Mientras estás en Furia y usas Reckless Attack, tu primer impacto hace daño extra (Nd6 según tu bono de competencia)." },
+      { "level": 6, "name": "Mindless Rage", "summary": "No puedes estar Charmed ni Frightened mientras estás en Furia; si lo estabas, se suspende." },
+      { "level": 10, "name": "Retaliation", "summary": "Reacción: cuando una criatura a 5 ft te daña, puedes atacarla con arma cuerpo a cuerpo." },
+      { "level": 14, "name": "Intimidating Presence", "summary": "Acción adicional: aterras a criaturas cercanas (salvación de SAB o Frightened)." }
+    ] } },
+    { "id": "subclass:college-of-lore", "type": "subclass", "name": "College of Lore", "data": { "class": "Bard", "summary": "Bardo erudito que recopila secretos y saberes.", "features": [
+      { "level": 3, "name": "Bonus Proficiencies", "summary": "Competencia en tres habilidades a tu elección." },
+      { "level": 3, "name": "Cutting Words", "summary": "Reacción: gasta Inspiración Bárdica para restar el dado a la tirada de ataque, prueba o daño de una criatura." },
+      { "level": 6, "name": "Magical Discoveries", "summary": "Aprendes dos conjuros de las listas de Clérigo, Druida o Mago." },
+      { "level": 14, "name": "Peerless Skill", "summary": "Puedes sumar Inspiración Bárdica a tus propias pruebas de característica o tiradas de ataque." }
+    ] } },
+    { "id": "subclass:life-domain", "type": "subclass", "name": "Life Domain", "data": { "class": "Cleric", "summary": "Clérigo de la vida, sanador nato.", "features": [
+      { "level": 3, "name": "Disciple of Life", "summary": "Tus conjuros de curación de nivel 1+ curan 2 + el nivel del slot PG adicionales." },
+      { "level": 3, "name": "Preserve Life", "summary": "Channel Divinity: reparte curación igual a 5× tu nivel entre criaturas cercanas (hasta la mitad de sus PG)." },
+      { "level": 6, "name": "Blessed Healer", "summary": "Cuando curas a otra criatura con un conjuro, tú también recuperas 2 + el nivel del slot PG." },
+      { "level": 17, "name": "Supreme Healing", "summary": "Cuando tirarías dados de curación, usas el máximo en su lugar." }
+    ] } },
+    { "id": "subclass:circle-of-the-land", "type": "subclass", "name": "Circle of the Land", "data": { "class": "Druid", "summary": "Druida ligado a un tipo de terreno y su magia.", "features": [
+      { "level": 3, "name": "Circle of the Land Spells", "summary": "Ganas conjuros siempre preparados según el terreno elegido (bosque, costa, desierto, etc.)." },
+      { "level": 3, "name": "Land's Aid", "summary": "Channel Nature: en un punto cercano, cura a un aliado y daña a los enemigos (2d6 necrótico)." },
+      { "level": 6, "name": "Natural Recovery", "summary": "Recuperas slots de conjuro en un descanso corto (1/día) y tienes uno de tus conjuros de terreno listo." },
+      { "level": 10, "name": "Nature's Ward", "summary": "Inmune a estar Poisoned; resistencia al daño de tu terreno." },
+      { "level": 14, "name": "Nature's Sanctuary", "summary": "Como acción, creas una zona defensiva de vegetación espectral." }
+    ] } },
+    { "id": "subclass:champion", "type": "subclass", "name": "Champion", "data": { "class": "Fighter", "summary": "Guerrero centrado en la excelencia física y los golpes críticos.", "features": [
+      { "level": 3, "name": "Improved Critical", "summary": "Tus tiradas de ataque con arma hacen crítico con 19 o 20 natural." },
+      { "level": 3, "name": "Remarkable Athlete", "summary": "Ventaja en iniciativa y en pruebas de Atletismo (FUE); tu salto aumenta." },
+      { "level": 7, "name": "Additional Fighting Style", "summary": "Adoptas un segundo Estilo de Combate." },
+      { "level": 10, "name": "Heroic Warrior", "summary": "Durante el combate, al empezar tu turno sin Inspiración Heroica, la obtienes." },
+      { "level": 15, "name": "Superior Critical", "summary": "Tus ataques con arma hacen crítico con 18-20." },
+      { "level": 18, "name": "Survivor", "summary": "Ventaja en salvaciones de muerte; al inicio de tu turno con menos de la mitad de PG recuperas algunos." }
+    ] } },
+    { "id": "subclass:open-hand", "type": "subclass", "name": "Warrior of the Open Hand", "data": { "class": "Monk", "summary": "Monje maestro del combate sin armas.", "features": [
+      { "level": 3, "name": "Open Hand Technique", "summary": "Al golpear con Flurry of Blows puedes derribar (Prone), empujar 15 ft o negar reacciones del objetivo." },
+      { "level": 6, "name": "Wholeness of Body", "summary": "Acción adicional: gasta Punto de Focus para curarte (tiradas de tu Dado Marcial + WIS)." },
+      { "level": 11, "name": "Fleet Step", "summary": "Cuando usas una acción adicional que no sea Step of the Wind, igual ganas su efecto de movimiento." },
+      { "level": 17, "name": "Quivering Palm", "summary": "Impones vibraciones letales; luego puedes reducir a 0 PG a la criatura (salvación de CON o muere)." }
+    ] } },
+    { "id": "subclass:oath-of-devotion", "type": "subclass", "name": "Oath of Devotion", "data": { "class": "Paladin", "summary": "Paladín del ideal del honor y la pureza.", "features": [
+      { "level": 3, "name": "Oath of Devotion Spells", "summary": "Conjuros de juramento siempre preparados (p.ej. Protection from Evil and Good, Shield of Faith...)." },
+      { "level": 3, "name": "Sacred Weapon", "summary": "Channel Divinity: tu arma brilla y añades tu mod. de CAR a las tiradas de ataque con ella." },
+      { "level": 7, "name": "Aura of Devotion", "summary": "Tú y aliados cercanos no podéis estar Charmed." },
+      { "level": 15, "name": "Smite of Protection", "summary": "Al usar Divine Smite, tú y aliados cercanos ganáis cobertura media hasta tu próximo turno." },
+      { "level": 20, "name": "Holy Nimbus", "summary": "Como acción adicional, emanas luz sagrada: daño radiante a enemigos cercanos y ventaja contra conjuros de infernales/muertos vivientes." }
+    ] } },
+    { "id": "subclass:hunter", "type": "subclass", "name": "Hunter", "data": { "class": "Ranger", "summary": "Explorador especializado en abatir amenazas.", "features": [
+      { "level": 3, "name": "Hunter's Lore", "summary": "Con Hunter's Mark aprendes si la criatura tiene inmunidades/resistencias/vulnerabilidades." },
+      { "level": 3, "name": "Hunter's Prey", "summary": "Eliges Colossus Slayer (daño extra a heridos) u Horde Breaker (ataque a un segundo enemigo cercano)." },
+      { "level": 7, "name": "Defensive Tactics", "summary": "Eliges Escape the Horde o Multiattack Defense para reducir el daño recibido." },
+      { "level": 11, "name": "Superior Hunter's Prey", "summary": "El daño extra de Hunter's Mark se propaga a otra criatura cercana." },
+      { "level": 15, "name": "Superior Hunter's Defense", "summary": "Reacción: al recibir daño, ganas resistencia a ese daño hasta tu próximo turno." }
+    ] } },
+    { "id": "subclass:thief", "type": "subclass", "name": "Thief", "data": { "class": "Rogue", "summary": "Pícaro ágil y oportunista.", "features": [
+      { "level": 3, "name": "Fast Hands", "summary": "Con Cunning Action puedes Utilizar un objeto, hacer Sleight of Hand o usar herramientas de ladrón." },
+      { "level": 3, "name": "Second-Story Work", "summary": "Ganas velocidad de trepar y tu salto de carrera aumenta con tu mod. de DES." },
+      { "level": 9, "name": "Supreme Sneak", "summary": "Ventaja en pruebas de Sigilo si te mueves a la mitad de tu velocidad o menos; puedes esconderte como bonus." },
+      { "level": 13, "name": "Use Magic Device", "summary": "Usas objetos mágicos ignorando requisitos de clase/nivel; sacas más cargas de varitas." },
+      { "level": 17, "name": "Thief's Reflexes", "summary": "En la primera ronda de combate actúas en dos turnos (iniciativa normal y en -10)." }
+    ] } },
+    { "id": "subclass:draconic-sorcery", "type": "subclass", "name": "Draconic Sorcery", "data": { "class": "Sorcerer", "summary": "Hechicero con sangre de dragón.", "features": [
+      { "level": 3, "name": "Draconic Resilience", "summary": "+1 PG por nivel de Sorcerer; sin armadura tu CA es 10 + DES + CAR." },
+      { "level": 3, "name": "Draconic Spells", "summary": "Conjuros siempre preparados temáticos de dragón." },
+      { "level": 6, "name": "Elemental Affinity", "summary": "Añades tu mod. de CAR al daño de conjuros de tu tipo elemental; puedes gastar Sorcery Points para resistencia." },
+      { "level": 14, "name": "Dragon Wings", "summary": "Como acción adicional te salen alas y ganas velocidad de vuelo igual a tu velocidad." },
+      { "level": 18, "name": "Dragon Companion", "summary": "Puedes conjurar un aliado dragón (via Summon Dragon) con ventajas, o infundir presencia dracónica." }
+    ] } },
+    { "id": "subclass:fiend-patron", "type": "subclass", "name": "Fiend Patron", "data": { "class": "Warlock", "summary": "Brujo con un pacto infernal.", "features": [
+      { "level": 3, "name": "Dark One's Blessing", "summary": "Al reducir a 0 PG a un enemigo (o cuando alguien cercano lo hace), ganas PG temporales (CAR + nivel de Warlock)." },
+      { "level": 3, "name": "Fiend Spells", "summary": "Conjuros siempre preparados de temática infernal (Burning Hands, Scorching Ray, Fireball...)." },
+      { "level": 6, "name": "Dark One's Own Luck", "summary": "Añades 1d10 a una prueba de característica o salvación (recargas con descanso corto/largo)." },
+      { "level": 10, "name": "Fiendish Resilience", "summary": "Tras un descanso, eliges un tipo de daño y ganas resistencia a él." },
+      { "level": 14, "name": "Hurl Through Hell", "summary": "Al impactar, envías al objetivo por los infiernos: sufre gran daño psíquico y desaparece un instante." }
+    ] } },
+    { "id": "subclass:evoker", "type": "subclass", "name": "Evoker", "data": { "class": "Wizard", "summary": "Mago de la escuela de Evocación, maestro de la energía destructiva.", "features": [
+      { "level": 3, "name": "Evocation Savant", "summary": "Copiar conjuros de Evocación al libro cuesta la mitad de tiempo y oro; aprendes uno gratis." },
+      { "level": 3, "name": "Potent Cantrip", "summary": "Cuando una criatura tiene éxito en la salvación contra tu truco, igual recibe la mitad del daño (o parte del efecto)." },
+      { "level": 6, "name": "Sculpt Spells", "summary": "Al lanzar un conjuro de Evocación, eliges aliados que salvan automáticamente y no reciben daño." },
+      { "level": 10, "name": "Empowered Evocation", "summary": "Añades tu mod. de INT a una tirada de daño de tus conjuros de Evocación." },
+      { "level": 14, "name": "Overchannel", "summary": "Maximiza el daño de un conjuro de nivel 1-5; usarlo repetidamente te causa daño necrótico." }
+    ] } }
+  ]
+}
