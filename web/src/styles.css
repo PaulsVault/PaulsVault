@@ -335,6 +335,12 @@ body {
 .roll-breakdown { color: var(--platinum); font-size: .92rem; }
 .roll-detail { color: var(--muted); font-size: .82rem; }
 
+/* ── Descripciones de conjuros / condiciones ── */
+.spell-row { align-items: flex-start; }
+.spell-head { flex: 1; min-width: 0; }
+.spell-desc { margin: 6px 0 0; font-size: .85rem; color: var(--platinum); font-family: "EB Garamond", Georgia, serif; line-height: 1.4; }
+.cond-desc { margin: 8px 0 0; font-size: .86rem; color: var(--platinum); font-family: "EB Garamond", Georgia, serif; line-height: 1.4; background: rgba(0,0,0,.2); padding: 8px 10px; border-radius: 8px; }
+
 @media (max-width: 560px) {
   .form { grid-template-columns: 1fr; }
   .abil-grid { grid-template-columns: repeat(3, 1fr); }

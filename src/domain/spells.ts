@@ -22,6 +22,7 @@ export function spellcastingView(c: Character): Record<string, unknown> {
       ...(s.alwaysPrepared ? { alwaysPrepared: true } : {}),
       ...(s.concentration ? { concentration: true } : {}),
       source: s.source,
+      summary: (findEntry(s.name, "spell")?.data["summary"] as string | undefined) ?? undefined,
     })),
   };
 }
@@ -90,6 +91,7 @@ export interface CastResult {
   concentrationBroken?: string;
   saveDC: number | null;
   attackBonus: number | null;
+  summary?: string;
 }
 
 export function castSpell(c: Character, input: CastSpellInput): CastResult {
@@ -162,6 +164,7 @@ export function castSpell(c: Character, input: CastSpellInput): CastResult {
     concentrationBroken,
     saveDC: stats?.dc ?? null,
     attackBonus: stats?.attack ?? null,
+    summary: (cd["summary"] as string) ?? undefined,
   };
 }
 

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import type { Sheet } from "../types";
+import type { ContentHit, Sheet } from "../types";
 
 export function CombatPanel({ id, sheet, reload }: { id: string; sheet: Sheet; reload: () => Promise<void> }) {
   const [amount, setAmount] = useState(1);
-  const [conditionList, setConditionList] = useState<string[]>([]);
+  const [conditions, setConditions] = useState<ContentHit[]>([]);
   const [condition, setCondition] = useState("");
   const [effName, setEffName] = useState("");
   const [effRounds, setEffRounds] = useState<number | "">("");
@@ -14,13 +14,26 @@ export function CombatPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
   const [note, setNote] = useState<string | null>(null);
 
   useEffect(() => {
-    void api.content("condition").then((cs) => { setConditionList(cs.map((c) => c.name)); setCondition(cs[0]?.name ?? ""); });
+    void api.content("condition").then((cs) => { setConditions(cs); setCondition(cs[0]?.name ?? ""); });
   }, []);
+
+  const condDescMap = Object.fromEntries(conditions.map((c) => [c.name, c.preview ?? ""]));
+  const selectedDesc = condDescMap[condition];
 
   async function run(fn: () => Promise<unknown>, msg?: string) {
     setBusy(true); setNote(null);
     try { await fn(); await reload(); if (msg) setNote(msg); }
     catch (e) { setNote("⚠️ " + (e as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  async function applyCondition() {
+    setBusy(true); setNote(null);
+    try {
+      const r = (await api.conditions(id, { action: "apply", condition })) as Record<string, unknown>;
+      await reload();
+      setNote(`Aplicada «${condition}».${r["rules"] ? " " + r["rules"] : ""}${r["broke"] ? ` (rompe la concentración en ${r["broke"]})` : ""}`);
+    } catch (e) { setNote("⚠️ " + (e as Error).message); }
     finally { setBusy(false); }
   }
 
@@ -49,14 +62,15 @@ export function CombatPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
         <h2>Condiciones</h2>
         <div className="row">
           <select value={condition} onChange={(e) => setCondition(e.target.value)}>
-            {conditionList.map((c) => <option key={c} value={c}>{c}</option>)}
+            {conditions.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)}
           </select>
-          <button className="btn" disabled={busy || !condition} onClick={() => run(() => api.conditions(id, { action: "apply", condition }))}>Aplicar</button>
+          <button className="btn" disabled={busy || !condition} onClick={applyCondition}>Aplicar</button>
         </div>
+        {selectedDesc && <p className="cond-desc">{selectedDesc}</p>}
         <div className="chips">
           {sheet.conditions.length === 0 && <span className="muted small">Ninguna</span>}
           {sheet.conditions.map((c) => (
-            <button key={c.name} className="chip removable" disabled={busy}
+            <button key={c.name} className="chip removable" disabled={busy} title={condDescMap[c.name]}
               onClick={() => run(() => api.conditions(id, { action: "remove", condition: c.name }))}>
               {c.name}{c.level ? ` ${c.level}` : ""} ✕
             </button>
