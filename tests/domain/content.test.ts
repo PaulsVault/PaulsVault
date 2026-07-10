@@ -25,6 +25,18 @@ describe("búsqueda y lectura", () => {
     expect(getContentEntry("Longsword", "item").type).toBe("item");
     expect(() => getContentEntry("no-existe-xyz")).toThrowError(DomainError);
   });
+
+  it("deduplica por nombre y prefiere el pack 2024 sobre el SRD", async () => {
+    await importPack({
+      id: "dnd2024-test", name: "2024 test", version: "1.0.0", source: "test",
+      entries: [{ id: "spell:fireball-xphb", type: "spell", name: "Fireball", data: { level: 3, summary: "versión 2024" } }],
+    });
+    const fireballs = searchContent("Fireball", { type: "spell" }).results.filter((r) => r.name.toLowerCase() === "fireball");
+    expect(fireballs.length).toBe(1); // no duplicado con el Fireball de srd-core
+    expect(fireballs[0].pack).toBe("dnd2024-test"); // gana el 2024
+    expect(getContentEntry("Fireball", "spell").pack).toBe("dnd2024-test");
+    await removePack("dnd2024-test");
+  });
 });
 
 describe("gestión de packs (biblioteca ilimitada)", () => {

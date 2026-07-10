@@ -16,15 +16,34 @@ export function allEntries(): PackedEntry[] {
   return listPacks().flatMap((p) => p.entries.map((e) => ({ ...e, pack: p.id })));
 }
 
-/** Busca por id exacto, luego por nombre exacto, luego por coincidencia parcial. */
+/** Prioridad al colisionar nombres entre packs (mayor gana): 2024 > homebrew > referencia SRD > SRD base. */
+function packPriority(packId: string): number {
+  if (packId.startsWith("dnd2024")) return 4;
+  if (packId === "srd-52-reference") return 2;
+  if (packId === "srd-core" || packId === "srd-subclasses") return 1;
+  return 3; // packs importados por el usuario (homebrew) por encima del SRD, por debajo de 2024
+}
+
+/** De entradas con el mismo (tipo, nombre) conserva solo la del pack de mayor prioridad. */
+function dedupeByName(entries: PackedEntry[]): PackedEntry[] {
+  const best = new Map<string, PackedEntry>();
+  for (const e of entries) {
+    const key = `${e.type}:${e.name.toLowerCase()}`;
+    const cur = best.get(key);
+    if (!cur || packPriority(e.pack) > packPriority(cur.pack)) best.set(key, e);
+  }
+  return [...best.values()];
+}
+
+/** Busca por id exacto, luego por nombre exacto, luego por coincidencia parcial; prefiere el pack de mayor prioridad. */
 export function findEntry(idOrName: string, type?: ContentType): PackedEntry | undefined {
   const q = idOrName.trim().toLowerCase();
   const pool = allEntries().filter((e) => !type || e.type === type);
-  return (
-    pool.find((e) => e.id === idOrName) ??
-    pool.find((e) => e.name.toLowerCase() === q) ??
-    pool.find((e) => e.name.toLowerCase().includes(q))
-  );
+  const byId = pool.find((e) => e.id === idOrName);
+  if (byId) return byId;
+  const best = (matches: PackedEntry[]) =>
+    matches.length ? matches.reduce((a, b) => (packPriority(b.pack) > packPriority(a.pack) ? b : a)) : undefined;
+  return best(pool.filter((e) => e.name.toLowerCase() === q)) ?? best(pool.filter((e) => e.name.toLowerCase().includes(q)));
 }
 
 export interface SearchOptions {
@@ -38,7 +57,7 @@ export interface SearchHit { id: string; type: ContentType; name: string; pack: 
 
 export function searchContent(query = "", opts: SearchOptions = {}): { total: number; count: number; results: SearchHit[] } {
   const q = query.trim().toLowerCase();
-  let pool = allEntries();
+  let pool = dedupeByName(allEntries()); // sin duplicados 2024/SRD; conserva el de mayor prioridad
   if (opts.type) pool = pool.filter((e) => e.type === opts.type);
   if (opts.spellLevel !== undefined) pool = pool.filter((e) => e.type === "spell" && e.data["level"] === opts.spellLevel);
   if (opts.spellClass) {
