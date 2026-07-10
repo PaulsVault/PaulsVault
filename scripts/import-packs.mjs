@@ -9,7 +9,11 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import { init, savePack, listPacks } from "../dist/store.js";
+
+// Carga .env si existe (para TURSO_DATABASE_URL / TURSO_AUTH_TOKEN) sin exponerlo.
+try { process.loadEnvFile(); } catch { /* sin .env: usa el entorno actual o la base local */ }
+
+const { init, savePack, listPacks } = await import("../dist/store.js");
 
 const DIR = path.resolve(process.env["DND_PACKS_DIR"] || "data-private");
 if (!fs.existsSync(DIR)) {
