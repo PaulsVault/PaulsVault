@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FeatureDesc } from "./FeatureDesc";
 import { ABILITIES, ABILITY_LABEL, type AbilityKey, type Sheet } from "./types";
 
 const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
@@ -65,8 +66,8 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
                       <b>{f.name}</b><span className="muted small">{f.source}</span>
                     </div>
                     {f.description
-                      ? <p className="spell-desc">{f.description}</p>
-                      : <p className="spell-desc muted">Sin descripción cargada. Re-sincroniza el contenido para ver qué hace.</p>}
+                      ? <FeatureDesc text={f.description} />
+                      : <p className="feat-desc muted">Sin descripción cargada. Re-sincroniza el contenido para ver qué hace.</p>}
                   </li>
                 ))}
               </ul>

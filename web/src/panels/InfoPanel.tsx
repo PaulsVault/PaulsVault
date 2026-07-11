@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../api";
+import { FeatureDesc } from "../FeatureDesc";
 import type { Personality, Sheet } from "../types";
 
 export function InfoPanel({ id, sheet: s, reload }: { id: string; sheet: Sheet; reload: () => Promise<void> }) {
@@ -61,7 +62,7 @@ export function InfoPanel({ id, sheet: s, reload }: { id: string; sheet: Sheet; 
                 <div className="row" style={{ justifyContent: "space-between" }}>
                   <b>{f.name}</b><span className="muted small">{f.source}</span>
                 </div>
-                {f.description && <p className="spell-desc">{f.description}</p>}
+                {f.description && <FeatureDesc text={f.description} />}
               </li>
             ))}
           </ul>

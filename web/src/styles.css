@@ -346,7 +346,12 @@ body {
 /* ── Info + Diario de campaña ── */
 .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
 .info-grid > div { display: flex; flex-direction: column; gap: 2px; }
-.trait-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; color: var(--platinum); }
+/* Descripciones de rasgos con tipografía consistente (misma fuente/tamaño en todo el Info y la hoja). */
+.trait-list { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--text); font-size: .92rem; line-height: 1.5; }
+.feat-desc { margin: 4px 0 0; color: var(--text); font-size: .92rem; line-height: 1.5; }
+.feat-desc.muted { color: var(--muted); font-style: italic; }
+.more-btn { background: none; border: none; color: var(--accent); cursor: pointer; font-size: .88rem; padding: 0; font-weight: 600; }
+.more-btn:hover { text-decoration: underline; }
 .journal { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
 .journal-entry { border-left: 3px solid var(--gold, var(--accent)); background: var(--bg-2); border-radius: 10px; padding: 10px 12px; }
 .journal-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
