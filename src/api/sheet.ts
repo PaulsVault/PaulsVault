@@ -2,12 +2,22 @@
 // más desgloses de cálculo (de dónde sale cada número), armas equipadas y trucos (para tirar desde la hoja).
 import { ABILITIES, SKILLS, computedSheet, saveBonus, skillBonus } from "../rules.js";
 import { computeActiveModifiers } from "../domain/modifiers.js";
-import { findEntry } from "../domain/content.js";
+import { allEntries, findEntry } from "../domain/content.js";
 import type { Character } from "../types.js";
 
 export function characterSheet(c: Character): Record<string, unknown> {
   const base = computedSheet(c) as Record<string, unknown>;
   const mods = computeActiveModifiers(c);
+
+  // Resuelve la descripción de un rasgo desde el contenido (para rasgos de clase que solo guardan el nombre).
+  const pool = allEntries().filter((e) => typeof e.data["summary"] === "string");
+  const describe = (name: string, source: string): string | null => {
+    const cls = source.split(" nivel ")[0].trim().toLowerCase();
+    const named = pool.filter((e) => e.name.toLowerCase() === name.toLowerCase());
+    const best = named.find((e) => e.type === "classfeature" && String(e.data["class"] ?? "").toLowerCase() === cls)
+      ?? named.find((e) => e.type === "classfeature") ?? named[0];
+    return (best?.data["summary"] as string | undefined) ?? null;
+  };
 
   const skillDetails = Object.fromEntries(Object.keys(SKILLS).map((s) => [s, skillBonus(c, s).detail]));
   const saveDetails = Object.fromEntries(ABILITIES.map((a) => [a, saveBonus(c, a).detail]));
@@ -21,7 +31,7 @@ export function characterSheet(c: Character): Record<string, unknown> {
     .map((s) => ({ name: s.name }));
 
   const classList = c.classes.map((cl) => ({ name: cl.name, subclass: cl.subclass ?? null, level: cl.level }));
-  const features = c.features.map((f) => ({ name: f.name, source: f.source, description: f.description ?? null }));
+  const features = c.features.map((f) => ({ name: f.name, source: f.source, description: f.description ?? describe(f.name, f.source) }));
 
   // Rasgos raciales de la especie (del contenido) para la sección de información.
   const speciesTraits = (findEntry(c.species, "species")?.data["traits"] as string[] | undefined) ?? [];

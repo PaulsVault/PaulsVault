@@ -9,7 +9,7 @@ import type { ContentEntry, ContentPack, ContentType } from "../types.js";
 export type PackedEntry = ContentEntry & { pack: string };
 
 export const CONTENT_TYPES: ContentType[] = [
-  "class", "subclass", "species", "background", "feat", "spell", "item", "condition", "monster", "rule", "optionalfeature",
+  "class", "subclass", "species", "background", "feat", "spell", "item", "condition", "monster", "rule", "optionalfeature", "classfeature",
 ];
 
 export function allEntries(): PackedEntry[] {

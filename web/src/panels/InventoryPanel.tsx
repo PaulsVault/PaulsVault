@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { ContentHit } from "../types";
 
-interface InvItem { id: string; name: string; type: string; qty: number; equipped: boolean; attuned: boolean; damage?: string; inside?: string; }
+interface InvItem { id: string; name: string; type: string; qty: number; equipped: boolean; attuned: boolean; damage?: string; inside?: string; description?: string; requiresAttunement?: boolean; }
 interface InvView { inventory: InvItem[]; encumbrance: { carried: number; capacity: number }; ac: number; currency: Record<string, number>; }
 
 const COINS = ["pp", "gp", "ep", "sp", "cp"] as const;
@@ -13,6 +13,7 @@ export function InventoryPanel({ id, reload }: { id: string; reload: () => Promi
   const [query, setQuery] = useState("");
   const [found, setFound] = useState<ContentHit[]>([]);
   const [note, setNote] = useState<string | null>(null);
+  const [openItem, setOpenItem] = useState<string | null>(null);
 
   async function refresh() { setView((await api.getInventory(id)) as unknown as InvView); }
   useEffect(() => { void refresh(); }, [id]);
@@ -67,9 +68,12 @@ export function InventoryPanel({ id, reload }: { id: string; reload: () => Promi
         <ul className="inv-list">
           {view.inventory.map((it) => (
             <li key={it.id} className="inv-row">
-              <div>
+              <div style={{ minWidth: 0, cursor: it.description ? "pointer" : "default" }}
+                onClick={() => it.description && setOpenItem(openItem === it.id ? null : it.id)}>
                 <b>{it.name}</b>{it.qty > 1 && <span className="muted small"> ×{it.qty}</span>}
-                <div className="muted small">{it.type}{it.damage ? ` · ${it.damage}` : ""}{it.inside ? ` · en ${it.inside}` : ""}{it.equipped ? " · equipado" : ""}{it.attuned ? " · sintonizado" : ""}</div>
+                {it.description && <span className="muted"> {openItem === it.id ? "▲" : "▼"}</span>}
+                <div className="muted small">{it.type}{it.damage ? ` · ${it.damage}` : ""}{it.inside ? ` · en ${it.inside}` : ""}{it.requiresAttunement ? " · requiere sintonía" : ""}{it.equipped ? " · equipado" : ""}{it.attuned ? " · sintonizado" : ""}</div>
+                {openItem === it.id && it.description && <p className="inv-desc">{it.description}</p>}
               </div>
               <div className="inv-actions">
                 {(it.type === "armor" || it.type === "shield" || it.type === "weapon") && (

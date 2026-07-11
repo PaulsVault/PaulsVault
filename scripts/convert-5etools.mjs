@@ -348,6 +348,26 @@ if (want("subclasses")) {
   writePack("dnd2024-subclasses", "D&D 2024 — Subclases", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
 }
 
+// ─── Rasgos de clase (descripciones por nivel) ───
+if (want("classfeatures")) {
+  const dir = path.join(DATA_DIR, "class");
+  const entries = [];
+  const seen = new Set();
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.startsWith("class-") || !f.endsWith(".json")) continue;
+    const j = readJson(path.join(dir, f));
+    for (const cf of j.classFeature ?? []) {
+      if (!SOURCES_2024.has(cf.source)) continue;
+      const id = slug(`${cf.className}-${cf.level}-${cf.name}`, "classfeature");
+      if (seen.has(id)) continue;
+      seen.add(id);
+      entries.push({ id, type: "classfeature", name: cf.name, data: { class: cf.className, level: cf.level, summary: text(cf.entries), source: cf.source } });
+    }
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  writePack("dnd2024-classfeatures", "D&D 2024 — Rasgos de clase", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
+}
+
 // ─── Opciones de clase (invocaciones, metamagia, maniobras…) ───
 if (want("optionalfeatures")) {
   const entries = [];

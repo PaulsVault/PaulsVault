@@ -38,8 +38,11 @@ export function inventoryView(c: Character): Record<string, unknown> {
     inventory: c.inventory.map((i) => ({
       id: i.id, name: i.name, type: i.type, qty: i.quantity,
       equipped: i.equipped, attuned: i.attuned,
+      requiresAttunement: i.requiresAttunement,
       ...(i.damage ? { damage: i.damage } : {}),
       ...(i.containerId ? { inside: c.inventory.find((x) => x.id === i.containerId)?.name } : {}),
+      // Descripción: la del objeto o, si no la tiene, la del contenido instalado.
+      description: i.description ?? (findEntry(i.name, "item")?.data["description"] as string | undefined) ?? undefined,
     })),
     encumbrance: { carried: carriedWeight(c), capacity: carryCapacity(c) },
     ac: computeAC(c).ac,

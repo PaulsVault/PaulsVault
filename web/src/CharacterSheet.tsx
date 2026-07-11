@@ -15,7 +15,7 @@ export interface RollReq { type: string; target?: string; label: string; critica
 
 export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r: RollReq) => void }) {
   const m = s.modifiers;
-  const [openFeat, setOpenFeat] = useState<string | null>(null);
+  const [showFeatures, setShowFeatures] = useState(false);
   const dmgFaces = (dmg: string | null) => { const x = dmg?.match(/d(\d+)/); return x ? Number(x[1]) : undefined; };
 
   // Detalles de cálculo, mostrados al pasar el cursor (hover), no siempre visibles.
@@ -50,6 +50,29 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
           </div>
         </section>
 
+        {s.features.length > 0 && (
+          <section className="panel">
+            <h2 className="collapse-h" onClick={() => setShowFeatures((v) => !v)} title="Mostrar/ocultar">
+              <span>Rasgos y dotes <span className="muted small">({s.features.length})</span></span>
+              <span className="muted">{showFeatures ? "▲" : "▼"}</span>
+            </h2>
+            {showFeatures && (
+              <ul className="line-list">
+                {s.features.map((f) => (
+                  <li key={`${f.name}-${f.source}`} style={{ display: "block" }}>
+                    <div className="row" style={{ justifyContent: "space-between" }}>
+                      <b>{f.name}</b><span className="muted small">{f.source}</span>
+                    </div>
+                    {f.description
+                      ? <p className="spell-desc">{f.description}</p>
+                      : <p className="spell-desc muted">Sin descripción cargada. Re-sincroniza el contenido para ver qué hace.</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
         <section className="panel">
           <h2>Salvaciones</h2>
           <ul className="line-list">
@@ -70,18 +93,6 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
           </ul>
         </section>
 
-        <section className="panel">
-          <h2>Habilidades</h2>
-          <ul className="line-list skills">
-            {Object.entries(s.skills).map(([k, v]) => (
-              <li key={k} className="clickable" title={s.skillDetails[k]}
-                onClick={() => onRoll({ type: "skill", target: k, label: SKILL_LABEL[k] ?? k })}>
-                <span>{SKILL_LABEL[k] ?? k}</span><span className="val">{fmt(v)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
         {s.weapons.length > 0 && (
           <section className="panel">
             <h2>Armas {s.critRange < 20 && <span className="muted small">· crítico {s.critRange}-20</span>}</h2>
@@ -99,6 +110,18 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
           </section>
         )}
 
+        <section className="panel">
+          <h2>Habilidades</h2>
+          <ul className="line-list skills">
+            {Object.entries(s.skills).map(([k, v]) => (
+              <li key={k} className="clickable" title={s.skillDetails[k]}
+                onClick={() => onRoll({ type: "skill", target: k, label: SKILL_LABEL[k] ?? k })}>
+                <span>{SKILL_LABEL[k] ?? k}</span><span className="val">{fmt(v)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
         {s.cantrips.length > 0 && (
           <section className="panel">
             <h2>Trucos</h2>
@@ -107,24 +130,6 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
                 <li key={ct.name} className="weapon-row">
                   <span>{ct.name}</span>
                   <button className="btn small" onClick={() => onRoll({ type: "spell_attack", label: `${ct.name} — ataque de conjuro` })}>Ataque de conjuro</button>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {s.features.length > 0 && (
-          <section className="panel">
-            <h2>Rasgos y dotes</h2>
-            <ul className="line-list">
-              {s.features.map((f) => (
-                <li key={`${f.name}-${f.source}`} style={{ display: "block", cursor: f.description ? "pointer" : "default" }}
-                  onClick={() => f.description && setOpenFeat(openFeat === f.name ? null : f.name)}>
-                  <div className="row" style={{ justifyContent: "space-between" }}>
-                    <span><b>{f.name}</b>{f.description && <span className="muted"> {openFeat === f.name ? "▲" : "▼"}</span>}</span>
-                    <span className="muted small">{f.source}</span>
-                  </div>
-                  {openFeat === f.name && f.description && <p className="spell-desc">{f.description}</p>}
                 </li>
               ))}
             </ul>

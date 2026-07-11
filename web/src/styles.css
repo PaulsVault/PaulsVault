@@ -368,6 +368,8 @@ body {
 .spell-mech { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; font-size: .8rem; color: var(--muted); }
 .invite-url { word-break: break-all; margin-top: 2px; }
 .stat.hoverable { cursor: help; }
+.collapse-h { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
+.inv-desc { margin: 4px 0 0; font-size: .84rem; color: var(--platinum); font-family: "EB Garamond", Georgia, serif; line-height: 1.4; }
 .panel.inspire-on { border-color: var(--gold, var(--accent)); box-shadow: 0 0 16px rgba(232,196,122,.28); }
 
 @media (max-width: 560px) {
