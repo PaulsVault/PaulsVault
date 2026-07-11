@@ -3,6 +3,7 @@
 
 import { findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
+import { rechargeItemsOnRest } from "./inventory.js";
 import { abilityMod, newId } from "../rules.js";
 import type { ActiveCondition, Character, Companion } from "../types.js";
 
@@ -265,6 +266,7 @@ export function rest(c: Character, type: "short" | "long", hitDiceToSpend = 0): 
     }
     if (c.spellcasting.pactSlots) { c.spellcasting.pactSlots.used = 0; notes.push("Slots de pacto recuperados."); }
     for (const f of c.features) if (f.uses?.recharge === "short_rest") f.uses.used = 0;
+    notes.push(...rechargeItemsOnRest(c, "short"));
   } else {
     c.hp.current = c.hp.max;
     c.hp.temp = 0;
@@ -282,6 +284,7 @@ export function rest(c: Character, type: "short" | "long", hitDiceToSpend = 0): 
     c.spellcasting.concentratingOn = null;
     c.deathSaves = { successes: 0, failures: 0 };
     notes.push("PG al máximo, slots restaurados, efectos limpiados.");
+    notes.push(...rechargeItemsOnRest(c, "long"));
   }
   return {
     type,

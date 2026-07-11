@@ -75,6 +75,9 @@ export const api = {
   addItem: (id: string, body: Dict) => req<Dict>(`/characters/${enc(id)}/inventory`, { method: "POST", body: JSON.stringify(body) }),
   removeItem: (id: string, itemId: string) => req<Dict>(`/characters/${enc(id)}/inventory/${enc(itemId)}`, { method: "DELETE" }),
   itemAction: (id: string, itemId: string, action: string) => req<Dict>(`/characters/${enc(id)}/inventory/${enc(itemId)}/${action}`, { method: "POST" }),
+  useCharges: (id: string, itemId: string, amount = 1) => req<Dict>(`/characters/${enc(id)}/inventory/${enc(itemId)}/use-charges`, { method: "POST", body: JSON.stringify({ amount }) }),
+  restoreCharges: (id: string, itemId: string, amount?: number) => req<Dict>(`/characters/${enc(id)}/inventory/${enc(itemId)}/restore-charges`, { method: "POST", body: JSON.stringify({ amount }) }),
+  castFromItem: (id: string, itemId: string, spell: string) => req<Dict>(`/characters/${enc(id)}/inventory/${enc(itemId)}/cast`, { method: "POST", body: JSON.stringify({ spell }) }),
   currency: (id: string, delta: Dict) => req<Dict>(`/characters/${enc(id)}/currency`, { method: "PATCH", body: JSON.stringify(delta) }),
 
   // Compañeros

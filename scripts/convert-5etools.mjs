@@ -61,6 +61,8 @@ const text = (entries) => renderEntries(entries).join(" ").replace(/\s+/g, " ").
 const slug = (name, type) => `${type}:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
 const readJson = (f) => JSON.parse(fs.readFileSync(f, "utf8"));
 const cap = (s) => s.replace(/(^|\s)\w/g, (c) => c.toUpperCase()); // no capitaliza tras apóstrofo
+const SMALL_WORDS = new Set(["of", "the", "and", "a", "to", "in", "on", "from", "with", "for"]);
+const titleCase = (s) => s.split(" ").map((w, i) => (i > 0 && SMALL_WORDS.has(w.toLowerCase()) ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1))).join(" ");
 const SIZE = { T: "Tiny", S: "Small", M: "Medium", L: "Large", H: "Huge", G: "Gargantuan" };
 
 // "magic initiate; cleric|xphb" → "Magic Initiate (Cleric)"
@@ -284,7 +286,7 @@ function convertItem(it) {
   if (it.attachedSpells?.charges) {
     spells = [];
     for (const [cost, list] of Object.entries(it.attachedSpells.charges)) {
-      for (const s of list) spells.push({ cost: Number(cost), name: cap(stripSrc(s)) });
+      for (const s of list) spells.push({ cost: Number(cost), name: titleCase(stripSrc(s)) });
     }
   }
   return { id: slug(it.name, "item"), type: "item", name: it.name, data: {

@@ -3,7 +3,8 @@
 
 import { findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
-import { carriedWeight, carryCapacity, computeAC, newId } from "../rules.js";
+import { spellMechanics } from "./spells.js";
+import { carriedWeight, carryCapacity, computeAC, newId, spellStats } from "../rules.js";
 import type { Character, Currency, InventoryItem, ItemType } from "../types.js";
 
 export interface ItemDetails {
@@ -41,6 +42,8 @@ export function inventoryView(c: Character): Record<string, unknown> {
       requiresAttunement: i.requiresAttunement,
       ...(i.damage ? { damage: i.damage } : {}),
       ...(i.containerId ? { inside: c.inventory.find((x) => x.id === i.containerId)?.name } : {}),
+      ...(i.charges ? { charges: i.charges } : {}),
+      ...(i.spells ? { spells: i.spells } : {}),
       // Descripción: la del objeto o, si no la tiene, la del contenido instalado.
       description: i.description ?? (findEntry(i.name, "item")?.data["description"] as string | undefined) ?? undefined,
     })),
@@ -76,8 +79,84 @@ export function addItem(c: Character, item: string, quantity = 1, details?: Item
     magicBonus: details?.magicBonus ?? (cd["magicBonus"] as number | undefined),
     containerId: null,
   };
+  // Cargas y conjuros del objeto (Staff of Power, varitas, etc.).
+  const chargesMax = cd["charges"] as number | undefined;
+  if (typeof chargesMax === "number") {
+    it.charges = { current: chargesMax, max: chargesMax, recharge: cd["recharge"] as string | undefined, rechargeAmount: cd["rechargeAmount"] as string | undefined };
+  }
+  const itemSpells = cd["spells"] as { cost: number; name: string }[] | undefined;
+  if (Array.isArray(itemSpells) && itemSpells.length) it.spells = itemSpells;
   c.inventory.push(it);
   return it;
+}
+
+// ─── Interacción con objetos mágicos (cargas y conjuros) ───
+
+export function useItemCharges(c: Character, idOrName: string, amount = 1): InventoryItem {
+  const it = requireItem(c, idOrName);
+  if (!it.charges) throw new DomainError("rule", `${it.name} no tiene cargas.`);
+  if (it.requiresAttunement && !it.attuned) throw new DomainError("rule", `Debes sintonizar ${it.name} para usar sus cargas.`);
+  if (amount <= 0) throw new DomainError("validation", "Cantidad de cargas inválida.");
+  if (it.charges.current < amount) throw new DomainError("rule", `${it.name} solo tiene ${it.charges.current} carga(s).`);
+  it.charges.current -= amount;
+  return it;
+}
+
+export function restoreItemCharges(c: Character, idOrName: string, amount?: number): InventoryItem {
+  const it = requireItem(c, idOrName);
+  if (!it.charges) throw new DomainError("rule", `${it.name} no tiene cargas.`);
+  it.charges.current = amount != null ? Math.min(it.charges.max, Math.max(0, amount)) : it.charges.max;
+  return it;
+}
+
+export interface ItemCastResult {
+  item: string; spell: string; cost: number; chargesLeft: number;
+  saveDC: number | null; attackBonus: number | null; summary?: string;
+  mechanics: ReturnType<typeof spellMechanics>;
+}
+
+/** Lanza un conjuro desde un objeto: valida sintonía y cargas, las gasta y devuelve el efecto. */
+export function castItemSpell(c: Character, idOrName: string, spellName: string): ItemCastResult {
+  const it = requireItem(c, idOrName);
+  if (!it.charges || !it.spells?.length) throw new DomainError("rule", `${it.name} no lanza conjuros con cargas.`);
+  if (it.requiresAttunement && !it.attuned) throw new DomainError("rule", `Debes sintonizar ${it.name}.`);
+  const entry = it.spells.find((s) => s.name.toLowerCase() === spellName.toLowerCase());
+  if (!entry) throw new DomainError("not_found", `${it.name} no puede lanzar "${spellName}".`);
+  if (it.charges.current < entry.cost) throw new DomainError("rule", `Necesitas ${entry.cost} carga(s) y ${it.name} tiene ${it.charges.current}.`);
+  it.charges.current -= entry.cost;
+  const cd = (findEntry(entry.name, "spell")?.data ?? {}) as Record<string, unknown>;
+  const stats = spellStats(c);
+  return {
+    item: it.name, spell: entry.name, cost: entry.cost, chargesLeft: it.charges.current,
+    saveDC: stats?.dc ?? null, attackBonus: stats?.attack ?? null,
+    summary: (cd["summary"] as string | undefined),
+    mechanics: spellMechanics(cd),
+  };
+}
+
+/** Recarga los objetos con cargas cuyo periodo coincide con el descanso. Devuelve notas. */
+export function rechargeItemsOnRest(c: Character, type: "short" | "long"): string[] {
+  const LONG = ["dawn", "dusk", "midnight", "daily", "long rest", "restlong", "long"];
+  const SHORT = ["short rest", "restshort", "short"];
+  const notes: string[] = [];
+  for (const it of c.inventory) {
+    if (!it.charges || it.charges.current >= it.charges.max) continue;
+    const rc = (it.charges.recharge ?? "dawn").toLowerCase();
+    if (!(type === "long" ? LONG.includes(rc) : SHORT.includes(rc))) continue;
+    const amt = rollRecharge(it.charges.rechargeAmount);
+    it.charges.current = amt === null ? it.charges.max : Math.min(it.charges.max, it.charges.current + amt);
+    notes.push(`${it.name}: ${it.charges.current}/${it.charges.max} cargas.`);
+  }
+  return notes;
+}
+
+function rollRecharge(expr?: string): number | null {
+  if (!expr) return null; // sin fórmula → recarga completa
+  const m = expr.replace(/\s+/g, "").match(/(\d+)d(\d+)([+-]\d+)?/);
+  if (!m) { const flat = Number(expr); return Number.isFinite(flat) ? flat : null; }
+  let total = Number(m[3] ?? 0);
+  for (let i = 0; i < Number(m[1]); i++) total += 1 + Math.floor(Math.random() * Number(m[2]));
+  return total;
 }
 
 export function removeItem(c: Character, idOrName: string, quantity = 1): void {

@@ -210,6 +210,17 @@ export function buildApp(): Express {
       })));
   }
 
+  app.post("/api/characters/:id/inventory/:itemId/use-charges", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => { inv.useItemCharges(c, req.params.itemId, num(req.body?.amount) ?? 1); return inv.inventoryView(c); })));
+
+  app.post("/api/characters/:id/inventory/:itemId/restore-charges", async (req, res) =>
+    res.json(await onCharacter(req.params.id, (c) => { inv.restoreItemCharges(c, req.params.itemId, num(req.body?.amount)); return inv.inventoryView(c); })));
+
+  app.post("/api/characters/:id/inventory/:itemId/cast", async (req, res) => {
+    const out = await onCharacter(req.params.id, (c) => ({ result: inv.castItemSpell(c, req.params.itemId, req.body?.spell), view: inv.inventoryView(c) }));
+    res.json({ ...out.result, inventory: out.view });
+  });
+
   app.patch("/api/characters/:id/currency", async (req, res) =>
     res.json(await onCharacter(req.params.id, (c) => inv.adjustCurrency(c, req.body))));
 
