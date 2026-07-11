@@ -4,6 +4,14 @@ import { ABILITIES, ABILITY_LABEL, type AbilityKey, type ContentHit } from "./ty
 
 const ASI_LEVELS = new Set([4, 8, 12, 16, 19]);
 const HIT_DICE: Record<string, number> = { Barbarian: 12, Fighter: 10, Paladin: 10, Ranger: 10, Bard: 8, Cleric: 8, Druid: 8, Monk: 8, Rogue: 8, Warlock: 8, Artificer: 8, Sorcerer: 6, Wizard: 6 };
+const SKILL_LABEL: Record<string, string> = {
+  acrobatics: "Acrobacias", "animal handling": "T. con Animales", arcana: "Arcanos", athletics: "Atletismo",
+  deception: "Engaño", history: "Historia", insight: "Perspicacia", intimidation: "Intimidación",
+  investigation: "Investigación", medicine: "Medicina", nature: "Naturaleza", perception: "Percepción",
+  performance: "Interpretación", persuasion: "Persuasión", religion: "Religión", "sleight of hand": "Juego de Manos",
+  stealth: "Sigilo", survival: "Supervivencia",
+};
+interface Mc { armor?: string[]; weapons?: string[]; tools?: string[]; skillCount?: number; skillOptions?: string[] }
 
 export function LevelUpDialog({ id, classList, onClose, onDone }: {
   id: string;
@@ -21,6 +29,8 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   const [asiMode, setAsiMode] = useState<"asi" | "feat">("asi");
   const [asi, setAsi] = useState<Partial<Record<AbilityKey, number>>>({});
   const [feat, setFeat] = useState("");
+  const [mc, setMc] = useState<Mc | null>(null);
+  const [mcSkills, setMcSkills] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,6 +52,13 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   const resultingLevel = existing ? existing.level + 1 : 1;
   const grantsSubclass = resultingLevel === 3 && !existing?.subclass;
   const grantsASI = ASI_LEVELS.has(resultingLevel);
+  const isMulticlass = !existing; // clase nueva → toma su primer nivel
+
+  // Competencias de multiclase de la clase seleccionada.
+  useEffect(() => {
+    if (!className) { setMc(null); return; }
+    void api.multiclass(className).then((m) => { setMc(m); setMcSkills([]); }).catch(() => setMc(null));
+  }, [className]);
 
   const classOptions = useMemo(() => {
     const names = new Set(classList.map((c) => c.name));
@@ -75,6 +92,7 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
           if (Object.keys(inc).length) body["abilityIncreases"] = inc;
         }
       }
+      if (isMulticlass && mc?.skillCount && mcSkills.length) body["skills"] = mcSkills;
       await api.levelUp(id, body);
       onDone();
     } catch (e) { setError((e as Error).message); setBusy(false); }
@@ -97,6 +115,31 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
             </select>
           </label>
           <p className="muted small span2" style={{ margin: "-6px 0 0" }}>Sube a nivel {resultingLevel} de {className}.</p>
+
+          {isMulticlass && mc && (
+            <fieldset className="abilities-input span2">
+              <legend>Multiclase: competencias de {className}</legend>
+              <p className="muted small">
+                {[mc.armor?.length ? `Armadura: ${mc.armor.join(", ")}` : "", mc.weapons?.length ? `Armas: ${mc.weapons.join(", ")}` : "", mc.tools?.length ? `Herramientas: ${mc.tools.join(", ")}` : ""].filter(Boolean).join(" · ") || "Esta clase no añade competencias al multiclasear."}
+              </p>
+              {mc.skillCount ? (
+                <>
+                  <p className="muted small" style={{ margin: "4px 0 0" }}>Elige {mc.skillCount} habilidad ({mcSkills.length}/{mc.skillCount}):</p>
+                  <div className="chips">
+                    {(mc.skillOptions ?? []).map((sk) => {
+                      const on = mcSkills.includes(sk);
+                      return (
+                        <button type="button" key={sk} className={`chip${on ? " removable" : ""}`}
+                          onClick={() => setMcSkills((cur) => cur.includes(sk) ? cur.filter((x) => x !== sk) : cur.length < (mc.skillCount ?? 0) ? [...cur, sk] : cur)}>
+                          {on ? "✓ " : ""}{SKILL_LABEL[sk] ?? sk}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : null}
+            </fieldset>
+          )}
 
           {grantsSubclass && (
             <div className="field span2"><span>✨ Subclase (se elige a nivel 3)</span>

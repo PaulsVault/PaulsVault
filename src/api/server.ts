@@ -149,6 +149,9 @@ export function buildApp(): Express {
     res.json({ className: r.className, classLevel: r.classLevel, levelTotal: r.levelTotal, hpLost: r.hpLost, classRemoved: r.classRemoved, sheet: characterSheet(r.character) });
   });
 
+  // Competencias que otorga una clase al multiclasear (para el asistente de subida de nivel).
+  app.get("/api/multiclass/:className", (req, res) => res.json(chars.multiclassProficiencies(req.params.className)));
+
   // Diario de campaña/sesión
   app.post("/api/characters/:id/journal", async (req, res) =>
     res.status(201).json(characterSheet(await onCharacter(req.params.id, (c) => { chars.addJournalEntry(c, req.body as chars.JournalInput); return c; }))));

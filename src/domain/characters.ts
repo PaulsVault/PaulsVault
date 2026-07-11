@@ -5,7 +5,7 @@
 import { findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
 import {
-  abilityMod, computedSheet, effectiveCasterLevel, newId,
+  SKILLS, abilityMod, computedSheet, effectiveCasterLevel, newId,
   slotsForCasterLevel, totalLevel,
 } from "../rules.js";
 import type {
@@ -63,6 +63,7 @@ export interface LevelUpInput {
   hpRoll?: number;
   abilityIncreases?: Partial<Abilities>;
   feat?: string; // dote en vez de mejora de característica (niveles 4/8/12/16/19)
+  skills?: string[]; // habilidad(es) elegidas al multiclasear (clases que la conceden)
 }
 
 export interface LevelUpResult {
@@ -311,6 +312,28 @@ export function updateCharacter(c: Character, set: UpdateCharacterInput): Charac
   return c;
 }
 
+// Competencias que otorga cada clase al MULTICLASEAR (set reducido, PHB 2024).
+export interface MulticlassProfs { armor?: string[]; weapons?: string[]; tools?: string[]; skillCount?: number; skillOptions?: string[]; }
+const MULTICLASS_PROFS: Record<string, MulticlassProfs> = {
+  barbarian: { armor: ["shield"], weapons: ["martial"] },
+  bard: { armor: ["light"], tools: ["Musical Instrument"], skillCount: 1, skillOptions: Object.keys(SKILLS) },
+  cleric: { armor: ["light", "medium", "shield"] },
+  druid: { armor: ["light", "shield"] },
+  fighter: { armor: ["light", "medium", "shield"], weapons: ["martial"] },
+  monk: {},
+  paladin: { armor: ["light", "medium", "shield"], weapons: ["martial"] },
+  ranger: { armor: ["light", "medium", "shield"], weapons: ["martial"], skillCount: 1, skillOptions: ["animal handling", "athletics", "insight", "investigation", "nature", "perception", "stealth", "survival"] },
+  rogue: { armor: ["light"], tools: ["Thieves' Tools"], skillCount: 1, skillOptions: ["acrobatics", "athletics", "deception", "insight", "intimidation", "investigation", "perception", "persuasion", "sleight of hand", "stealth"] },
+  sorcerer: {},
+  warlock: { armor: ["light"] },
+  wizard: {},
+};
+
+/** Competencias de multiclase de una clase (para mostrar y aplicar al tomar su primer nivel). */
+export function multiclassProficiencies(className: string): MulticlassProfs {
+  return MULTICLASS_PROFS[className.toLowerCase()] ?? {};
+}
+
 export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   if (totalLevel(c) >= 20) throw new DomainError("rule", `${c.name} ya está a nivel 20 (máximo).`);
 
@@ -330,6 +353,17 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   // Rasgos ganados en este nivel de clase y de subclase.
   addClassFeatures(c, cls.name, cls.level);
   if (cls.subclass) addSubclassFeatures(c, cls.subclass, cls.level);
+
+  // Al MULTICLASEAR (primer nivel de una clase nueva): competencias reducidas del PHB 2024.
+  if (isNewClass) {
+    const mc = multiclassProficiencies(cls.name);
+    if (mc.armor) c.proficiencies.armor = [...new Set([...c.proficiencies.armor, ...mc.armor])];
+    if (mc.weapons) c.proficiencies.weapons = [...new Set([...c.proficiencies.weapons, ...mc.weapons])];
+    if (mc.tools) c.proficiencies.tools = [...new Set([...c.proficiencies.tools, ...mc.tools])];
+    if (mc.skillCount && input.skills?.length) {
+      c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...input.skills.slice(0, mc.skillCount)])];
+    }
+  }
 
   if (input.abilityIncreases) {
     for (const [k, v] of Object.entries(input.abilityIncreases)) {

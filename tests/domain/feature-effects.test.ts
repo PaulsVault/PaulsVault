@@ -59,3 +59,24 @@ describe("bajar de nivel (levelDown)", () => {
     expect(() => levelDown(fighter(1))).toThrow();
   });
 });
+
+describe("multiclase", () => {
+  it("otorga las competencias reducidas de la clase nueva y una habilidad elegida", () => {
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "MC", className: "Wizard", level: 3, species: "Human", background: "Sage", abilities: ABIL });
+    levelUp(c, { className: "Rogue", skills: ["stealth", "perception"] });
+    expect(c.classes.some((cl) => cl.name === "Rogue")).toBe(true);
+    expect(c.proficiencies.armor).toContain("light");
+    expect(c.proficiencies.tools).toContain("Thieves' Tools");
+    expect(c.proficiencies.skills).toContain("stealth");
+    expect(c.proficiencies.skills).not.toContain("perception"); // Rogue solo concede 1 (skillCount)
+  });
+
+  it("una clase sin competencias de multiclase (Wizard) no añade nada", () => {
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "MC2", className: "Fighter", level: 3, species: "Human", background: "Soldier", abilities: ABIL });
+    const armorBefore = [...c.proficiencies.armor];
+    levelUp(c, { className: "Wizard" });
+    expect(c.proficiencies.armor).toEqual(armorBefore);
+  });
+});
