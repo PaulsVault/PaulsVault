@@ -36,6 +36,7 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
       </section>
 
       <div className="sheet-cols">
+        <div className="sheet-col">
         <section className="panel">
           <h2>Características</h2>
           <div className="abil-cards">
@@ -72,7 +73,9 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
             )}
           </section>
         )}
+        </div>
 
+        <div className="sheet-col">
         <section className="panel">
           <h2>Salvaciones</h2>
           <ul className="line-list">
@@ -110,18 +113,6 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
           </section>
         )}
 
-        <section className="panel">
-          <h2>Habilidades</h2>
-          <ul className="line-list skills">
-            {Object.entries(s.skills).map(([k, v]) => (
-              <li key={k} className="clickable" title={s.skillDetails[k]}
-                onClick={() => onRoll({ type: "skill", target: k, label: SKILL_LABEL[k] ?? k })}>
-                <span>{SKILL_LABEL[k] ?? k}</span><span className="val">{fmt(v)}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-
         {s.cantrips.length > 0 && (
           <section className="panel">
             <h2>Trucos</h2>
@@ -135,6 +126,21 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
             </ul>
           </section>
         )}
+        </div>
+
+        <div className="sheet-col">
+        <section className="panel">
+          <h2>Habilidades</h2>
+          <ul className="line-list skills">
+            {Object.entries(s.skills).map(([k, v]) => (
+              <li key={k} className="clickable" title={s.skillDetails[k]}
+                onClick={() => onRoll({ type: "skill", target: k, label: SKILL_LABEL[k] ?? k })}>
+                <span>{SKILL_LABEL[k] ?? k}</span><span className="val">{fmt(v)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+        </div>
       </div>
 
       {s.style.customCss && <style>{s.style.customCss}</style>}
