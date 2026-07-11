@@ -102,3 +102,13 @@ export function d20Roll(
   else r.crit = undefined;
   return r;
 }
+
+/** Convierte una tirada a la notación de dados 3D: cada dado conservado con su cara (para dice-box). */
+export function dice3dFrom(r: RollDetail): { sides: number; value: number }[] {
+  const out: { sides: number; value: number }[] = [];
+  for (const g of r.rolls) {
+    const sides = Number(g.dice.match(/d(\d+)/)?.[1] ?? 20);
+    for (const v of g.kept) out.push({ sides, value: v });
+  }
+  return out;
+}

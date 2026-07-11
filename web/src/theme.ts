@@ -16,3 +16,11 @@ export function applyTheme(t: AppTheme): void {
 export function initTheme(): void {
   applyTheme(getTheme());
 }
+
+// ─── Dados 3D (preferencia del dispositivo; por defecto apagado por rendimiento en móvil) ───
+export function dice3dEnabled(): boolean {
+  return localStorage.getItem("dnd-dice3d") === "on";
+}
+export function setDice3d(on: boolean): void {
+  localStorage.setItem("dnd-dice3d", on ? "on" : "off");
+}

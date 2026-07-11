@@ -6,6 +6,7 @@ import { CharacterView } from "./CharacterView";
 import { ContentBrowser } from "./ContentBrowser";
 import { InvitesPanel } from "./InvitesPanel";
 import { ThemeToggle } from "./ThemeToggle";
+import { Dice3DToggle } from "./Dice3DToggle";
 
 type View = { name: "library" } | { name: "sheet"; id: string } | { name: "content" } | { name: "invites" };
 
@@ -36,6 +37,7 @@ export function App() {
         <button className={`tab${view.name === "content" ? " active" : ""}`} onClick={() => setView({ name: "content" })}>Contenido</button>
         {isAdmin && <button className={`tab${view.name === "invites" ? " active" : ""}`} onClick={() => setView({ name: "invites" })}>Invitaciones</button>}
         <span className="topbar-user">{user.email}</span>
+        <Dice3DToggle />
         <ThemeToggle />
         <button className="btn small" onClick={logout}>Salir</button>
       </header>

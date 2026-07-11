@@ -1,6 +1,6 @@
 // Dominio de dados y pruebas del personaje. Usa los modificadores calculados por rules.ts.
 
-import { d20Roll, rollExpression, type RollDetail } from "../dice.js";
+import { d20Roll, dice3dFrom, rollExpression, type RollDetail } from "../dice.js";
 import { DomainError } from "./errors.js";
 import {
   ABILITIES, SKILLS, abilityMod, fmt, proficiencyBonus,
@@ -36,8 +36,8 @@ export function rollDice(expression: string, advantage: RollMode = "normal", tim
 export type CheckType = "skill" | "ability" | "save" | "initiative" | "attack" | "spell_attack" | "damage";
 
 export type CheckResult =
-  | { type: "damage"; weapon: string; expression: string; total: number; breakdown: string; damageType: string; critical: boolean }
-  | { type: Exclude<CheckType, "damage">; target: string | null; roll: number; breakdown: string; modifierDetail: string; crit: "critical" | "fumble" | null };
+  | { type: "damage"; weapon: string; expression: string; total: number; breakdown: string; damageType: string; critical: boolean; dice3d: { sides: number; value: number }[] }
+  | { type: Exclude<CheckType, "damage">; target: string | null; roll: number; breakdown: string; modifierDetail: string; crit: "critical" | "fumble" | null; natural: number | null };
 
 export interface CheckInput {
   type: CheckType;
@@ -128,6 +128,7 @@ export function check(c: Character, input: CheckInput): CheckResult {
       return {
         type: "damage", weapon: weapon.name, expression: expr, total: r.total, breakdown: r.breakdown,
         damageType: weapon.damage?.split(" ").slice(1).join(" ") || "?", critical,
+        dice3d: dice3dFrom(r),
       };
     }
   }
@@ -141,5 +142,6 @@ export function check(c: Character, input: CheckInput): CheckResult {
     breakdown: r.breakdown,
     modifierDetail: detail + (bonus ? ` + situacional(${fmt(bonus)})` : ""),
     crit: r.crit ?? null,
+    natural: r.rolls[0]?.kept?.[0] ?? null,
   };
 }

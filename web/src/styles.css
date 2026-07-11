@@ -379,6 +379,16 @@ body {
 .spell-mech { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; font-size: .8rem; color: var(--muted); }
 .invite-url { word-break: break-all; margin-top: 2px; }
 .stat.hoverable { cursor: help; }
+
+/* ── Dados 3D (dice-box) ── */
+#dice3d-host { position: fixed; inset: 0; z-index: 60; pointer-events: none; opacity: 0; transition: opacity .18s; }
+#dice3d-host.show { opacity: 1; }
+#dice3d-host canvas { width: 100% !important; height: 100% !important; display: block; }
+.dice3d-overlay { position: fixed; inset: 0; z-index: 61; display: flex; align-items: flex-start; justify-content: center; padding-top: 7vh; background: transparent; }
+.dice3d-card { background: linear-gradient(180deg, rgba(30,26,52,.96), rgba(18,16,34,.98)); border: 1px solid var(--gold-2, var(--accent)); border-radius: 14px; padding: 14px 22px; text-align: center; min-width: 200px; box-shadow: 0 12px 40px rgba(0,0,0,.5); pointer-events: auto; }
+.dice3d-total { font-size: 2.6rem; font-family: var(--font-display, inherit); color: var(--platinum); line-height: 1.1; }
+.dice3d-card.crit { border-color: var(--good); box-shadow: 0 0 30px rgba(87,215,138,.45); }
+.dice3d-card.fumble { border-color: var(--danger); box-shadow: 0 0 30px rgba(255,107,107,.45); }
 .collapse-h { display: flex; align-items: center; justify-content: space-between; cursor: pointer; user-select: none; }
 .inv-desc { margin: 4px 0 0; font-size: .84rem; color: var(--platinum); font-family: "EB Garamond", Georgia, serif; line-height: 1.4; }
 .panel.inspire-on { border-color: var(--gold, var(--accent)); box-shadow: 0 0 16px rgba(232,196,122,.28); }

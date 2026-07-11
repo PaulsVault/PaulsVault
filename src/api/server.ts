@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { loadDb, saveDb, dataDir, listPacks, requestContext, getUserById, init } from "../store.js";
 import { DomainError, STATUS_BY_CODE } from "../domain/errors.js";
 import { verifyToken, signToken, SESSION_COOKIE, TOKEN_MAX_AGE_MS } from "../auth.js";
+import { dice3dFrom } from "../dice.js";
 import { registerUser, loginUser } from "../domain/auth.js";
 import { isAdmin, createInviteFor, listInviteViews, revokeInvite } from "../domain/invites.js";
 import * as chars from "../domain/characters.js";
@@ -321,7 +322,7 @@ export function buildApp(): Express {
 
   // ─── Dados y pruebas ───
   app.post("/api/roll", (req, res) =>
-    res.json({ rolls: checks.rollDice(req.body.expression, req.body.advantage ?? "normal", req.body.times ?? 1) }));
+    res.json({ rolls: checks.rollDice(req.body.expression, req.body.advantage ?? "normal", req.body.times ?? 1).map((r) => ({ ...r, dice3d: dice3dFrom(r) })) }));
 
   app.post("/api/characters/:id/check", async (req, res) =>
     res.json(checks.check(chars.requireCharacter(await loadDb(), req.params.id), req.body as checks.CheckInput)));

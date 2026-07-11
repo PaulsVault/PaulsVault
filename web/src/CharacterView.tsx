@@ -4,6 +4,9 @@ import type { Sheet } from "./types";
 import { download, fileNameFor } from "./download";
 import { LevelUpDialog } from "./LevelUpDialog";
 import { DiceRoll, type RollView } from "./DiceRoll";
+import { Dice3D, type Roll3D } from "./Dice3D";
+import { preloadDice3D, type Die } from "./diceEngine";
+import { dice3dEnabled } from "./theme";
 import { CharacterSheet } from "./CharacterSheet";
 
 export interface RollRequest { type: string; target?: string; label: string; advantage?: string; critical?: boolean; faces?: number; }
@@ -24,14 +27,24 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
   const [tab, setTab] = useState<Tab>("Hoja");
   const [levelUp, setLevelUp] = useState(false);
   const [roll, setRoll] = useState<RollView | null>(null);
+  const [roll3d, setRoll3d] = useState<Roll3D | null>(null);
+
+  useEffect(() => { if (dice3dEnabled()) preloadDice3D("#7c5cff"); }, []);
 
   async function doRoll(req: RollRequest) {
+    const dc = sheet?.style.tokens?.dice ?? sheet?.style.accentColor ?? "#7c5cff";
+    const use3d = dice3dEnabled();
     try {
       const r = await api.check(id, { type: req.type, target: req.target, advantage: req.advantage ?? "normal", critical: req.critical }) as Record<string, unknown>;
       if (r["type"] === "damage") {
+        const dice = (r["dice3d"] as Die[]) ?? [];
+        if (use3d && dice.length) { setRoll3d({ dice, label: req.label + " · daño", total: r["total"] as number, detail: String(r["damageType"] ?? ""), crit: null, themeColor: dc, profile: "heavy" }); return; }
         setRoll({ label: req.label + " · daño", total: r["total"] as number, breakdown: r["breakdown"] as string, detail: String(r["damageType"] ?? ""), faces: req.faces });
       } else {
-        setRoll({ label: req.label, total: r["roll"] as number, breakdown: r["breakdown"] as string, detail: r["modifierDetail"] as string, crit: (r["crit"] as "critical" | "fumble" | null) ?? null });
+        const crit = (r["crit"] as "critical" | "fumble" | null) ?? null;
+        const nat = r["natural"] as number | null;
+        if (use3d && nat != null) { setRoll3d({ dice: [{ sides: 20, value: nat }], label: req.label, total: r["roll"] as number, detail: r["modifierDetail"] as string, crit, themeColor: dc, profile: req.type === "attack" || req.type === "spell_attack" ? "fast" : "normal" }); return; }
+        setRoll({ label: req.label, total: r["roll"] as number, breakdown: r["breakdown"] as string, detail: r["modifierDetail"] as string, crit });
       }
     } catch (e) {
       setRoll({ label: "⚠️ " + req.label, total: 0, breakdown: (e as Error).message });
@@ -98,6 +111,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
       )}
 
       {roll && <DiceRoll roll={roll} onClose={() => setRoll(null)} />}
+      {roll3d && <Dice3D roll={roll3d} onClose={() => setRoll3d(null)} />}
 
       <header className="sheet-header">
         {s.style.showPortrait !== false && (

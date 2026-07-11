@@ -31,3 +31,6 @@ data-private/
 
 # Datos de 5etools descargados por el script de sincronización (uso privado)
 .5etools/
+
+# Assets de dice-box (se regeneran de node_modules en build)
+web/public/assets/dice-box/
