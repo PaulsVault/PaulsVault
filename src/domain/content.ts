@@ -50,6 +50,7 @@ export interface SearchOptions {
   type?: ContentType;
   spellLevel?: number;
   spellClass?: string;
+  subclassOf?: string;   // filtra subclases por su clase (data.class), no por texto
   limit?: number;
 }
 
@@ -63,6 +64,10 @@ export function searchContent(query = "", opts: SearchOptions = {}): { total: nu
   if (opts.spellClass) {
     const sc = opts.spellClass.toLowerCase();
     pool = pool.filter((e) => e.type === "spell" && Array.isArray(e.data["classes"]) && (e.data["classes"] as string[]).some((c) => c.toLowerCase() === sc));
+  }
+  if (opts.subclassOf) {
+    const cn = opts.subclassOf.toLowerCase();
+    pool = pool.filter((e) => e.type === "subclass" && String(e.data["class"] ?? "").toLowerCase() === cn);
   }
   if (q) {
     // Prioriza coincidencias por nombre sobre las que solo aparecen en la descripción.

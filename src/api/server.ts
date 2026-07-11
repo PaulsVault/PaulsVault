@@ -320,6 +320,7 @@ export function buildApp(): Express {
       type: req.query["type"] as ContentType | undefined,
       spellLevel: num(req.query["spellLevel"]),
       spellClass: req.query["spellClass"] as string | undefined,
+      subclassOf: req.query["subclassOf"] as string | undefined,
       limit: num(req.query["limit"]),
     })));
 

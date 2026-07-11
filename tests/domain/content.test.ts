@@ -26,6 +26,20 @@ describe("búsqueda y lectura", () => {
     expect(() => getContentEntry("no-existe-xyz")).toThrowError(DomainError);
   });
 
+  it("filtra subclases por su clase (data.class), no por mención en el texto", async () => {
+    await importPack({
+      id: "test-sc", name: "sc", version: "1.0.0", source: "test",
+      entries: [
+        { id: "subclass:test-evoker", type: "subclass", name: "Test Evoker", data: { class: "Wizard", features: [] } },
+        { id: "subclass:test-ek", type: "subclass", name: "Test Eldritch Knight", data: { class: "Fighter", features: [], summary: "lanza conjuros de Wizard" } },
+      ],
+    });
+    const names = searchContent("", { type: "subclass", subclassOf: "Wizard" }).results.map((r) => r.name);
+    expect(names).toContain("Test Evoker");
+    expect(names).not.toContain("Test Eldritch Knight"); // menciona Wizard pero es de Fighter
+    await removePack("test-sc");
+  });
+
   it("deduplica por nombre y prefiere el pack 2024 sobre el SRD", async () => {
     await importPack({
       id: "dnd2024-test", name: "2024 test", version: "1.0.0", source: "test",

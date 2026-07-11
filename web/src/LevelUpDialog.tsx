@@ -41,10 +41,10 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
     void api.content("feat").then((f) => { setFeats(f); setFeat((prev) => prev || f[0]?.name || ""); });
   }, []);
 
-  // Subclases disponibles para la clase seleccionada (el dato data.class coincide con el nombre).
+  // Subclases de la clase seleccionada (filtradas por data.class, no por texto).
   useEffect(() => {
     if (!className) { setSubclasses([]); return; }
-    void api.content("subclass", className).then((subs) => {
+    void api.subclassesFor(className).then((subs) => {
       setSubclasses(subs);
       setSubclass(subs[0]?.name ?? "");
     });
