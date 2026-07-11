@@ -99,10 +99,13 @@ export interface ComputedModifiers {
   active: string[];
   critRange: number;       // umbral de crítico natural del personaje (20 normal, 19/18 con rasgos)
   initiativeFlat: number;  // suma de bonos numéricos a la iniciativa (dotes, Exhaustion…)
+  saveFlat: Record<AbilityKey, number>; // bono numérico de salvación por característica (objetos, Exhaustion…)
+  spellAttackFlat: number; // bono a tiradas de ataque de conjuro (objetos)
+  spellDcFlat: number;     // bono a la CD de salvación de conjuros (objetos)
 }
 
 /** Reúne todos los modificadores activos (condiciones + Exhaustion + efectos + rasgos/dotes). */
-function collect(c: Character): { mods: SourcedMod[]; active: string[]; incapacitated: boolean; critRange: number } {
+function collect(c: Character): { mods: SourcedMod[]; active: string[]; incapacitated: boolean; critRange: number; spellAttackFlat: number; spellDcFlat: number } {
   const mods: SourcedMod[] = [];
   const active: string[] = [];
   let incapacitated = false;
@@ -138,7 +141,21 @@ function collect(c: Character): { mods: SourcedMod[]; active: string[]; incapaci
     if (fx.initiativeProficiency) mods.push({ target: "initiative", op: "add", value: proficiencyBonus(totalLevel(c)), source: f.name });
     if (fx.critRange && fx.critRange < critRange) critRange = fx.critRange;
   }
-  return { mods, active, incapacitated, critRange };
+
+  // Bonos pasivos de objetos equipados/sintonizados (Ring of Protection, Staff of Power, etc.).
+  let spellAttackFlat = 0, spellDcFlat = 0;
+  for (const item of c.inventory) {
+    if (!(item.attuned || item.equipped)) continue;
+    const data = findEntry(item.name, "item")?.data ?? {};
+    const bonusAc = data["bonusAc"] as number | undefined;
+    const bonusSave = data["bonusSave"] as number | undefined;
+    // La CA de armaduras/escudos ya la calcula computeAC (magicBonus); aquí solo objetos que no son armadura.
+    if (bonusAc && item.type !== "armor" && item.type !== "shield") mods.push({ target: "ac", op: "add", value: bonusAc, source: item.name });
+    if (bonusSave) for (const a of ABILITIES) mods.push({ target: "save", op: "add", value: bonusSave, ability: a, source: item.name });
+    spellAttackFlat += (data["bonusSpellAttack"] as number | undefined) ?? 0;
+    spellDcFlat += (data["bonusSpellDc"] as number | undefined) ?? 0;
+  }
+  return { mods, active, incapacitated, critRange, spellAttackFlat, spellDcFlat };
 }
 
 function rollLine(mods: SourcedMod[], target: StatModifier["target"], ability?: AbilityKey): RollLine {
@@ -160,10 +177,13 @@ function formatBonus(v: number | string): string {
 }
 
 export function computeActiveModifiers(c: Character): ComputedModifiers {
-  const { mods, active, incapacitated, critRange } = collect(c);
+  const { mods, active, incapacitated, critRange, spellAttackFlat, spellDcFlat } = collect(c);
   const initiativeFlat = mods
     .filter((m) => m.target === "initiative" && m.op === "add" && typeof m.value === "number")
     .reduce((sum, m) => sum + (m.value as number), 0);
+  const saveFlat = Object.fromEntries(ABILITIES.map((a) => [a,
+    mods.filter((m) => m.target === "save" && m.op === "add" && typeof m.value === "number" && (!m.ability || m.ability === a))
+      .reduce((s, m) => s + (m.value as number), 0)])) as Record<AbilityKey, number>;
 
   // CA: base (armadura) → sets (mayor) → sumas → multiplicadores → suelo (min).
   const acBase = computeAC(c).ac;
@@ -211,5 +231,8 @@ export function computeActiveModifiers(c: Character): ComputedModifiers {
     active,
     critRange,
     initiativeFlat,
+    saveFlat,
+    spellAttackFlat,
+    spellDcFlat,
   };
 }

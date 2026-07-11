@@ -20,7 +20,18 @@ export function characterSheet(c: Character): Record<string, unknown> {
   };
 
   const skillDetails = Object.fromEntries(Object.keys(SKILLS).map((s) => [s, skillBonus(c, s).detail]));
-  const saveDetails = Object.fromEntries(ABILITIES.map((a) => [a, saveBonus(c, a).detail]));
+  const saveDetails = Object.fromEntries(ABILITIES.map((a) => {
+    const d = saveBonus(c, a).detail;
+    const flat = mods.saveFlat[a];
+    return [a, flat ? `${d} + extra(${flat >= 0 ? "+" : ""}${flat})` : d];
+  }));
+  // Salvaciones numéricas con los bonos de objetos/rasgos (Ring of Protection, Exhaustion…).
+  const saves = Object.fromEntries(ABILITIES.map((a) => [a, (base["saves"] as Record<string, number>)[a] + mods.saveFlat[a]]));
+  // Ataque/CD de conjuro con los bonos de objetos (Staff of Power +2, etc.).
+  const baseSpell = base["spellcasting"] as { dc: number; attack: number } | null;
+  const spellcasting = baseSpell
+    ? { ...baseSpell, attack: baseSpell.attack + mods.spellAttackFlat, dc: baseSpell.dc + mods.spellDcFlat }
+    : baseSpell;
 
   const weapons = c.inventory
     .filter((i) => i.type === "weapon")
@@ -45,6 +56,8 @@ export function characterSheet(c: Character): Record<string, unknown> {
     speed: mods.speed.final,
     speedBase: mods.speed.base,
     initiative: (base["initiative"] as number) + mods.initiativeFlat,
+    saves,
+    spellcasting,
     critRange: mods.critRange,
     skillDetails,
     saveDetails,

@@ -278,6 +278,15 @@ function convertItem(it) {
   if (it.rarity && it.rarity !== "none") head.push(`Rareza: ${it.rarity}.`);
   if (it.reqAttune) head.push(typeof it.reqAttune === "string" ? `Requiere sintonización ${it.reqAttune}.` : "Requiere sintonización.");
   const description = [head.join(" "), text(it.entries)].filter(Boolean).join(" ") || undefined;
+  const n = (v) => (v != null ? (Number(String(v).replace(/[^\d-]/g, "")) || undefined) : undefined);
+  // Conjuros del objeto con su coste en cargas: { "1": [spells], "5": [...] } → [{ cost, name }].
+  let spells;
+  if (it.attachedSpells?.charges) {
+    spells = [];
+    for (const [cost, list] of Object.entries(it.attachedSpells.charges)) {
+      for (const s of list) spells.push({ cost: Number(cost), name: cap(stripSrc(s)) });
+    }
+  }
   return { id: slug(it.name, "item"), type: "item", name: it.name, data: {
     itemType,
     weight: it.weight,
@@ -289,6 +298,16 @@ function convertItem(it) {
     properties: props.length ? props : undefined,
     magicBonus,
     rarity: it.rarity && it.rarity !== "none" ? it.rarity : undefined,
+    // Cargas y recarga (objetos con cargas).
+    charges: typeof it.charges === "number" ? it.charges : undefined,
+    recharge: it.recharge,
+    rechargeAmount: it.rechargeAmount ? deTag(it.rechargeAmount) : undefined,
+    spells,
+    // Bonos pasivos mientras se lleva/sintoniza.
+    bonusAc: n(it.bonusAc),
+    bonusSave: n(it.bonusSavingThrow),
+    bonusSpellAttack: n(it.bonusSpellAttack),
+    bonusSpellDc: n(it.bonusSpellSaveDc),
     description,
     source: it.source,
   } };

@@ -44,6 +44,9 @@ export interface Modifiers {
   active: string[];
   critRange: number;
   initiativeFlat: number;
+  saveFlat: Record<AbilityKey, number>;
+  spellAttackFlat: number;
+  spellDcFlat: number;
 }
 
 export interface Sheet {
