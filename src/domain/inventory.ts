@@ -36,17 +36,24 @@ export function requireItem(c: Character, idOrName: string): InventoryItem {
 
 export function inventoryView(c: Character): Record<string, unknown> {
   return {
-    inventory: c.inventory.map((i) => ({
-      id: i.id, name: i.name, type: i.type, qty: i.quantity,
-      equipped: i.equipped, attuned: i.attuned,
-      requiresAttunement: i.requiresAttunement,
-      ...(i.damage ? { damage: i.damage } : {}),
-      ...(i.containerId ? { inside: c.inventory.find((x) => x.id === i.containerId)?.name } : {}),
-      ...(i.charges ? { charges: i.charges } : {}),
-      ...(i.spells ? { spells: i.spells } : {}),
+    inventory: c.inventory.map((i) => {
       // Descripción: la del objeto o, si no la tiene, la del contenido instalado.
-      description: i.description ?? (findEntry(i.name, "item")?.data["description"] as string | undefined) ?? undefined,
-    })),
+      const description = i.description ?? (findEntry(i.name, "item")?.data["description"] as string | undefined) ?? undefined;
+      // Objeto activable (efecto sin cargas, tipo Horn of Blasting): daño + salvación/ataque/área en el texto.
+      const mech = description ? spellMechanics({ summary: description }) : {};
+      const activatable = !i.spells && !!mech.damage && !!(mech.save || mech.attack || mech.shape);
+      return {
+        id: i.id, name: i.name, type: i.type, qty: i.quantity,
+        equipped: i.equipped, attuned: i.attuned,
+        requiresAttunement: i.requiresAttunement,
+        ...(i.damage ? { damage: i.damage } : {}),
+        ...(i.containerId ? { inside: c.inventory.find((x) => x.id === i.containerId)?.name } : {}),
+        ...(i.charges ? { charges: i.charges } : {}),
+        ...(i.spells ? { spells: i.spells } : {}),
+        ...(activatable ? { activatable: true } : {}),
+        description,
+      };
+    }),
     encumbrance: { carried: carriedWeight(c), capacity: carryCapacity(c) },
     ac: computeAC(c).ac,
     currency: c.currency,
@@ -132,6 +139,38 @@ export function castItemSpell(c: Character, idOrName: string, spellName: string)
     summary: (cd["summary"] as string | undefined),
     mechanics: spellMechanics(cd),
   };
+}
+
+export interface ItemUseResult {
+  item: string; saveDC: number | null; summary?: string;
+  mechanics: ReturnType<typeof spellMechanics>;
+  destroyed?: boolean; selfDamage?: string; note?: string;
+}
+
+/** Usa el efecto mágico de un objeto SIN cargas (Horn of Blasting, etc.): devuelve el efecto y aplica la posible auto-destrucción. */
+export function useItem(c: Character, idOrName: string): ItemUseResult {
+  const it = requireItem(c, idOrName);
+  if (it.requiresAttunement && !it.attuned) throw new DomainError("rule", `Debes sintonizar ${it.name} para usarlo.`);
+  const desc = it.description ?? (findEntry(it.name, "item")?.data["description"] as string | undefined) ?? "";
+  const mech = spellMechanics({ summary: desc });
+  const dcM = desc.match(/DC (\d+)/);
+  const saveDC = dcM ? Number(dcM[1]) : (spellStats(c)?.dc ?? null);
+
+  let destroyed = false, selfDamage: string | undefined, note: string | undefined;
+  const chance = desc.match(/(\d+)\s*percent chance[^.]*?(?:explode|destroy)/i);
+  if (chance) {
+    const pct = Number(chance[1]);
+    const roll = 1 + Math.floor(Math.random() * 100);
+    if (roll <= pct) {
+      destroyed = true;
+      selfDamage = (desc.match(/explosion deals (\d+d\d+)/i) ?? desc.match(/(\d+d\d+)\s+Force damage to the user/i))?.[1];
+      c.inventory = c.inventory.filter((x) => x.id !== it.id);
+      note = `¡${it.name} explotó! (${roll} ≤ ${pct}%). Se destruye${selfDamage ? ` y te causa ${selfDamage} de daño de Fuerza` : ""}.`;
+    } else {
+      note = `${it.name} resiste (${roll} > ${pct}%).`;
+    }
+  }
+  return { item: it.name, saveDC, summary: desc.slice(0, 400), mechanics: mech, destroyed, selfDamage, note };
 }
 
 /** Recarga los objetos con cargas cuyo periodo coincide con el descanso. Devuelve notas. */

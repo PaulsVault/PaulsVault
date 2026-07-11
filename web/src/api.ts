@@ -78,6 +78,7 @@ export const api = {
   useCharges: (id: string, itemId: string, amount = 1) => req<Dict>(`/characters/${enc(id)}/inventory/${enc(itemId)}/use-charges`, { method: "POST", body: JSON.stringify({ amount }) }),
   restoreCharges: (id: string, itemId: string, amount?: number) => req<Dict>(`/characters/${enc(id)}/inventory/${enc(itemId)}/restore-charges`, { method: "POST", body: JSON.stringify({ amount }) }),
   castFromItem: (id: string, itemId: string, spell: string) => req<Dict>(`/characters/${enc(id)}/inventory/${enc(itemId)}/cast`, { method: "POST", body: JSON.stringify({ spell }) }),
+  useItem: (id: string, itemId: string) => req<Dict>(`/characters/${enc(id)}/inventory/${enc(itemId)}/use`, { method: "POST", body: "{}" }),
   currency: (id: string, delta: Dict) => req<Dict>(`/characters/${enc(id)}/currency`, { method: "PATCH", body: JSON.stringify(delta) }),
 
   // Compañeros

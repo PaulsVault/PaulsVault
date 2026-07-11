@@ -221,6 +221,11 @@ export function buildApp(): Express {
     res.json({ ...out.result, inventory: out.view });
   });
 
+  app.post("/api/characters/:id/inventory/:itemId/use", async (req, res) => {
+    const out = await onCharacter(req.params.id, (c) => ({ result: inv.useItem(c, req.params.itemId), view: inv.inventoryView(c) }));
+    res.json({ ...out.result, inventory: out.view });
+  });
+
   app.patch("/api/characters/:id/currency", async (req, res) =>
     res.json(await onCharacter(req.params.id, (c) => inv.adjustCurrency(c, req.body))));
 

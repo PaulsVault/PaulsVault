@@ -6,9 +6,9 @@ import type { ContentHit } from "../types";
 
 interface Mech { kind?: string; save?: string; attack?: boolean; damage?: string; damageType?: string; range?: string; shape?: string; areaSize?: number; area?: string; }
 interface Charges { current: number; max: number; recharge?: string; rechargeAmount?: string }
-interface InvItem { id: string; name: string; type: string; qty: number; equipped: boolean; attuned: boolean; damage?: string; inside?: string; description?: string; requiresAttunement?: boolean; charges?: Charges; spells?: { cost: number; name: string }[]; }
+interface InvItem { id: string; name: string; type: string; qty: number; equipped: boolean; attuned: boolean; damage?: string; inside?: string; description?: string; requiresAttunement?: boolean; charges?: Charges; spells?: { cost: number; name: string }[]; activatable?: boolean; }
 interface InvView { inventory: InvItem[]; encumbrance: { carried: number; capacity: number }; ac: number; currency: Record<string, number>; }
-interface ItemCast { item: string; spell: string; cost: number; chargesLeft: number; saveDC: number | null; attackBonus: number | null; summary?: string; mech: Mech; }
+interface ItemCast { item: string; spell: string; cost: number; chargesLeft: number; saveDC: number | null; attackBonus: number | null; summary?: string; mech: Mech; note?: string; }
 
 const COINS = ["pp", "gp", "ep", "sp", "cp"] as const;
 const SAVE_LABEL: Record<string, string> = { str: "Fuerza", dex: "Destreza", con: "Constitución", int: "Inteligencia", wis: "Sabiduría", cha: "Carisma" };
@@ -36,6 +36,21 @@ export function InventoryPanel({ id, reload }: { id: string; reload: () => Promi
         item: String(r["item"]), spell: String(r["spell"]), cost: Number(r["cost"]), chargesLeft: Number(r["chargesLeft"]),
         saveDC: (r["saveDC"] as number) ?? null, attackBonus: (r["attackBonus"] as number) ?? null,
         summary: r["summary"] as string | undefined, mech: (r["mechanics"] ?? {}) as Mech,
+      });
+    } catch (e) { setNote("⚠️ " + (e as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  async function useItemEffect(itemId: string) {
+    setBusy(true); setNote(null);
+    try {
+      const r = (await api.useItem(id, itemId)) as Record<string, unknown>;
+      await refresh(); await reload();
+      setCastInfo({
+        item: String(r["item"]), spell: "Efecto", cost: 0, chargesLeft: -1,
+        saveDC: (r["saveDC"] as number) ?? null, attackBonus: null,
+        summary: r["summary"] as string | undefined, mech: (r["mechanics"] ?? {}) as Mech,
+        note: r["note"] as string | undefined,
       });
     } catch (e) { setNote("⚠️ " + (e as Error).message); }
     finally { setBusy(false); }
@@ -74,7 +89,11 @@ export function InventoryPanel({ id, reload }: { id: string; reload: () => Promi
       {castInfo && (
         <section className="panel cast-result">
           <button className="icon-btn cast-close" onClick={() => setCastInfo(null)} title="Cerrar">✕</button>
-          <div className="cast-title">✨ {castInfo.item}: {castInfo.spell} <span className="muted small">· {castInfo.cost} carga{castInfo.cost !== 1 ? "s" : ""} (quedan {castInfo.chargesLeft})</span></div>
+          <div className="cast-title">
+            ✨ {castInfo.item}{castInfo.spell !== "Efecto" ? `: ${castInfo.spell}` : ""}
+            {castInfo.cost > 0 && <span className="muted small"> · {castInfo.cost} carga{castInfo.cost !== 1 ? "s" : ""} (quedan {castInfo.chargesLeft})</span>}
+          </div>
+          {castInfo.note && <p className="note">{castInfo.note}</p>}
           <div className="cast-meta">
             {castInfo.mech.save && <span className="chip">🛡️ Salvación de {SAVE_LABEL[castInfo.mech.save] ?? castInfo.mech.save} · CD {castInfo.saveDC}</span>}
             {castInfo.mech.attack && <span className="chip">🎯 Ataque de conjuro {fmt(castInfo.attackBonus)}</span>}
@@ -128,6 +147,9 @@ export function InventoryPanel({ id, reload }: { id: string; reload: () => Promi
                   {openItem === it.id && it.description && <p className="inv-desc">{it.description}</p>}
                 </div>
                 <div className="inv-actions">
+                  {it.activatable && (
+                    <button className="btn small primary" disabled={busy || (it.requiresAttunement && !it.attuned)} onClick={() => useItemEffect(it.id)} title="Usar el efecto del objeto">Usar</button>
+                  )}
                   {(it.type === "armor" || it.type === "shield" || it.type === "weapon") && (
                     <button className="btn small" disabled={busy} onClick={() => run(() => api.itemAction(id, it.id, it.equipped ? "unequip" : "equip"))}>{it.equipped ? "Quitar" : "Equipar"}</button>
                   )}
