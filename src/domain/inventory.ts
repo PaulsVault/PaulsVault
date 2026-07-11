@@ -31,10 +31,23 @@ export function requireItem(c: Character, idOrName: string): InventoryItem {
     const items = c.inventory.map((i) => i.name).join(", ") || "ninguno";
     throw new DomainError("not_found", `Objeto "${idOrName}" no está en el inventario de ${c.name}. Objetos: ${items}.`);
   }
+  hydrateItem(found);
   return found;
 }
 
+/** Rellena cargas/conjuros de un objeto desde el contenido si aún no los tiene (objetos añadidos antes de la feature). */
+function hydrateItem(it: InventoryItem): void {
+  if (it.charges && it.spells) return;
+  const cd = findEntry(it.name, "item")?.data as Record<string, unknown> | undefined;
+  if (!cd) return;
+  if (!it.charges && typeof cd["charges"] === "number") {
+    it.charges = { current: cd["charges"] as number, max: cd["charges"] as number, recharge: cd["recharge"] as string | undefined, rechargeAmount: cd["rechargeAmount"] as string | undefined };
+  }
+  if (!it.spells && Array.isArray(cd["spells"])) it.spells = cd["spells"] as { cost: number; name: string }[];
+}
+
 export function inventoryView(c: Character): Record<string, unknown> {
+  for (const i of c.inventory) hydrateItem(i);
   return {
     inventory: c.inventory.map((i) => {
       // Descripción: la del objeto o, si no la tiene, la del contenido instalado.
