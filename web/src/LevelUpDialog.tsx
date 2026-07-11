@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "./api";
+import { api, type LevelChoice } from "./api";
 import { ABILITIES, ABILITY_LABEL, type AbilityKey, type ContentHit } from "./types";
 
 const ASI_LEVELS = new Set([4, 8, 12, 16, 19]);
@@ -31,6 +31,8 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   const [feat, setFeat] = useState("");
   const [mc, setMc] = useState<Mc | null>(null);
   const [mcSkills, setMcSkills] = useState<string[]>([]);
+  const [choices, setChoices] = useState<LevelChoice[]>([]);
+  const [chosen, setChosen] = useState<Record<string, string[]>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +61,18 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
     if (!className) { setMc(null); return; }
     void api.multiclass(className).then((m) => { setMc(m); setMcSkills([]); }).catch(() => setMc(null));
   }, [className]);
+
+  // Elecciones que concede la clase a este nivel (estilo de combate, invocaciones, metamagia…).
+  useEffect(() => {
+    if (!className) { setChoices([]); return; }
+    void api.classChoices(className, resultingLevel).then((ch) => { setChoices(ch); setChosen({}); }).catch(() => setChoices([]));
+  }, [className, resultingLevel]);
+
+  const toggleOption = (kind: string, name: string, max: number) => setChosen((cur) => {
+    const list = cur[kind] ?? [];
+    const next = list.includes(name) ? list.filter((x) => x !== name) : list.length < max ? [...list, name] : list;
+    return { ...cur, [kind]: next };
+  });
 
   const classOptions = useMemo(() => {
     const names = new Set(classList.map((c) => c.name));
@@ -93,6 +107,8 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
         }
       }
       if (isMulticlass && mc?.skillCount && mcSkills.length) body["skills"] = mcSkills;
+      const opts = Object.values(chosen).flat();
+      if (opts.length) body["options"] = opts;
       await api.levelUp(id, body);
       onDone();
     } catch (e) { setError((e as Error).message); setBusy(false); }
@@ -155,6 +171,26 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
               )}
             </div>
           )}
+
+          {choices.map((ch) => (
+            <fieldset key={ch.kind} className="abilities-input span2">
+              <legend>{ch.label} — elige {ch.count} ({(chosen[ch.kind] ?? []).length}/{ch.count})</legend>
+              {ch.note && <p className="muted small" style={{ margin: "0 0 4px" }}>{ch.note}</p>}
+              <div className="chips">
+                {ch.options.map((o) => {
+                  const on = (chosen[ch.kind] ?? []).includes(o.name);
+                  return (
+                    <button type="button" key={o.name} className={`chip${on ? " removable" : ""}`}
+                      title={[o.prerequisite ? `Requisito: ${o.prerequisite}` : "", o.summary ?? ""].filter(Boolean).join(" — ")}
+                      onClick={() => toggleOption(ch.kind, o.name, ch.count)}>
+                      {on ? "✓ " : ""}{o.name}
+                    </button>
+                  );
+                })}
+                {ch.options.length === 0 && <span className="muted small">Sin opciones cargadas — re-sincroniza el contenido.</span>}
+              </div>
+            </fieldset>
+          ))}
 
           <fieldset className="abilities-input span2">
             <legend>Puntos de golpe</legend>

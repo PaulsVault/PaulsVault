@@ -2,7 +2,7 @@
 // exportar/importar y duplicar. Funciones sin I/O: reciben `db`/`character`, mutan y
 // devuelven el resultado o lanzan DomainError. El adaptador (API) hace loadDb/saveDb.
 
-import { findEntry } from "./content.js";
+import { allEntries, findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
 import {
   SKILLS, abilityMod, computedSheet, effectiveCasterLevel, newId,
@@ -64,6 +64,7 @@ export interface LevelUpInput {
   abilityIncreases?: Partial<Abilities>;
   feat?: string; // dote en vez de mejora de característica (niveles 4/8/12/16/19)
   skills?: string[]; // habilidad(es) elegidas al multiclasear (clases que la conceden)
+  options?: string[]; // elecciones de clase (estilo de combate, invocaciones, metamagia…)
 }
 
 export interface LevelUpResult {
@@ -334,6 +335,41 @@ export function multiclassProficiencies(className: string): MulticlassProfs {
   return MULTICLASS_PROFS[className.toLowerCase()] ?? {};
 }
 
+// ─── Elecciones de clase por nivel (estilo de combate, invocaciones, metamagia…) ───
+interface ChoiceDef { kind: string; label: string; count: number; source: "feat" | "optionalfeature"; match: string; note?: string; }
+export interface ChoiceOption { name: string; summary?: string; prerequisite?: string; }
+export interface LevelChoice { kind: string; label: string; count: number; note?: string; options: ChoiceOption[]; }
+
+const FIGHTING_STYLE: ChoiceDef = { kind: "fighting-style", label: "Estilo de combate", count: 1, source: "feat", match: "FS" };
+const CHOICE_DEFS: Record<string, (level: number) => ChoiceDef[]> = {
+  fighter: (l) => (l === 1 ? [FIGHTING_STYLE] : []),
+  paladin: (l) => (l === 2 ? [FIGHTING_STYLE] : []),
+  ranger: (l) => (l === 2 ? [FIGHTING_STYLE] : []),
+  warlock: (l) => ([1, 2, 5, 7, 9, 12, 15, 18].includes(l)
+    ? [{ kind: "invocation", label: "Invocaciones arcanas", count: l === 2 ? 2 : 1, source: "optionalfeature", match: "EI", note: "Elige la(s) que ganes a este nivel." }] : []),
+  sorcerer: (l) => (l === 2 ? [{ kind: "metamagic", label: "Metamagia", count: 2, source: "optionalfeature", match: "MM" }]
+    : [10, 17].includes(l) ? [{ kind: "metamagic", label: "Metamagia", count: 1, source: "optionalfeature", match: "MM" }] : []),
+};
+
+function resolveOptions(def: ChoiceDef): ChoiceOption[] {
+  const seen = new Set<string>();
+  const out: ChoiceOption[] = [];
+  for (const e of allEntries()) {
+    if (def.source === "feat" ? (e.type !== "feat" || e.data["category"] !== def.match)
+      : (e.type !== "optionalfeature" || !(Array.isArray(e.data["featureType"]) && (e.data["featureType"] as string[]).includes(def.match)))) continue;
+    if (seen.has(e.name.toLowerCase())) continue;
+    seen.add(e.name.toLowerCase());
+    out.push({ name: e.name, summary: (e.data["summary"] as string) ?? undefined, prerequisite: (e.data["prerequisite"] as string) ?? undefined });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Elecciones (estilo de combate, invocaciones, metamagia…) que concede una clase a un nivel, con sus opciones. */
+export function classChoicesAt(className: string, level: number): LevelChoice[] {
+  const defs = CHOICE_DEFS[className.toLowerCase()]?.(level) ?? [];
+  return defs.map((d) => ({ kind: d.kind, label: d.label, count: d.count, note: d.note, options: resolveOptions(d) }));
+}
+
 export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   if (totalLevel(c) >= 20) throw new DomainError("rule", `${c.name} ya está a nivel 20 (máximo).`);
 
@@ -362,6 +398,15 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
     if (mc.tools) c.proficiencies.tools = [...new Set([...c.proficiencies.tools, ...mc.tools])];
     if (mc.skillCount && input.skills?.length) {
       c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...input.skills.slice(0, mc.skillCount)])];
+    }
+  }
+
+  // Elecciones de clase (estilo de combate, invocaciones, metamagia…) como rasgos.
+  if (input.options?.length) {
+    for (const name of input.options) {
+      if (c.features.some((f) => f.name === name)) continue;
+      const entry = findEntry(name);
+      c.features.push({ name, source: `${cls.name} nivel ${cls.level}`, description: (entry?.data["summary"] as string | undefined) });
     }
   }
 

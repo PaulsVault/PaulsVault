@@ -347,3 +347,23 @@ if (want("subclasses")) {
   entries.sort((a, b) => a.data.class.localeCompare(b.data.class) || a.name.localeCompare(b.name));
   writePack("dnd2024-subclasses", "D&D 2024 — Subclases", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
 }
+
+// ─── Opciones de clase (invocaciones, metamagia, maniobras…) ───
+if (want("optionalfeatures")) {
+  const entries = [];
+  const seen = new Set();
+  for (const of of readJson(path.join(DATA_DIR, "optionalfeatures.json")).optionalfeature ?? []) {
+    if (!SOURCES_2024.has(of.source)) continue;
+    const id = slug(of.name, "optionalfeature");
+    if (seen.has(id)) continue;
+    seen.add(id);
+    entries.push({ id, type: "optionalfeature", name: of.name, data: {
+      featureType: of.featureType,
+      prerequisite: renderPrereq(of.prerequisite),
+      summary: text(of.entries),
+      source: of.source,
+    } });
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  writePack("dnd2024-optionalfeatures", "D&D 2024 — Opciones de clase", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
+}

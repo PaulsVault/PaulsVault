@@ -152,6 +152,10 @@ export function buildApp(): Express {
   // Competencias que otorga una clase al multiclasear (para el asistente de subida de nivel).
   app.get("/api/multiclass/:className", (req, res) => res.json(chars.multiclassProficiencies(req.params.className)));
 
+  // Elecciones de clase (estilo de combate, invocaciones, metamagia…) a un nivel dado.
+  app.get("/api/class-choices/:className/:level", (req, res) =>
+    res.json({ choices: chars.classChoicesAt(req.params.className, Number(req.params.level)) }));
+
   // Diario de campaña/sesión
   app.post("/api/characters/:id/journal", async (req, res) =>
     res.status(201).json(characterSheet(await onCharacter(req.params.id, (c) => { chars.addJournalEntry(c, req.body as chars.JournalInput); return c; }))));

@@ -19,6 +19,8 @@ type Dict = Record<string, unknown>;
 
 export interface AuthUser { id: string; email: string; }
 export interface Invite { id: string; token: string; label: string | null; url: string; used: boolean; usedAt: string | null; expiresAt: string | null; createdAt: string; }
+export interface ChoiceOption { name: string; summary?: string; prerequisite?: string; }
+export interface LevelChoice { kind: string; label: string; count: number; note?: string; options: ChoiceOption[]; }
 
 export const api = {
   // Autenticación
@@ -41,6 +43,7 @@ export const api = {
   levelUp: (id: string, body: Dict) => req<Dict>(`/characters/${enc(id)}/level-up`, { method: "POST", body: JSON.stringify(body) }),
   levelDown: (id: string, body: Dict = {}) => req<Dict>(`/characters/${enc(id)}/level-down`, { method: "POST", body: JSON.stringify(body) }),
   multiclass: (className: string) => req<{ armor?: string[]; weapons?: string[]; tools?: string[]; skillCount?: number; skillOptions?: string[] }>(`/multiclass/${enc(className)}`),
+  classChoices: (className: string, level: number) => req<{ choices: LevelChoice[] }>(`/class-choices/${enc(className)}/${level}`).then((r) => r.choices),
 
   // Diario de campaña/sesión
   addJournal: (id: string, body: Dict) => req<Sheet>(`/characters/${enc(id)}/journal`, { method: "POST", body: JSON.stringify(body) }),

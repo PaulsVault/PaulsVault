@@ -210,7 +210,7 @@ export interface JournalEntry {
 
 export type ContentType =
   | "class" | "subclass" | "species" | "background" | "feat"
-  | "spell" | "item" | "condition" | "monster" | "rule";
+  | "spell" | "item" | "condition" | "monster" | "rule" | "optionalfeature";
 
 export interface ContentEntry {
   id: string;                  // slug único: "spell:fireball"
