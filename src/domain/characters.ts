@@ -5,6 +5,7 @@
 import { allEntries, findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
 import { multiclassProficiencies, type MulticlassProfs } from "./proficiency.js";
+import { reconcileGrantedSpells } from "./spells.js";
 import {
   abilityMod, computedSheet, effectiveCasterLevel, newId,
   slotsForCasterLevel, totalLevel,
@@ -247,6 +248,7 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
   if (input.subclass && level >= 3) for (let l = 3; l <= level; l++) addSubclassFeatures(c, input.subclass, l);
 
   recalcSlots(c);
+  reconcileGrantedSpells(c); // conjuros otorgados por especie/subclase (Parte C)
   db.characters.push(c);
   return c;
 }
@@ -423,6 +425,7 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   hd.total += 1;
 
   recalcSlots(c);
+  reconcileGrantedSpells(c); // conjuros otorgados al nuevo nivel (Parte C)
   touch(c);
   return {
     character: c,
@@ -479,6 +482,7 @@ export function levelDown(c: Character, className?: string): LevelDownResult {
   }
 
   recalcSlots(c);
+  reconcileGrantedSpells(c); // quita los conjuros otorgados por encima del nuevo nivel (Parte C)
   touch(c);
   return { character: c, className: cls.name, classLevel: cls.level, levelTotal: totalLevel(c), hpLost, classRemoved };
 }

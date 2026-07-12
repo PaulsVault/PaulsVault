@@ -6,7 +6,7 @@ import type { ContentHit, Sheet } from "../types";
 
 interface Mech { kind?: string; save?: string; attack?: boolean; damage?: string; baseDamage?: string; damageType?: string; range?: string; shape?: string; areaSize?: number; area?: string; }
 interface Known { name: string; level: number; prepared: boolean; alwaysPrepared?: boolean; concentration?: boolean; source: string; summary?: string; mechanics?: Mech; }
-interface SpellView { saveDC: number | null; attackBonus: number | null; slots: Record<string, { max: number; used: number }>; pactSlots?: { level: number; max: number; used: number } | null; concentratingOn?: string | null; spells: Known[]; }
+interface SpellView { saveDC: number | null; attackBonus: number | null; slots: Record<string, { max: number; used: number }>; pactSlots?: { level: number; max: number; used: number } | null; concentratingOn?: string | null; grantedChoices?: string[]; spells: Known[]; }
 interface CastInfo { spell: string; castAt: number; upcast: boolean; saveDC: number | null; attackBonus: number | null; concentration: boolean; concentrationBroken?: string; summary?: string; mech: Mech; }
 
 const SAVE_LABEL: Record<string, string> = { str: "Fuerza", dex: "Destreza", con: "Constitución", int: "Inteligencia", wis: "Sabiduría", cha: "Carisma" };
@@ -20,6 +20,8 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
   const [note, setNote] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [castInfo, setCastInfo] = useState<CastInfo | null>(null);
+  const [onlyMyClass, setOnlyMyClass] = useState(true);
+  const myClasses = sheet.classList?.map((cl) => cl.name) ?? [];
 
   async function refresh() { setView((await api.getSpells(id)) as unknown as SpellView); }
   useEffect(() => { void refresh(); }, [id]);
@@ -59,9 +61,18 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
     } catch (e) { setNote("⚠️ " + (e as Error).message); }
   }
 
-  async function search() {
+  async function search(only = onlyMyClass) {
     if (query.trim().length < 2) return;
-    setFound(await api.spells({ query }));
+    // Por defecto, solo conjuros de la(s) clase(s) del personaje; el check permite ver todas (excepciones).
+    if (only && myClasses.length) {
+      const lists = await Promise.all(myClasses.map((cls) => api.spells({ query, spellClass: cls })));
+      const seen = new Set<string>();
+      const merged: ContentHit[] = [];
+      for (const list of lists) for (const h of list) if (!seen.has(h.id)) { seen.add(h.id); merged.push(h); }
+      setFound(merged);
+    } else {
+      setFound(await api.spells({ query }));
+    }
   }
 
   if (!view) return <p className="muted">Cargando conjuros…</p>;
@@ -70,6 +81,7 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
   return (
     <div className="stack">
       {note && <p className="note">{note}</p>}
+      {view.grantedChoices?.map((n, i) => <p key={i} className="note warn">✨ {n}</p>)}
 
       {castInfo && (
         <section className="panel cast-result">
@@ -112,8 +124,14 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
         <h2>Aprender conjuro</h2>
         <div className="row">
           <input placeholder="Buscar hechizo (≥2 letras)…" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && search()} />
-          <button className="btn" onClick={search}>Buscar</button>
+          <button className="btn" onClick={() => search()}>Buscar</button>
         </div>
+        {myClasses.length > 0 && (
+          <label className="inline small">
+            <input type="checkbox" checked={onlyMyClass} onChange={(e) => { const v = e.target.checked; setOnlyMyClass(v); if (query.trim().length >= 2) void search(v); }} />
+            {" "}Solo conjuros de mi clase ({myClasses.join("/")}) · desmarca para excepciones (dotes, Secretos Mágicos…)
+          </label>
+        )}
         {found.length > 0 && (
           <ul className="spell-list">
             {found.slice(0, 14).map((f) => (
@@ -137,7 +155,7 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
             <li key={sp.name} className="spell-row">
               <div className="spell-head" onClick={() => sp.summary && setOpen(open === sp.name ? null : sp.name)} style={{ cursor: sp.summary ? "pointer" : "default" }}>
                 <b>{sp.name} {sp.summary && <span className="muted">{open === sp.name ? "▲" : "▼"}</span>}</b>
-                <span className="muted small">{sp.level === 0 ? "Truco" : `Nv ${sp.level}`}{sp.concentration ? " · 🌀 concentración" : ""}{sp.prepared ? " · preparado" : ""}</span>
+                <span className="muted small">{sp.level === 0 ? "Truco" : `Nv ${sp.level}`}{sp.concentration ? " · 🌀 concentración" : ""}{sp.prepared ? " · preparado" : ""}{sp.source?.startsWith("Otorgado:") ? ` · ✨ ${sp.source.replace("Otorgado: ", "de ")}` : ""}</span>
                 {(sp.mechanics?.save || sp.mechanics?.attack || sp.mechanics?.damage || sp.mechanics?.area) && (
                   <div className="spell-mech">
                     {sp.mechanics.save && <span>🛡️ {SAVE_LABEL[sp.mechanics.save] ?? sp.mechanics.save}</span>}

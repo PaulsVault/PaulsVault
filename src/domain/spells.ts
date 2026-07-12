@@ -4,8 +4,8 @@
 import { findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
 import { armorPenalty } from "./proficiency.js";
-import { newId, spellStats } from "../rules.js";
-import type { Character, KnownSpell } from "../types.js";
+import { newId, spellStats, totalLevel } from "../rules.js";
+import type { AbilityKey, Character, KnownSpell } from "../types.js";
 
 // ─── Extracción de mecánicas del texto del conjuro (salvación, daño, área) ───
 
@@ -102,6 +102,7 @@ export function spellcastingView(c: Character): Record<string, unknown> {
     slots: sc.slots,
     pactSlots: sc.pactSlots ?? null,
     concentratingOn: sc.concentratingOn ?? null,
+    grantedChoices: grantedSpellChoiceNotes(c),
     spells: sc.known.map((s) => ({
       name: s.name, level: s.level,
       prepared: s.prepared || s.alwaysPrepared,
@@ -159,6 +160,61 @@ export function unprepareSpell(c: Character, spell: string): KnownSpell {
   if (known.alwaysPrepared) throw new DomainError("rule", `${known.name} está siempre preparado (${known.source}); no se puede despreparar.`);
   known.prepared = false;
   return known;
+}
+
+// ─── Conjuros otorgados automáticamente por raza/subclase (Parte C) ───
+const GRANT_PREFIX = "Otorgado: ";
+
+/**
+ * Sincroniza los conjuros otorgados por la especie (nivel de personaje) y las subclases (nivel de clase):
+ * los "siempre preparados/conocidos" fijos del contenido (grantedSpells). Idempotente: recalcula desde cero,
+ * así funciona al crear, subir y bajar de nivel. No pisa los conjuros aprendidos manualmente (por nombre).
+ */
+export function reconcileGrantedSpells(c: Character): void {
+  c.spellcasting.known = c.spellcasting.known.filter((s) => !s.source.startsWith(GRANT_PREFIX));
+
+  const targets: { name: string; source: string }[] = [];
+  let grantedAbility: AbilityKey | undefined;
+  const addFrom = (data: Record<string, unknown> | undefined, availLevel: number, granter: string) => {
+    for (const x of (data?.["grantedSpells"] as { level: number; name: string }[] | undefined) ?? []) {
+      if (x.level <= availLevel) targets.push({ name: x.name, source: GRANT_PREFIX + granter });
+    }
+    const ab = data?.["grantedSpellAbility"] as AbilityKey | undefined;
+    if (ab && !grantedAbility) grantedAbility = ab;
+  };
+
+  addFrom(findEntry(c.species, "species")?.data, totalLevel(c), c.species);
+  for (const cl of c.classes) if (cl.subclass) addFrom(findEntry(cl.subclass, "subclass")?.data, cl.level, cl.subclass);
+
+  for (const t of targets) {
+    if (c.spellcasting.known.some((s) => s.name.toLowerCase() === t.name.toLowerCase())) continue;
+    const cd = findEntry(t.name, "spell")?.data as Record<string, unknown> | undefined;
+    c.spellcasting.known.push({
+      name: (cd?.["name"] as string) ?? findEntry(t.name, "spell")?.name ?? t.name,
+      level: (cd?.["level"] as number | undefined) ?? 0,
+      prepared: true,
+      alwaysPrepared: true,
+      source: t.source,
+      concentration: (cd?.["concentration"] as boolean) ?? false,
+      ritual: (cd?.["ritual"] as boolean) ?? false,
+    });
+  }
+
+  // Un personaje no lanzador que recibe conjuros (p. ej. truco racial) obtiene una habilidad de lanzamiento.
+  if (!c.spellcasting.ability && grantedAbility && c.spellcasting.known.length) c.spellcasting.ability = grantedAbility;
+}
+
+/** Elecciones de conjuros pendientes (linaje del Elfo, tierra del Druida…) para avisar en la UI. */
+export function grantedSpellChoiceNotes(c: Character): string[] {
+  const notes: string[] = [];
+  const add = (data: Record<string, unknown> | undefined, availLevel: number, granter: string) => {
+    for (const x of (data?.["grantedSpellChoices"] as { level: number }[] | undefined) ?? []) {
+      if (x.level <= availLevel) notes.push(`${granter}: elige tu(s) conjuro(s) de este rasgo y añádelos a mano.`);
+    }
+  };
+  add(findEntry(c.species, "species")?.data, totalLevel(c), c.species);
+  for (const cl of c.classes) if (cl.subclass) add(findEntry(cl.subclass, "subclass")?.data, cl.level, cl.subclass);
+  return [...new Set(notes)];
 }
 
 export interface CastSpellInput {

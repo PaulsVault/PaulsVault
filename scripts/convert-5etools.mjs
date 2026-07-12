@@ -84,6 +84,65 @@ function renderPrereq(pre) {
   return parts.length ? parts.join(", ") : undefined;
 }
 
+// ─── Conjuros otorgados (additionalSpells) → estructura {fixed, choices, ability} ───
+// "light|xphb#c" → "Light". Quita fuente (|...) y sufijos (#c = cantrip).
+function spellRefName(ref) {
+  return titleCase(String(ref).split("|")[0].split("#")[0].trim());
+}
+function collectGrantList(val, level, fixed, choices) {
+  if (Array.isArray(val)) {
+    for (const item of val) {
+      if (typeof item === "string") fixed.push({ level, name: spellRefName(item) });
+      else choices.push({ level }); // entrada de elección (linaje, escuela, etc.)
+    }
+  } else if (val && typeof val === "object") {
+    if (val.choose || val.chooseFrom || val.all) { choices.push({ level }); return; }
+    for (const v of Object.values(val)) collectGrantList(v, level, fixed, choices);
+  }
+}
+// Devuelve solo lo "siempre disponible" (known/prepared). innate/will (X/día) se omiten por ahora.
+// Si hay VARIOS grupos, son variantes a elegir (linaje del Tiefling, tipo de Círculo de la Tierra):
+// no se auto-otorgan, se marcan como elección.
+function parseAdditionalSpells(add) {
+  if (!Array.isArray(add) || !add.length) return undefined;
+  const fixed = [];
+  const choices = [];
+  let ability;
+  const multiVariant = add.length > 1;
+  for (const grp of add) {
+    if (typeof grp.ability === "string") ability = grp.ability;
+    for (const kind of ["known", "prepared"]) {
+      const byLevel = grp[kind];
+      if (!byLevel || typeof byLevel !== "object") continue;
+      for (const [lvl, list] of Object.entries(byLevel)) {
+        if (multiVariant) choices.push({ level: Number(lvl) });
+        else collectGrantList(list, Number(lvl), fixed, choices);
+      }
+    }
+  }
+  if (!fixed.length && !choices.length) return undefined;
+  const out = {};
+  if (fixed.length) out.grantedSpells = fixed;
+  if (choices.length) out.grantedSpellChoices = [...new Set(choices.map((c) => c.level))].map((level) => ({ level }));
+  if (ability) out.grantedSpellAbility = ability;
+  return out;
+}
+
+// Mapa conjuro(min) → clases 2024 (XPHB), desde spells/sources.json.
+function buildSpellClassMap(dataDir) {
+  const map = {};
+  const file = path.join(dataDir, "spells", "sources.json");
+  if (!fs.existsSync(file)) return map;
+  const json = readJson(file);
+  for (const bySource of Object.values(json)) {
+    for (const [spellName, info] of Object.entries(bySource)) {
+      const set = (map[spellName.toLowerCase()] ??= new Set());
+      for (const cl of info.class ?? []) if (cl.source === "XPHB") set.add(cl.name);
+    }
+  }
+  return map;
+}
+
 function writePack(id, name, source, entries) {
   const pack = { id, name, version: "1.0.0", source, description: `${entries.length} entradas convertidas de 5etools (uso privado).`, entries };
   const file = path.join(OUT_DIR, `${id}.json`);
@@ -158,6 +217,7 @@ if (want("spells")) {
   const dir = path.join(DATA_DIR, "spells");
   const entries = [];
   const seen = new Set();
+  const classMap = buildSpellClassMap(DATA_DIR); // conjuro → clases 2024
   for (const f of fs.readdirSync(dir)) {
     if (!f.startsWith("spells-") || !f.endsWith(".json")) continue;
     const json = readJson(path.join(dir, f));
@@ -166,6 +226,8 @@ if (want("spells")) {
       const e = convertSpell(sp);
       if (seen.has(e.id)) continue;
       seen.add(e.id);
+      const cls = classMap[sp.name.toLowerCase()];
+      if (cls && cls.size) e.data.classes = [...cls].sort();
       entries.push(e);
     }
   }
@@ -234,6 +296,7 @@ function convertRace(r) {
     size: (r.size ?? ["M"]).map((s) => SIZE[s] ?? s).join(" o "),
     speed,
     traits,
+    ...parseAdditionalSpells(r.additionalSpells), // conjuros otorgados (nivel = nivel de personaje)
     source: r.source,
   } };
 }
@@ -350,6 +413,7 @@ function convertSubclasses(classJson) {
       class: sc.className,
       summary,
       features: feats.filter((_, i) => i !== introIdx),
+      ...parseAdditionalSpells(sc.additionalSpells), // conjuros de subclase (nivel = nivel de clase)
       source: sc.source,
     } });
   }
