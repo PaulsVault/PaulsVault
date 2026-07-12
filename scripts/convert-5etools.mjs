@@ -297,6 +297,8 @@ function convertItem(it) {
     armorClass: it.ac,
     armorCategory: ARMOR_CAT[code],
     damage: it.dmg1 ? `${it.dmg1} ${DMG_TYPE[it.dmgType] ?? it.dmgType ?? ""}`.trim() : undefined,
+    // Categoría de arma (simple/marcial) para validar competencias de clase.
+    weaponCategory: itemType === "weapon" && it.weaponCategory ? String(it.weaponCategory).toLowerCase() : undefined,
     properties: props.length ? props : undefined,
     magicBonus,
     rarity: it.rarity && it.rarity !== "none" ? it.rarity : undefined,

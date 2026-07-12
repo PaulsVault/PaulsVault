@@ -7,6 +7,7 @@ import {
   saveBonus, skillBonus, spellStats, totalLevel,
 } from "../rules.js";
 import { computeActiveModifiers } from "./modifiers.js";
+import { armorPenalty, isProficientWithItem, skillAbility } from "./proficiency.js";
 import type { AbilityKey, Character } from "../types.js";
 
 export type RollMode = "normal" | "advantage" | "disadvantage";
@@ -54,6 +55,8 @@ export function check(c: Character, input: CheckInput): CheckResult {
   const critical = input.critical ?? false;
   const pb = proficiencyBonus(totalLevel(c));
   const M = computeActiveModifiers(c);
+  // Penalización por armadura/escudo sin competencia (2024): desventaja en FUE/DES.
+  const armor = armorPenalty(c);
 
   let mod: number;
   let detail: string;
@@ -64,6 +67,8 @@ export function check(c: Character, input: CheckInput): CheckResult {
     case "skill": {
       if (!input.target) throw new DomainError("validation", `type=skill requiere target. Habilidades: ${Object.keys(SKILLS).join(", ")}.`);
       ({ bonus: mod, detail } = skillBonus(c, input.target));
+      const ab = skillAbility(input.target);
+      if (armor.active && (ab === "str" || ab === "dex")) { effMode = combineMode(effMode, "disadvantage"); detail += " · desventaja (armadura sin competencia)"; }
       break;
     }
     case "ability": {
@@ -73,13 +78,16 @@ export function check(c: Character, input: CheckInput): CheckResult {
       const key = input.target.toLowerCase() as AbilityKey;
       mod = abilityMod(c.abilities[key]);
       detail = `${key.toUpperCase()}(${fmt(mod)})`;
+      if (armor.active && (key === "str" || key === "dex")) { effMode = combineMode(effMode, "disadvantage"); detail += " · desventaja (armadura sin competencia)"; }
       break;
     }
     case "save": {
       if (!input.target || !ABILITIES.includes(input.target.toLowerCase() as AbilityKey)) {
         throw new DomainError("validation", `type=save requiere target entre: ${ABILITIES.join(", ")}.`);
       }
-      ({ bonus: mod, detail } = saveBonus(c, input.target.toLowerCase() as AbilityKey));
+      const key = input.target.toLowerCase() as AbilityKey;
+      ({ bonus: mod, detail } = saveBonus(c, key));
+      if (armor.active && (key === "str" || key === "dex")) { effMode = combineMode(effMode, "disadvantage"); detail += " · desventaja (armadura sin competencia)"; }
       break;
     }
     case "initiative": {
@@ -111,10 +119,16 @@ export function check(c: Character, input: CheckInput): CheckResult {
       const magic = weapon.magicBonus ?? 0;
 
       if (type === "attack") {
-        mod = abMod + pb + magic;
-        detail = `${ranged ? "DES" : finesse && dexMod > strMod ? "DES(finesse)" : "FUE"}(${fmt(abMod)}) + comp(${fmt(pb)})${magic ? ` + mágico(${fmt(magic)})` : ""}`;
+        // Sin competencia con el arma → no se suma el bono de competencia (2024).
+        const proficient = isProficientWithItem(c, weapon);
+        const pbUsed = proficient ? pb : 0;
+        mod = abMod + pbUsed + magic;
+        detail = `${ranged ? "DES" : finesse && dexMod > strMod ? "DES(finesse)" : "FUE"}(${fmt(abMod)})${proficient ? ` + comp(${fmt(pb)})` : ""}${magic ? ` + mágico(${fmt(magic)})` : ""}`;
+        if (!proficient) detail += " · sin competencia (sin bono)";
         critThreshold = M.critRange;
         effMode = combineMode(advantage, M.attack.mode);
+        // Armadura sin competencia → desventaja en ataques (usan FUE/DES).
+        if (armor.active) { effMode = combineMode(effMode, "disadvantage"); detail += " · desventaja (armadura sin competencia)"; }
         if (M.critRange < 20) detail += ` · crítico ${M.critRange}-20`;
         break;
       }

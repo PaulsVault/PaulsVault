@@ -6,8 +6,8 @@ import type { ContentHit } from "../types";
 
 interface Mech { kind?: string; save?: string; attack?: boolean; damage?: string; damageType?: string; range?: string; shape?: string; areaSize?: number; area?: string; }
 interface Charges { current: number; max: number; recharge?: string; rechargeAmount?: string }
-interface InvItem { id: string; name: string; type: string; qty: number; equipped: boolean; attuned: boolean; damage?: string; inside?: string; description?: string; requiresAttunement?: boolean; charges?: Charges; spells?: { cost: number; name: string }[]; activatable?: boolean; }
-interface InvView { inventory: InvItem[]; encumbrance: { carried: number; capacity: number }; ac: number; currency: Record<string, number>; }
+interface InvItem { id: string; name: string; type: string; qty: number; equipped: boolean; attuned: boolean; damage?: string; inside?: string; description?: string; requiresAttunement?: boolean; charges?: Charges; spells?: { cost: number; name: string }[]; activatable?: boolean; proficient?: boolean; }
+interface InvView { inventory: InvItem[]; encumbrance: { carried: number; capacity: number }; ac: number; currency: Record<string, number>; equipmentWarning?: string | null; }
 interface ItemCast { item: string; spell: string; cost: number; chargesLeft: number; saveDC: number | null; attackBonus: number | null; summary?: string; mech: Mech; note?: string; }
 
 const COINS = ["pp", "gp", "ep", "sp", "cp"] as const;
@@ -83,6 +83,7 @@ export function InventoryPanel({ id, reload }: { id: string; reload: () => Promi
   return (
     <div className="stack">
       {note && <p className="note">{note}</p>}
+      {view.equipmentWarning && <p className="note warn">⚠️ {view.equipmentWarning}</p>}
 
       {castInfo && (
         <section className="panel cast-result">
@@ -141,7 +142,7 @@ export function InventoryPanel({ id, reload }: { id: string; reload: () => Promi
                   onClick={() => it.description && setOpenItem(openItem === it.id ? null : it.id)}>
                   <b>{it.name}</b>{it.qty > 1 && <span className="muted small"> ×{it.qty}</span>}
                   {it.description && <span className="muted"> {openItem === it.id ? "▲" : "▼"}</span>}
-                  <div className="muted small">{it.type}{it.damage ? ` · ${it.damage}` : ""}{it.inside ? ` · en ${it.inside}` : ""}{it.charges ? ` · ${it.charges.current}/${it.charges.max} cargas` : ""}{it.requiresAttunement ? " · requiere sintonía" : ""}{it.equipped ? " · equipado" : ""}{it.attuned ? " · sintonizado" : ""}</div>
+                  <div className="muted small">{it.type}{it.damage ? ` · ${it.damage}` : ""}{it.inside ? ` · en ${it.inside}` : ""}{it.charges ? ` · ${it.charges.current}/${it.charges.max} cargas` : ""}{it.requiresAttunement ? " · requiere sintonía" : ""}{it.equipped ? " · equipado" : ""}{it.attuned ? " · sintonizado" : ""}{it.proficient === false ? <span className="prof-warn"> · ⚠️ sin competencia</span> : ""}</div>
                   {openItem === it.id && it.description && <p className="inv-desc">{it.description}</p>}
                 </div>
                 <div className="inv-actions">

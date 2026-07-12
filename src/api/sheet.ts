@@ -2,6 +2,7 @@
 // más desgloses de cálculo (de dónde sale cada número), armas equipadas y trucos (para tirar desde la hoja).
 import { ABILITIES, SKILLS, computedSheet, saveBonus, skillBonus } from "../rules.js";
 import { computeActiveModifiers } from "../domain/modifiers.js";
+import { armorPenalty, isProficientWithItem } from "../domain/proficiency.js";
 import { allEntries, findEntry } from "../domain/content.js";
 import type { Character } from "../types.js";
 
@@ -35,7 +36,10 @@ export function characterSheet(c: Character): Record<string, unknown> {
 
   const weapons = c.inventory
     .filter((i) => i.type === "weapon")
-    .map((i) => ({ id: i.id, name: i.name, damage: i.damage ?? null, equipped: i.equipped }));
+    .map((i) => ({ id: i.id, name: i.name, damage: i.damage ?? null, equipped: i.equipped, proficient: isProficientWithItem(c, i) }));
+
+  // Aviso de equipo sin competencia (armadura/escudo equipado): penalización 2024.
+  const armor = armorPenalty(c);
 
   const cantrips = c.spellcasting.known
     .filter((s) => s.level === 0)
@@ -62,6 +66,8 @@ export function characterSheet(c: Character): Record<string, unknown> {
     skillDetails,
     saveDetails,
     weapons,
+    armorNotProficient: armor.active,
+    equipmentWarning: armor.warning,
     cantrips,
     classList,
     features,

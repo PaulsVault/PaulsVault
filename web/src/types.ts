@@ -61,7 +61,9 @@ export interface Sheet {
   skills: Record<string, number>;
   skillDetails: Record<string, string>;
   saveDetails: Record<AbilityKey, string>;
-  weapons: { id: string; name: string; damage: string | null; equipped: boolean }[];
+  weapons: { id: string; name: string; damage: string | null; equipped: boolean; proficient?: boolean }[];
+  armorNotProficient?: boolean;
+  equipmentWarning?: string | null;
   cantrips: { name: string }[];
   classList: { name: string; subclass: string | null; level: number }[];
   features: { name: string; source: string; description: string | null }[];

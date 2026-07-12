@@ -4,6 +4,7 @@
 import { findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
 import { spellMechanics } from "./spells.js";
+import { armorPenalty, isProficientWithItem } from "./proficiency.js";
 import { carriedWeight, carryCapacity, computeAC, newId, spellStats } from "../rules.js";
 import type { Character, Currency, InventoryItem, ItemType } from "../types.js";
 
@@ -55,10 +56,13 @@ export function inventoryView(c: Character): Record<string, unknown> {
       // Objeto activable (efecto sin cargas, tipo Horn of Blasting): daño + salvación/ataque/área en el texto.
       const mech = description ? spellMechanics({ summary: description }) : {};
       const activatable = !i.spells && !!mech.damage && !!(mech.save || mech.attack || mech.shape);
+      // Competencia: solo relevante para armas/armaduras/escudos. false = sin competencia (aviso en UI).
+      const needsProf = i.type === "weapon" || i.type === "armor" || i.type === "shield" || !!i.armorCategory;
       return {
         id: i.id, name: i.name, type: i.type, qty: i.quantity,
         equipped: i.equipped, attuned: i.attuned,
         requiresAttunement: i.requiresAttunement,
+        ...(needsProf ? { proficient: isProficientWithItem(c, i) } : {}),
         ...(i.damage ? { damage: i.damage } : {}),
         ...(i.containerId ? { inside: c.inventory.find((x) => x.id === i.containerId)?.name } : {}),
         ...(i.charges ? { charges: i.charges } : {}),
@@ -70,6 +74,7 @@ export function inventoryView(c: Character): Record<string, unknown> {
     encumbrance: { carried: carriedWeight(c), capacity: carryCapacity(c) },
     ac: computeAC(c).ac,
     currency: c.currency,
+    equipmentWarning: armorPenalty(c).warning,
   };
 }
 

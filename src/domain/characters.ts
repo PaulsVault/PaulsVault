@@ -4,8 +4,9 @@
 
 import { allEntries, findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
+import { multiclassProficiencies, type MulticlassProfs } from "./proficiency.js";
 import {
-  SKILLS, abilityMod, computedSheet, effectiveCasterLevel, newId,
+  abilityMod, computedSheet, effectiveCasterLevel, newId,
   slotsForCasterLevel, totalLevel,
 } from "../rules.js";
 import type {
@@ -183,6 +184,11 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
   const maxHp = Math.max(1, def.hitDie + conMod + (level - 1) * (avg + conMod));
 
   const cls: ClassLevel = { name: input.className, subclass: input.subclass, level, hitDie: def.hitDie };
+  // Competencias de arma/armadura de la clase principal (2024). Se guardan para la hoja/exportación;
+  // el motor también las recalcula en vivo (proficiency.ts), así los personajes previos también funcionan.
+  const clsData = (findEntry(input.className, "class")?.data ?? {}) as Record<string, unknown>;
+  const classArmor = (clsData["armor"] as string[] | undefined) ?? [];
+  const classWeapons = (clsData["weapons"] as string[] | undefined) ?? [];
   const now = new Date().toISOString();
   const c: Character = {
     id: newId("chr"),
@@ -205,8 +211,8 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
       expertise: [],
       tools: input.tools ?? [],
       languages: ["Common"],
-      weapons: [],
-      armor: [],
+      weapons: classWeapons,
+      armor: classArmor,
     },
     features: [],
     inventory: [],
@@ -313,27 +319,9 @@ export function updateCharacter(c: Character, set: UpdateCharacterInput): Charac
   return c;
 }
 
-// Competencias que otorga cada clase al MULTICLASEAR (set reducido, PHB 2024).
-export interface MulticlassProfs { armor?: string[]; weapons?: string[]; tools?: string[]; skillCount?: number; skillOptions?: string[]; }
-const MULTICLASS_PROFS: Record<string, MulticlassProfs> = {
-  barbarian: { armor: ["shield"], weapons: ["martial"] },
-  bard: { armor: ["light"], tools: ["Musical Instrument"], skillCount: 1, skillOptions: Object.keys(SKILLS) },
-  cleric: { armor: ["light", "medium", "shield"] },
-  druid: { armor: ["light", "shield"] },
-  fighter: { armor: ["light", "medium", "shield"], weapons: ["martial"] },
-  monk: {},
-  paladin: { armor: ["light", "medium", "shield"], weapons: ["martial"] },
-  ranger: { armor: ["light", "medium", "shield"], weapons: ["martial"], skillCount: 1, skillOptions: ["animal handling", "athletics", "insight", "investigation", "nature", "perception", "stealth", "survival"] },
-  rogue: { armor: ["light"], tools: ["Thieves' Tools"], skillCount: 1, skillOptions: ["acrobatics", "athletics", "deception", "insight", "intimidation", "investigation", "perception", "persuasion", "sleight of hand", "stealth"] },
-  sorcerer: {},
-  warlock: { armor: ["light"] },
-  wizard: {},
-};
-
-/** Competencias de multiclase de una clase (para mostrar y aplicar al tomar su primer nivel). */
-export function multiclassProficiencies(className: string): MulticlassProfs {
-  return MULTICLASS_PROFS[className.toLowerCase()] ?? {};
-}
+// La tabla de competencias de multiclase vive en ./proficiency.js; se re-exporta para la API.
+export { multiclassProficiencies };
+export type { MulticlassProfs };
 
 // ─── Elecciones de clase por nivel (estilo de combate, invocaciones, metamagia…) ───
 interface ChoiceDef { kind: string; label: string; count: number; source: "feat" | "optionalfeature"; match: string; note?: string; }

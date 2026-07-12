@@ -100,10 +100,11 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
         {s.weapons.length > 0 && (
           <section className="panel">
             <h2>Armas {s.critRange < 20 && <span className="muted small">· crítico {s.critRange}-20</span>}</h2>
+            {s.equipmentWarning && <p className="note warn">⚠️ {s.equipmentWarning}</p>}
             <ul className="line-list">
               {s.weapons.map((w) => (
                 <li key={w.id} className="weapon-row">
-                  <span>{w.name}{w.equipped ? "" : " (guardada)"}<em className="muted small"> {w.damage}</em></span>
+                  <span>{w.name}{w.equipped ? "" : " (guardada)"}<em className="muted small"> {w.damage}</em>{w.proficient === false && <span className="prof-warn"> · ⚠️ sin competencia</span>}</span>
                   <span className="row">
                     <button className="btn small" onClick={() => onRoll({ type: "attack", target: w.name, label: `${w.name} — ataque` })}>Atacar</button>
                     <button className="btn small primary" onClick={() => onRoll({ type: "damage", target: w.name, label: w.name, faces: dmgFaces(w.damage) })}>Daño</button>

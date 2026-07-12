@@ -3,6 +3,7 @@
 
 import { findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
+import { armorPenalty } from "./proficiency.js";
 import { newId, spellStats } from "../rules.js";
 import type { Character, KnownSpell } from "../types.js";
 
@@ -182,6 +183,11 @@ export interface CastResult {
 }
 
 export function castSpell(c: Character, input: CastSpellInput): CastResult {
+  // Armadura/escudo sin competencia equipado → no puedes lanzar conjuros (2024).
+  const armor = armorPenalty(c);
+  if (armor.active) {
+    throw new DomainError("rule", `No puedes lanzar conjuros con ${armor.items.join(", ")} equipado (sin competencia con esa armadura). Quítatelo primero.`);
+  }
   const sc = c.spellcasting;
   const stats = spellStats(c);
   const content = findEntry(input.spell, "spell");

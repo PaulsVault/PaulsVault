@@ -39,9 +39,10 @@ describe("API smoke (con auth)", () => {
   });
 
   it("flujo autenticado: crear → equipar armadura recalcula CA → lanzar hechizo", async () => {
+    // Clérigo: lanzador competente con armadura ligera (para equipar + lanzar sin penalización 2024).
     const create = await api("/api/characters", {
       method: "POST",
-      body: JSON.stringify({ name: "API Hero", className: "Wizard", species: "Human", background: "Sage", abilities: { str: 8, dex: 14, con: 14, int: 16, wis: 12, cha: 10 } }),
+      body: JSON.stringify({ name: "API Hero", className: "Cleric", species: "Human", background: "Sage", abilities: { str: 8, dex: 14, con: 14, int: 12, wis: 16, cha: 10 } }),
     });
     expect(create.status).toBe(201);
     expect(create.body["ac"]).toBe(12);
