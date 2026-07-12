@@ -89,7 +89,7 @@ export const api = {
 
   // Dados y pruebas
   roll: (expression: string, advantage = "normal", times = 1) =>
-    req<{ rolls: { total: number; breakdown: string; crit: string | null }[] }>("/roll", { method: "POST", body: JSON.stringify({ expression, advantage, times }) }),
+    req<{ rolls: { total: number; breakdown: string; crit: string | null; dice3d?: { sides: number; value: number }[] }[] }>("/roll", { method: "POST", body: JSON.stringify({ expression, advantage, times }) }),
   check: (id: string, body: Dict) => req<Dict>(`/characters/${enc(id)}/check`, { method: "POST", body: JSON.stringify(body) }),
 
   // Estilo

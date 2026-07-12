@@ -22,6 +22,7 @@ const STRENGTH: Record<Profile, number> = { fast: 2.2, normal: 1.5, heavy: 1 };
 let box: DiceBoxInstance | null = null;
 let initPromise: Promise<unknown> | null = null;
 let currentColor = "";
+let currentMaterial = "none";
 
 function host(): HTMLElement {
   let el = document.getElementById("dice3d-host");
@@ -42,30 +43,32 @@ function luminance(hex: string): number {
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
 
-function colorset(hex: string): Record<string, unknown> {
+// Materiales válidos del motor: plastic | metal | glass | wood (procedurales, sin texturas).
+function colorset(hex: string, material: string): Record<string, unknown> {
   const light = luminance(hex) > 0.6;
   return {
-    name: `dnd-${hex}`,
+    name: `dnd-${hex}-${material}`,
     background: hex,
     foreground: light ? "#1a1730" : "#ffffff", // color de los números
     outline: light ? "#ffffff" : "#000000",    // contorno de los números
     edge: hex,
     texture: "none",
-    material: "plastic",
+    material,
   };
 }
 
-async function ensureBox(themeColor: string): Promise<DiceBoxInstance> {
+async function ensureBox(themeColor: string, material: string): Promise<DiceBoxInstance> {
   host();
   if (!box) {
     currentColor = themeColor;
+    currentMaterial = material;
     const { default: DiceBox } = await import("@3d-dice/dice-box-threejs");
     box = new DiceBox("#dice3d-host", {
       framerate: 1 / 60,
       sounds: false,
       shadows: true,
-      theme_customColorset: colorset(themeColor),
-      theme_material: "plastic",
+      theme_customColorset: colorset(themeColor, material),
+      theme_material: material,
       theme_texture: "none",
       gravity_multiplier: 400,
       light_intensity: 0.9,
@@ -86,17 +89,18 @@ function notationFor(dice: Die[]): string {
 }
 
 /** Precarga el motor (chunk + geometría) para que la primera tirada no tenga retardo. */
-export function preloadDice3D(themeColor: string): void {
-  void ensureBox(themeColor).catch(() => { /* si falla, se usa el 2D */ });
+export function preloadDice3D(themeColor: string, material = "none"): void {
+  void ensureBox(themeColor, material).catch(() => { /* si falla, se usa el 2D */ });
 }
 
 /** Lanza los dados 3D con su resultado forzado. onComplete se llama al detenerse. */
-export async function rollDice3D(dice: Die[], themeColor: string, profile: Profile, onComplete?: () => void): Promise<void> {
+export async function rollDice3D(dice: Die[], themeColor: string, profile: Profile, material = "none", onComplete?: () => void): Promise<void> {
   if (!dice.length) { onComplete?.(); return; }
-  const b = await ensureBox(themeColor);
-  if (themeColor !== currentColor) {
+  const b = await ensureBox(themeColor, material);
+  if (themeColor !== currentColor || material !== currentMaterial) {
     currentColor = themeColor;
-    try { await b.updateConfig({ theme_customColorset: colorset(themeColor) }); } catch { /* noop */ }
+    currentMaterial = material;
+    try { await b.updateConfig({ theme_customColorset: colorset(themeColor, material), theme_material: material }); } catch { /* noop */ }
   }
   b.strength = STRENGTH[profile];
   host().classList.add("show");

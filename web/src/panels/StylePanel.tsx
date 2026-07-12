@@ -4,6 +4,12 @@ import type { Sheet } from "../types";
 
 const THEMES = ["classic", "dark", "parchment", "arcane", "infernal", "nature"];
 const LAYOUTS = ["classic", "compact", "spellcaster", "landscape"];
+const DICE_MATERIALS: { value: string; label: string }[] = [
+  { value: "none", label: "Plástico" },
+  { value: "metal", label: "Metal" },
+  { value: "glass", label: "Cristal" },
+  { value: "wood", label: "Madera" },
+];
 
 // Plantillas rápidas: aplican tema + acento + tipografía de un clic.
 const TEMPLATES: { name: string; theme: string; accentColor: string; fontFamily: string }[] = [
@@ -24,6 +30,7 @@ export function StylePanel({ id, sheet, reload }: { id: string; sheet: Sheet; re
   const [showPortrait, setShowPortrait] = useState(st.showPortrait !== false);
   const [artUrl, setArtUrl] = useState(st.artUrl ?? "");
   const [diceColor, setDiceColor] = useState(st.tokens?.dice ?? st.accentColor ?? "#7c5cff");
+  const [diceMaterial, setDiceMaterial] = useState(st.tokens?.diceMaterial ?? "none");
   const [customCss, setCustomCss] = useState(st.customCss ?? "");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -36,7 +43,7 @@ export function StylePanel({ id, sheet, reload }: { id: string; sheet: Sheet; re
   async function save() {
     setBusy(true); setNote(null);
     try {
-      await api.style(id, { theme, accentColor, fontFamily: fontFamily || undefined, layout, showPortrait, artUrl, customCss, tokens: { ...(st.tokens ?? {}), dice: diceColor } });
+      await api.style(id, { theme, accentColor, fontFamily: fontFamily || undefined, layout, showPortrait, artUrl, customCss, tokens: { ...(st.tokens ?? {}), dice: diceColor, diceMaterial } });
       await reload();
       setNote("Estilo guardado ✓");
     } catch (e) { setNote("⚠️ " + (e as Error).message); }
@@ -79,6 +86,11 @@ export function StylePanel({ id, sheet, reload }: { id: string; sheet: Sheet; re
           </label>
           <label className="field"><span>🎲 Color de dados</span>
             <input type="color" value={diceColor} onChange={(e) => setDiceColor(e.target.value)} style={{ height: 42, padding: 4 }} />
+          </label>
+          <label className="field"><span>🎲 Material de dados (3D)</span>
+            <select value={diceMaterial} onChange={(e) => setDiceMaterial(e.target.value)}>
+              {DICE_MATERIALS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
           </label>
           <label className="field"><span>Tipografía (CSS font-family)</span>
             <input value={fontFamily} onChange={(e) => setFontFamily(e.target.value)} placeholder="p.ej. Georgia, serif" />

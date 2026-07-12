@@ -9,6 +9,7 @@ export interface Roll3D {
   crit?: "critical" | "fumble" | null;
   themeColor: string;
   profile: Profile;
+  material?: string;
 }
 
 export function Dice3D({ roll, onClose }: { roll: Roll3D; onClose: () => void }) {
@@ -19,7 +20,7 @@ export function Dice3D({ roll, onClose }: { roll: Roll3D; onClose: () => void })
   useEffect(() => {
     setLanded(false);
     let timer: number | undefined;
-    void rollDice3D(roll.dice, roll.themeColor, roll.profile, () => {
+    void rollDice3D(roll.dice, roll.themeColor, roll.profile, roll.material ?? "none", () => {
       setLanded(true);
       timer = window.setTimeout(() => closeRef.current(), 4500);
     });

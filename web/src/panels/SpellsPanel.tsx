@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { AreaGlyph } from "../AreaGlyph";
-import { DiceRoll, type RollView } from "../DiceRoll";
+import { presentRoll } from "../rollPresenter";
 import type { ContentHit, Sheet } from "../types";
 
 interface Mech { kind?: string; save?: string; attack?: boolean; damage?: string; baseDamage?: string; damageType?: string; range?: string; shape?: string; areaSize?: number; area?: string; }
@@ -20,7 +20,6 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
   const [note, setNote] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const [castInfo, setCastInfo] = useState<CastInfo | null>(null);
-  const [dmgRoll, setDmgRoll] = useState<RollView | null>(null);
 
   async function refresh() { setView((await api.getSpells(id)) as unknown as SpellView); }
   useEffect(() => { void refresh(); }, [id]);
@@ -50,11 +49,12 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
   async function rollDamage(m: Mech) {
     if (!m.damage) return;
     try {
-      const res = (await api.roll(m.damage)) as { rolls: { total: number; breakdown: string }[] };
+      const res = await api.roll(m.damage);
       const roll = res.rolls[0];
-      setDmgRoll({
+      presentRoll({
         label: `${m.kind === "heal" ? "Curación" : "Daño"}${m.damageType ? ` de ${m.damageType}` : ""} · ${m.damage}`,
-        total: roll.total, breakdown: roll.breakdown, faces: Number(m.damage.split("d")[1]) || 6,
+        total: roll.total, breakdown: roll.breakdown, detail: m.damageType, dice3d: roll.dice3d ?? [],
+        faces: Number(m.damage.split("d")[1]) || 6, profile: "heavy",
       });
     } catch (e) { setNote("⚠️ " + (e as Error).message); }
   }
@@ -70,7 +70,6 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
   return (
     <div className="stack">
       {note && <p className="note">{note}</p>}
-      {dmgRoll && <DiceRoll roll={dmgRoll} onClose={() => setDmgRoll(null)} />}
 
       {castInfo && (
         <section className="panel cast-result">

@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
+import { presentRoll } from "../rollPresenter";
+import { dice3dEnabled } from "../theme";
 import { ABILITIES, ABILITY_LABEL } from "../types";
 
 interface Entry { text: string; total?: number; crit?: string | null; }
@@ -25,7 +27,11 @@ export function DiceTray({ id, inspiration, reload }: { id: string; inspiration:
     try {
       const r = await api.roll(expression, adv);
       const first = r.rolls[0];
-      push({ text: `${expression}${adv !== "normal" ? ` (${adv === "advantage" ? "ventaja" : "desventaja"})` : ""}: ${first.breakdown}`, total: first.total, crit: first.crit });
+      const advLabel = adv !== "normal" ? ` (${adv === "advantage" ? "ventaja" : "desventaja"})` : "";
+      push({ text: `${expression}${advLabel}: ${first.breakdown}`, total: first.total, crit: first.crit });
+      if (dice3dEnabled() && first.dice3d?.length) {
+        presentRoll({ label: `${expression}${advLabel}`, total: first.total, breakdown: first.breakdown, crit: first.crit as "critical" | "fumble" | null, dice3d: first.dice3d, profile: "normal" });
+      }
     } catch (e) { push({ text: "⚠️ " + (e as Error).message }); }
     finally { setBusy(false); }
   }
@@ -33,9 +39,12 @@ export function DiceTray({ id, inspiration, reload }: { id: string; inspiration:
   async function check(type: string, target?: string) {
     setBusy(true);
     try {
-      const r = await api.check(id, { type, target, advantage: adv }) as { breakdown?: string; roll?: number; total?: number; crit?: string | null; modifierDetail?: string };
+      const r = await api.check(id, { type, target, advantage: adv }) as { breakdown?: string; roll?: number; total?: number; crit?: string | null; modifierDetail?: string; natural?: number | null; dice3d?: { sides: number; value: number }[] };
       const label = `${type}${target ? ` (${target})` : ""}`;
       push({ text: `${label}: ${r.breakdown ?? ""}`, total: r.roll ?? r.total, crit: r.crit });
+      if (dice3dEnabled() && (r.dice3d?.length || r.natural != null)) {
+        presentRoll({ label, total: r.roll ?? r.total ?? 0, breakdown: r.breakdown ?? "", detail: r.modifierDetail, crit: r.crit as "critical" | "fumble" | null, dice3d: r.dice3d ?? [], natural: r.natural ?? null, profile: "normal" });
+      }
     } catch (e) { push({ text: "⚠️ " + (e as Error).message }); }
     finally { setBusy(false); }
   }
