@@ -4,14 +4,12 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "predev": "node scripts/copy-dice-assets.mjs",
     "dev": "vite",
-    "prebuild": "node scripts/copy-dice-assets.mjs",
     "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@3d-dice/dice-box": "^1.1.4",
+    "@3d-dice/dice-box-threejs": "^0.0.12",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
