@@ -1,8 +1,9 @@
 // Hoja calculada para la API: computedSheet base + valores finales con modificadores activos,
 // más desgloses de cálculo (de dónde sale cada número), armas equipadas y trucos (para tirar desde la hoja).
-import { ABILITIES, SKILLS, computedSheet, saveBonus, skillBonus } from "../rules.js";
+import { ABILITIES, SKILLS, computedSheet, saveBonus, skillBonus, totalLevel } from "../rules.js";
 import { computeActiveModifiers } from "../domain/modifiers.js";
 import { armorPenalty, isProficientWithItem } from "../domain/proficiency.js";
+import { scaleCantripDamage, spellMechanics } from "../domain/spells.js";
 import { allEntries, findEntry } from "../domain/content.js";
 import type { Character } from "../types.js";
 
@@ -41,9 +42,19 @@ export function characterSheet(c: Character): Record<string, unknown> {
   // Aviso de equipo sin competencia (armadura/escudo equipado): penalización 2024.
   const armor = armorPenalty(c);
 
+  // Trucos con su daño escalado al nivel (para tirar daño desde la hoja, como las armas).
   const cantrips = c.spellcasting.known
     .filter((s) => s.level === 0)
-    .map((s) => ({ name: s.name }));
+    .map((s) => {
+      const cd = (findEntry(s.name, "spell")?.data ?? {}) as Record<string, unknown>;
+      const mech = spellMechanics(cd);
+      return {
+        name: s.name,
+        damage: mech.damage ? scaleCantripDamage(mech.damage, totalLevel(c)) : null,
+        damageType: mech.damageType ?? null,
+        attack: mech.attack ?? false,
+      };
+    });
 
   const classList = c.classes.map((cl) => ({ name: cl.name, subclass: cl.subclass ?? null, level: cl.level }));
   const features = c.features.map((f) => ({ name: f.name, source: f.source, description: f.description ?? describe(f.name, f.source) }));

@@ -65,7 +65,7 @@ export interface Sheet {
   weapons: { id: string; name: string; damage: string | null; equipped: boolean; proficient?: boolean }[];
   armorNotProficient?: boolean;
   equipmentWarning?: string | null;
-  cantrips: { name: string }[];
+  cantrips: { name: string; damage?: string | null; damageType?: string | null; attack?: boolean }[];
   classList: { name: string; subclass: string | null; level: number }[];
   features: { name: string; source: string; description: string | null }[];
   speciesTraits: string[];

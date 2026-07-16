@@ -92,6 +92,15 @@ export function spellMechanics(data: Record<string, unknown>, castAt?: number, s
   return m;
 }
 
+/** Escala el daño de un truco al nivel de personaje (2024: +1 dado al llegar a niveles 5, 11 y 17). */
+export function scaleCantripDamage(baseDamage: string, charLevel: number): string {
+  const m = baseDamage.match(/(\d+)d(\d+)/);
+  if (!m) return baseDamage;
+  const count = parseInt(m[1], 10);
+  const tiers = (charLevel >= 5 ? 1 : 0) + (charLevel >= 11 ? 1 : 0) + (charLevel >= 17 ? 1 : 0);
+  return `${count + tiers}d${m[2]}${baseDamage.slice(m[0].length)}`; // conserva un posible "+N"
+}
+
 export function spellcastingView(c: Character): Record<string, unknown> {
   const sc = c.spellcasting;
   const stats = spellStats(c);

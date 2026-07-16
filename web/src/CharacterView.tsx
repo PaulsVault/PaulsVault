@@ -9,16 +9,17 @@ import { DiceOverlay } from "./DiceOverlay";
 import { presentRoll } from "./rollPresenter";
 import { CharacterSheet } from "./CharacterSheet";
 
-export interface RollRequest { type: string; target?: string; label: string; advantage?: string; critical?: boolean; faces?: number; }
+export interface RollRequest { type: string; target?: string; label: string; advantage?: string; critical?: boolean; faces?: number; damageExpr?: string; damageType?: string; }
 import { CombatPanel } from "./panels/CombatPanel";
 import { InfoPanel } from "./panels/InfoPanel";
 import { SpellsPanel } from "./panels/SpellsPanel";
 import { InventoryPanel } from "./panels/InventoryPanel";
 import { CompanionsPanel } from "./panels/CompanionsPanel";
 import { DiceTray } from "./panels/DiceTray";
+import { JournalPanel } from "./panels/JournalPanel";
 import { StylePanel } from "./panels/StylePanel";
 
-const TABS = ["Hoja", "Info", "Combate", "Conjuros", "Inventario", "Compañeros", "Dados", "Estilo"] as const;
+const TABS = ["Hoja", "Info", "Combate", "Conjuros", "Inventario", "Compañeros", "Dados", "Diario", "Estilo"] as const;
 type Tab = (typeof TABS)[number];
 
 export function CharacterView({ id, onBack }: { id: string; onBack: () => void }) {
@@ -31,6 +32,13 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
 
   async function doRoll(req: RollRequest) {
     try {
+      // Daño de truco (u otra expresión directa): se tira la fórmula, sin pasar por el motor de armas.
+      if (req.type === "spell_damage" && req.damageExpr) {
+        const res = await api.roll(req.damageExpr);
+        const r0 = res.rolls[0];
+        presentRoll({ label: req.label, total: r0.total, breakdown: r0.breakdown, detail: req.damageType, dice3d: r0.dice3d ?? [], faces: req.faces, profile: "heavy" });
+        return;
+      }
       const r = await api.check(id, { type: req.type, target: req.target, advantage: req.advantage ?? "normal", critical: req.critical }) as Record<string, unknown>;
       if (r["type"] === "damage") {
         presentRoll({ label: req.label + " · daño", total: r["total"] as number, breakdown: r["breakdown"] as string, detail: String(r["damageType"] ?? ""), dice3d: (r["dice3d"] as Die[]) ?? [], faces: req.faces, profile: "heavy" });
@@ -137,6 +145,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
         {tab === "Inventario" && <InventoryPanel id={id} reload={reload} />}
         {tab === "Compañeros" && <CompanionsPanel id={id} />}
         {tab === "Dados" && <DiceTray id={id} inspiration={s.inspiration} reload={reload} />}
+        {tab === "Diario" && <JournalPanel id={id} sheet={s} reload={reload} />}
         {tab === "Estilo" && <StylePanel id={id} sheet={s} reload={reload} />}
       </div>
     </div>

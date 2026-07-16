@@ -12,7 +12,7 @@ const SKILL_LABEL: Record<string, string> = {
 };
 const modeBadge = (mode: string) => (mode === "advantage" ? "▲ ventaja" : mode === "disadvantage" ? "▼ desventaja" : "");
 
-export interface RollReq { type: string; target?: string; label: string; critical?: boolean; faces?: number; }
+export interface RollReq { type: string; target?: string; label: string; critical?: boolean; faces?: number; damageExpr?: string; damageType?: string; }
 
 export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r: RollReq) => void }) {
   const m = s.modifiers;
@@ -121,8 +121,11 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
             <ul className="line-list">
               {s.cantrips.map((ct) => (
                 <li key={ct.name} className="weapon-row">
-                  <span>{ct.name}</span>
-                  <button className="btn small" onClick={() => onRoll({ type: "spell_attack", label: `${ct.name} — ataque de conjuro` })}>Ataque de conjuro</button>
+                  <span>{ct.name}{ct.damage ? <em className="muted small"> {ct.damage}{ct.damageType ? ` ${ct.damageType}` : ""}</em> : ""}</span>
+                  <span className="row">
+                    <button className="btn small" onClick={() => onRoll({ type: "spell_attack", label: `${ct.name} — ataque de conjuro` })}>Ataque</button>
+                    {ct.damage && <button className="btn small primary" onClick={() => onRoll({ type: "spell_damage", label: `${ct.name} — daño`, damageExpr: ct.damage!, damageType: ct.damageType ?? undefined, faces: dmgFaces(ct.damage!) })}>Daño</button>}
+                  </span>
                 </li>
               ))}
             </ul>

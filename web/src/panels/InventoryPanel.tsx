@@ -11,6 +11,15 @@ interface InvView { inventory: InvItem[]; encumbrance: { carried: number; capaci
 interface ItemCast { item: string; spell: string; cost: number; chargesLeft: number; saveDC: number | null; attackBonus: number | null; summary?: string; mech: Mech; note?: string; }
 
 const COINS = ["pp", "gp", "ep", "sp", "cp"] as const;
+// Agrupación del inventario por tipo, en orden. Lo no clasificado cae en "Otros".
+const ITEM_GROUPS: { label: string; types: string[] }[] = [
+  { label: "⚔️ Armas", types: ["weapon"] },
+  { label: "🛡️ Armaduras y escudos", types: ["armor", "shield"] },
+  { label: "💍 Accesorios mágicos", types: ["wondrous"] },
+  { label: "🧰 Herramientas y kits", types: ["tool"] },
+  { label: "🧪 Consumibles y munición", types: ["consumable", "ammunition"] },
+  { label: "📦 Otros", types: ["gear", "container", "treasure", "other"] },
+];
 const SAVE_LABEL: Record<string, string> = { str: "Fuerza", dex: "Destreza", con: "Constitución", int: "Inteligencia", wis: "Sabiduría", cha: "Carisma" };
 const fmt = (n: number | null) => (n == null ? "" : n >= 0 ? `+${n}` : `${n}`);
 
@@ -76,9 +85,64 @@ export function InventoryPanel({ id, reload }: { id: string; reload: () => Promi
     setFound(await api.content("item", query));
   }
 
+  const renderItem = (it: InvItem) => (
+    <li key={it.id} className="inv-row">
+      <div className="inv-line">
+        <div style={{ minWidth: 0, cursor: it.description ? "pointer" : "default" }}
+          onClick={() => it.description && setOpenItem(openItem === it.id ? null : it.id)}>
+          <b>{it.name}</b>{it.qty > 1 && <span className="muted small"> ×{it.qty}</span>}
+          {it.description && <span className="muted"> {openItem === it.id ? "▲" : "▼"}</span>}
+          <div className="muted small">{it.type}{it.damage ? ` · ${it.damage}` : ""}{it.inside ? ` · en ${it.inside}` : ""}{it.charges ? ` · ${it.charges.current}/${it.charges.max} cargas` : ""}{it.requiresAttunement ? " · requiere sintonía" : ""}{it.equipped ? " · equipado" : ""}{it.attuned ? " · sintonizado" : ""}{it.proficient === false ? <span className="prof-warn"> · ⚠️ sin competencia</span> : ""}</div>
+          {openItem === it.id && it.description && <p className="inv-desc">{it.description}</p>}
+        </div>
+        <div className="inv-actions">
+          {it.activatable && (
+            <button className="btn small primary" disabled={busy || (it.requiresAttunement && !it.attuned)} onClick={() => useItemEffect(it.id)} title="Usar el efecto del objeto">Usar</button>
+          )}
+          {(it.type === "armor" || it.type === "shield" || it.type === "weapon") && (
+            <button className="btn small" disabled={busy} onClick={() => run(() => api.itemAction(id, it.id, it.equipped ? "unequip" : "equip"))}>{it.equipped ? "Quitar" : "Equipar"}</button>
+          )}
+          <button className="btn small" disabled={busy} onClick={() => run(() => api.itemAction(id, it.id, it.attuned ? "unattune" : "attune"))}>{it.attuned ? "Desintonizar" : "Sintonizar"}</button>
+          <button className="icon-btn" title="Quitar" disabled={busy} onClick={() => run(() => api.removeItem(id, it.id))}>🗑</button>
+        </div>
+      </div>
+
+      {it.charges && (
+        <div className="item-charges">
+          {(!it.requiresAttunement || it.attuned) ? (
+            <>
+              <div className="row wrap" style={{ alignItems: "center" }}>
+                <span className="pips">{Array.from({ length: it.charges.max }).map((_, i) => <i key={i} className={i < it.charges!.current ? "pip full" : "pip"} />)}</span>
+                <span className="muted small">{it.charges.current}/{it.charges.max}{it.charges.recharge ? ` · recarga: ${it.charges.recharge}` : ""}</span>
+                <button className="btn small" disabled={busy || it.charges.current < 1} onClick={() => run(() => api.useCharges(id, it.id, 1))}>Gastar 1</button>
+                <button className="btn small" disabled={busy} onClick={() => run(() => api.restoreCharges(id, it.id))}>Recargar</button>
+              </div>
+              {it.spells && it.spells.length > 0 && (
+                <div className="row wrap item-spells">
+                  {it.spells.map((sp) => (
+                    <button key={sp.name} className="btn small primary" disabled={busy || it.charges!.current < sp.cost}
+                      onClick={() => castItem(it.id, sp.name)} title={`Cuesta ${sp.cost} carga(s)`}>
+                      {sp.name} <span className="chip-cost">{sp.cost}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : <span className="muted small">Sintoniza el objeto para usar sus cargas y conjuros.</span>}
+        </div>
+      )}
+    </li>
+  );
+
   if (!view) return <p className="muted">Cargando inventario…</p>;
   const enc = view.encumbrance;
   const pct = Math.min(100, Math.round((enc.carried / Math.max(1, enc.capacity)) * 100));
+  // Reparte los objetos en grupos (primer grupo cuyo "types" incluye el tipo; el resto va a "Otros").
+  const otros = ITEM_GROUPS[ITEM_GROUPS.length - 1];
+  const grouped = ITEM_GROUPS.map((g) => ({ ...g, items: [] as InvItem[] }));
+  for (const it of view.inventory) {
+    (grouped.find((g) => g.types.includes(it.type)) ?? grouped.find((g) => g.label === otros.label)!).items.push(it);
+  }
 
   return (
     <div className="stack">
@@ -134,56 +198,12 @@ export function InventoryPanel({ id, reload }: { id: string; reload: () => Promi
       <section className="panel">
         <h2>Inventario</h2>
         {view.inventory.length === 0 && <p className="muted small">Vacío.</p>}
-        <ul className="inv-list">
-          {view.inventory.map((it) => (
-            <li key={it.id} className="inv-row">
-              <div className="inv-line">
-                <div style={{ minWidth: 0, cursor: it.description ? "pointer" : "default" }}
-                  onClick={() => it.description && setOpenItem(openItem === it.id ? null : it.id)}>
-                  <b>{it.name}</b>{it.qty > 1 && <span className="muted small"> ×{it.qty}</span>}
-                  {it.description && <span className="muted"> {openItem === it.id ? "▲" : "▼"}</span>}
-                  <div className="muted small">{it.type}{it.damage ? ` · ${it.damage}` : ""}{it.inside ? ` · en ${it.inside}` : ""}{it.charges ? ` · ${it.charges.current}/${it.charges.max} cargas` : ""}{it.requiresAttunement ? " · requiere sintonía" : ""}{it.equipped ? " · equipado" : ""}{it.attuned ? " · sintonizado" : ""}{it.proficient === false ? <span className="prof-warn"> · ⚠️ sin competencia</span> : ""}</div>
-                  {openItem === it.id && it.description && <p className="inv-desc">{it.description}</p>}
-                </div>
-                <div className="inv-actions">
-                  {it.activatable && (
-                    <button className="btn small primary" disabled={busy || (it.requiresAttunement && !it.attuned)} onClick={() => useItemEffect(it.id)} title="Usar el efecto del objeto">Usar</button>
-                  )}
-                  {(it.type === "armor" || it.type === "shield" || it.type === "weapon") && (
-                    <button className="btn small" disabled={busy} onClick={() => run(() => api.itemAction(id, it.id, it.equipped ? "unequip" : "equip"))}>{it.equipped ? "Quitar" : "Equipar"}</button>
-                  )}
-                  <button className="btn small" disabled={busy} onClick={() => run(() => api.itemAction(id, it.id, it.attuned ? "unattune" : "attune"))}>{it.attuned ? "Desintonizar" : "Sintonizar"}</button>
-                  <button className="icon-btn" title="Quitar" disabled={busy} onClick={() => run(() => api.removeItem(id, it.id))}>🗑</button>
-                </div>
-              </div>
-
-              {it.charges && (
-                <div className="item-charges">
-                  {(!it.requiresAttunement || it.attuned) ? (
-                    <>
-                      <div className="row wrap" style={{ alignItems: "center" }}>
-                        <span className="pips">{Array.from({ length: it.charges.max }).map((_, i) => <i key={i} className={i < it.charges!.current ? "pip full" : "pip"} />)}</span>
-                        <span className="muted small">{it.charges.current}/{it.charges.max}{it.charges.recharge ? ` · recarga: ${it.charges.recharge}` : ""}</span>
-                        <button className="btn small" disabled={busy || it.charges.current < 1} onClick={() => run(() => api.useCharges(id, it.id, 1))}>Gastar 1</button>
-                        <button className="btn small" disabled={busy} onClick={() => run(() => api.restoreCharges(id, it.id))}>Recargar</button>
-                      </div>
-                      {it.spells && it.spells.length > 0 && (
-                        <div className="row wrap item-spells">
-                          {it.spells.map((sp) => (
-                            <button key={sp.name} className="btn small primary" disabled={busy || it.charges!.current < sp.cost}
-                              onClick={() => castItem(it.id, sp.name)} title={`Cuesta ${sp.cost} carga(s)`}>
-                              {sp.name} <span className="chip-cost">{sp.cost}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : <span className="muted small">Sintoniza el objeto para usar sus cargas y conjuros.</span>}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
+        {grouped.map((g) => g.items.length === 0 ? null : (
+          <div key={g.label} className="inv-group">
+            <h3 className="inv-group-head">{g.label} <span className="muted small">({g.items.length})</span></h3>
+            <ul className="inv-list">{g.items.map(renderItem)}</ul>
+          </div>
+        ))}
       </section>
 
       <section className="panel">
