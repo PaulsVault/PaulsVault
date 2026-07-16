@@ -36,6 +36,8 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   const [mcSkills, setMcSkills] = useState<string[]>([]);
   const [choices, setChoices] = useState<LevelChoice[]>([]);
   const [chosen, setChosen] = useState<Record<string, string[]>>({});
+  const [classData, setClassData] = useState<{ keyFeatures?: Record<string, string[]> } | null>(null);
+  const [subData, setSubData] = useState<{ features?: { level: number; name: string; summary?: string }[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +73,17 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
     void api.classChoices(className, resultingLevel).then((ch) => { setChoices(ch); setChosen({}); }).catch(() => setChoices([]));
   }, [className, resultingLevel]);
 
+  // Rasgos que se ganan a este nivel (para que subir no se sienta vacío): clase + subclase.
+  useEffect(() => {
+    if (!className) { setClassData(null); return; }
+    void api.getEntry(className).then((e) => setClassData(e.data as { keyFeatures?: Record<string, string[]> })).catch(() => setClassData(null));
+  }, [className]);
+  useEffect(() => {
+    const sc = grantsSubclass ? subclass : existing?.subclass;
+    if (!sc) { setSubData(null); return; }
+    void api.getEntry(sc).then((e) => setSubData(e.data as { features?: { level: number; name: string; summary?: string }[] })).catch(() => setSubData(null));
+  }, [subclass, className, resultingLevel]);
+
   const toggleOption = (kind: string, name: string, max: number) => setChosen((cur) => {
     const list = cur[kind] ?? [];
     const next = list.includes(name) ? list.filter((x) => x !== name) : list.length < max ? [...list, name] : list;
@@ -86,6 +99,9 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   const selectedFeat = feats.find((f) => f.name === feat);
   const selectedSubclass = subclasses.find((s) => s.name === subclass);
   const hitDie = HIT_DICE[className] ?? 8;
+  // Rasgos que ganas a este nivel: de la clase (nombres) y de la subclase (nombre + resumen).
+  const classGains = (classData?.keyFeatures?.[String(resultingLevel)] ?? []).filter((n) => n !== "Subclass" && n !== "Subclase");
+  const subGains = (subData?.features ?? []).filter((f) => f.level === resultingLevel);
 
   async function rollHp() {
     try {
@@ -134,6 +150,19 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
             </select>
           </label>
           <p className="muted small span2" style={{ margin: "-6px 0 0" }}>Sube a nivel {resultingLevel} de {className}.</p>
+
+          <fieldset className="abilities-input span2">
+            <legend>🎁 Ganas a nivel {resultingLevel}</legend>
+            <ul className="gain-list">
+              {grantsSubclass && <li>✨ <b>Subclase</b> — elígela abajo.</li>}
+              {classGains.map((n) => <li key={n}><b>{n}</b></li>)}
+              {subGains.map((f) => <li key={f.name}><b>{f.name}</b>{f.summary ? <span className="muted small"> — {f.summary}</span> : ""}</li>)}
+              {grantsASI && <li><b>Mejora de característica o dote</b> — elígela abajo.</li>}
+              {classGains.length === 0 && subGains.length === 0 && !grantsASI && !grantsSubclass && (
+                <li className="muted small">Mejoras numéricas (PG, bono de competencia, espacios de conjuro…). Sin rasgo nuevo con nombre en este nivel.</li>
+              )}
+            </ul>
+          </fieldset>
 
           {isMulticlass && mc && (
             <fieldset className="abilities-input span2">
