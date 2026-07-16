@@ -2,7 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import { api, type LevelChoice } from "./api";
 import { ABILITIES, ABILITY_LABEL, type AbilityKey, type ContentHit } from "./types";
 
+// Niveles de mejora de característica/dote por clase (2024): el Guerrero gana extra en 6/14, el Pícaro en 10.
 const ASI_LEVELS = new Set([4, 8, 12, 16, 19]);
+const ASI_EXTRA: Record<string, number[]> = { fighter: [6, 14], rogue: [10] };
+const asiLevelsFor = (cls: string, lvl: number) => ASI_LEVELS.has(lvl) || (ASI_EXTRA[cls.toLowerCase()] ?? []).includes(lvl);
 const HIT_DICE: Record<string, number> = { Barbarian: 12, Fighter: 10, Paladin: 10, Ranger: 10, Bard: 8, Cleric: 8, Druid: 8, Monk: 8, Rogue: 8, Warlock: 8, Artificer: 8, Sorcerer: 6, Wizard: 6 };
 const SKILL_LABEL: Record<string, string> = {
   acrobatics: "Acrobacias", "animal handling": "T. con Animales", arcana: "Arcanos", athletics: "Atletismo",
@@ -53,7 +56,7 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   const existing = classList.find((c) => c.name.toLowerCase() === className.toLowerCase());
   const resultingLevel = existing ? existing.level + 1 : 1;
   const grantsSubclass = resultingLevel === 3 && !existing?.subclass;
-  const grantsASI = ASI_LEVELS.has(resultingLevel);
+  const grantsASI = asiLevelsFor(className, resultingLevel);
   const isMulticlass = !existing; // clase nueva → toma su primer nivel
 
   // Competencias de multiclase de la clase seleccionada.

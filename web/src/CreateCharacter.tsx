@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "./api";
+import { LevelUpDialog } from "./LevelUpDialog";
 import { ABILITIES, ABILITY_LABEL, type AbilityKey, type ContentHit, type Sheet } from "./types";
+
+type ClassLine = { name: string; subclass: string | null; level: number };
+const totalOf = (cl: ClassLine[]) => cl.reduce((s, c) => s + c.level, 0);
 
 const STANDARD = [15, 14, 13, 12, 10, 8];
 const PB_COST: Record<number, number> = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 };
@@ -59,6 +63,9 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   // Clase: habilidades a elegir
   const [cls, setCls] = useState<ClassData | null>(null);
   const [chosenSkills, setChosenSkills] = useState<string[]>([]);
+
+  // Creación guiada a nivel alto: tras crear a nivel 1, se sube nivel a nivel eligiendo todo.
+  const [guide, setGuide] = useState<{ id: string; classList: ClassLine[]; target: number } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -137,8 +144,9 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
     e.preventDefault();
     setBusy(true); setError(null);
     try {
+      // Siempre se crea a nivel 1; si el objetivo es mayor, se sube nivel a nivel eligiendo todo (guiado).
       const sheet = await api.createCharacter({
-        name, className, species: speciesName, level,
+        name, className, species: speciesName, level: 1,
         background: isCustomBg ? (customName.trim() || "Personalizado") : background,
         abilities: base, abilityBonuses, skills: chosenSkills,
         ...(isCustomBg ? {
@@ -147,8 +155,40 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
           tools: customTool.trim() ? [customTool.trim()] : undefined,
         } : {}),
       });
-      onCreated(sheet);
+      if (level > 1) setGuide({ id: sheet.id, classList: sheet.classList, target: level });
+      else onCreated(sheet);
     } catch (err) { setError((err as Error).message); setBusy(false); }
+  }
+
+  // Tras cada nivel del guiado: recarga y decide si seguir o terminar.
+  async function afterGuidedLevel() {
+    if (!guide) return;
+    const sheet = await api.getSheet(guide.id);
+    if (totalOf(sheet.classList) >= guide.target) onCreated(sheet);
+    else setGuide({ id: guide.id, classList: sheet.classList, target: guide.target });
+  }
+  // Salir del guiado antes de tiempo: se conserva el personaje en su nivel actual.
+  async function finishGuidedEarly() {
+    if (!guide) return;
+    onCreated(await api.getSheet(guide.id));
+  }
+
+  // Fase guiada: personaje creado a nivel 1, ahora se sube nivel a nivel eligiendo todo.
+  if (guide) {
+    const current = totalOf(guide.classList);
+    return (
+      <section className="create">
+        <div className="library-head"><h1>Creación guiada — nivel {current} → {guide.target}</h1></div>
+        <p className="note">Tu personaje se creó a nivel 1. Ahora completa cada nivel (mejoras de característica, estilo de combate, subclase…) para no perder nada. Vas por el nivel {current} de {guide.target}.</p>
+        <LevelUpDialog
+          key={current}
+          id={guide.id}
+          classList={guide.classList}
+          onClose={() => void finishGuidedEarly()}
+          onDone={() => void afterGuidedLevel()}
+        />
+      </section>
+    );
   }
 
   return (
@@ -163,7 +203,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
         <label className="field"><span>Clase</span>
           <select value={className} onChange={(e) => setClassName(e.target.value)}>{classes.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
         </label>
-        <label className="field"><span>Nivel</span>
+        <label className="field"><span>Nivel {level > 1 && <em className="muted small">· te guío nivel a nivel</em>}</span>
           <input type="number" min={1} max={20} value={level} onChange={(e) => setLevel(Number(e.target.value))} />
         </label>
         <label className="field"><span>Especie</span>
