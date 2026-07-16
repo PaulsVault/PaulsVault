@@ -111,6 +111,7 @@ export const api = {
     req<{ total: number; count: number; results: ContentHit[] }>(`/content?limit=${params.limit ?? 40}${params.type ? `&type=${params.type}` : ""}${params.query ? `&query=${enc(params.query)}` : ""}`),
   getEntry: (idOrName: string) => req<{ id: string; type: string; name: string; pack: string; data: Dict }>(`/content/${enc(idOrName)}`),
   saveHomebrewFeat: (feat: Dict) => req<{ saved: boolean; id: string }>("/homebrew/feat", { method: "POST", body: JSON.stringify(feat) }),
+  saveHomebrewItem: (item: Dict) => req<{ saved: boolean; id: string }>("/homebrew/item", { method: "POST", body: JSON.stringify(item) }),
   deleteHomebrew: (id: string) => req<{ removed: boolean; id: string }>(`/homebrew/${enc(id)}`, { method: "DELETE" }),
   listPacks: () => req<{ id: string; name: string; version: string; source: string; entryCounts: Record<string, number> }[]>("/content-packs"),
   importPack: (pack: unknown) => req<Dict>("/content-packs", { method: "POST", body: JSON.stringify(pack) }),

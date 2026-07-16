@@ -348,6 +348,25 @@ export function buildApp(): Express {
     };
     res.status(201).json(await content.saveHomebrewEntry({ id, type: "feat", name, data }));
   });
+  app.post("/api/homebrew/item", async (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const name = String(b["name"] ?? "").trim();
+    const id = `item:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+    const keep = (v: unknown) => (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0) ? undefined : v);
+    const n = (v: unknown) => (v === "" || v === undefined || v === null ? undefined : Number(v));
+    const data = {
+      itemType: keep(b["itemType"]) ?? "gear",
+      weight: n(b["weight"]), cost: keep(b["cost"]), rarity: keep(b["rarity"]),
+      requiresAttunement: b["requiresAttunement"] === true,
+      description: keep(b["description"]),
+      damage: keep(b["damage"]), weaponCategory: keep(b["weaponCategory"]), properties: keep(b["properties"]), magicBonus: n(b["magicBonus"]),
+      armorClass: n(b["armorClass"]), armorCategory: keep(b["armorCategory"]),
+      bonusAc: n(b["bonusAc"]), bonusSave: n(b["bonusSave"]), bonusSpellAttack: n(b["bonusSpellAttack"]), bonusSpellDc: n(b["bonusSpellDc"]),
+      charges: n(b["charges"]), recharge: keep(b["recharge"]), rechargeAmount: keep(b["rechargeAmount"]), spells: keep(b["spells"]),
+      homebrew: true,
+    };
+    res.status(201).json(await content.saveHomebrewEntry({ id, type: "item", name, data }));
+  });
   app.delete("/api/homebrew/:id", async (req, res) => res.json(await content.deleteHomebrewEntry(req.params.id)));
 
   // ─── Contenido y packs ───

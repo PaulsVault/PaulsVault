@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "./api";
 import { readFile } from "./download";
 import { HomebrewFeatEditor } from "./HomebrewFeatEditor";
+import { HomebrewItemEditor } from "./HomebrewItemEditor";
 import type { ContentHit } from "./types";
 
 const TYPES = ["", "class", "subclass", "species", "background", "feat", "spell", "item", "condition", "monster", "rule"];
@@ -16,16 +17,16 @@ export function ContentBrowser({ onBack }: { onBack: () => void }) {
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
   const [packs, setPacks] = useState<Pack[]>([]);
   const [note, setNote] = useState<string | null>(null);
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editInitial, setEditInitial] = useState<{ name: string; data: Record<string, unknown> } | null>(null);
+  const [editor, setEditor] = useState<{ mode: "feat" | "item"; initial: { name: string; data: Record<string, unknown> } | null } | null>(null);
 
-  function newFeat() { setEditInitial(null); setEditorOpen(true); }
-  async function editFeat(name: string) {
-    try { setEditInitial({ name, data: (await api.getEntry(name)).data }); setEditorOpen(true); }
+  const newFeat = () => setEditor({ mode: "feat", initial: null });
+  const newItem = () => setEditor({ mode: "item", initial: null });
+  async function editEntry(name: string, mode: "feat" | "item") {
+    try { setEditor({ mode, initial: { name, data: (await api.getEntry(name)).data } }); }
     catch (e) { setNote("⚠️ " + (e as Error).message); }
   }
   async function afterSave() {
-    setEditorOpen(false); setNote("Dote guardada ✓ — ya aparece en creación y subida de nivel.");
+    setEditor(null); setNote("Guardado ✓ — ya aparece en creación / búsqueda de objetos.");
     await loadPacks(); await search();
   }
 
@@ -67,12 +68,16 @@ export function ContentBrowser({ onBack }: { onBack: () => void }) {
       </div>
       {note && <p className="note">{note}</p>}
 
-      {editorOpen && <HomebrewFeatEditor initial={editInitial} onDone={afterSave} onCancel={() => setEditorOpen(false)} />}
+      {editor?.mode === "feat" && <HomebrewFeatEditor initial={editor.initial} onDone={afterSave} onCancel={() => setEditor(null)} />}
+      {editor?.mode === "item" && <HomebrewItemEditor initial={editor.initial} onDone={afterSave} onCancel={() => setEditor(null)} />}
 
       <div className="panel">
-        <h2>Dotes homebrew</h2>
-        <p className="muted small">Crea tus propias dotes con efectos que interactúan con la hoja, o edita una oficial para ajustarla (se guarda como override tuyo, sin tocar el original).</p>
-        <button className="btn primary small" onClick={newFeat}>+ Crear dote homebrew</button>
+        <h2>Homebrew</h2>
+        <p className="muted small">Crea dotes y equipo propios con efectos que interactúan con la hoja, o edita contenido oficial para ajustarlo (se guarda como override tuyo, sin tocar el original).</p>
+        <div className="row wrap">
+          <button className="btn primary small" onClick={newFeat}>+ Crear dote</button>
+          <button className="btn primary small" onClick={newItem}>+ Crear equipo</button>
+        </div>
       </div>
 
       <div className="panel">
@@ -106,7 +111,7 @@ export function ContentBrowser({ onBack }: { onBack: () => void }) {
               <div className="row" style={{ justifyContent: "space-between", cursor: "pointer" }} onClick={() => toggle(r.name)}>
                 <span><b>{r.name}</b> <span className="muted small">· {r.type} · {r.pack}</span></span>
                 <span className="row">
-                  {r.type === "feat" && <button className="btn small" title="Editar como homebrew" onClick={(e) => { e.stopPropagation(); void editFeat(r.name); }}>✏️ Editar</button>}
+                  {(r.type === "feat" || r.type === "item") && <button className="btn small" title="Editar como homebrew" onClick={(e) => { e.stopPropagation(); void editEntry(r.name, r.type === "feat" ? "feat" : "item"); }}>✏️ Editar</button>}
                   <span className="muted">{open === r.name ? "▲" : "▼"}</span>
                 </span>
               </div>
