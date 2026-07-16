@@ -1,13 +1,21 @@
 import { useState } from "react";
 import { api } from "../api";
 import { FeatureDesc } from "../FeatureDesc";
-import type { Personality, Sheet } from "../types";
+import type { ContentHit, Personality, Sheet } from "../types";
 
 export function InfoPanel({ id, sheet: s, reload }: { id: string; sheet: Sheet; reload: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [p, setP] = useState<Personality>(s.personality ?? {});
   const [bio, setBio] = useState({ appearance: s.appearance ?? "", backstory: s.backstory ?? "" });
+  const [featQuery, setFeatQuery] = useState("");
+  const [feats, setFeats] = useState<ContentHit[]>([]);
+
+  async function searchFeats() {
+    if (featQuery.trim().length < 2) { setFeats([]); return; }
+    setFeats(await api.content("feat", featQuery));
+  }
+  const grant = (name: string) => run(async () => { await api.grantFeat(id, name); setFeats([]); setFeatQuery(""); }, `Otorgada: ${name}`);
 
   async function run(fn: () => Promise<unknown>, msg?: string) {
     setBusy(true); setNote(null);
@@ -48,7 +56,11 @@ export function InfoPanel({ id, sheet: s, reload }: { id: string; sheet: Sheet; 
             {s.features.map((f) => (
               <li key={`${f.name}-${f.source}`} style={{ display: "block" }}>
                 <div className="row" style={{ justifyContent: "space-between" }}>
-                  <b>{f.name}</b><span className="muted small">{f.source}</span>
+                  <b>{f.name}</b>
+                  <span className="row">
+                    <span className="muted small">{f.source}</span>
+                    {f.source === "Regalo de campaña" && <button className="icon-btn" title="Quitar regalo" disabled={busy} onClick={() => run(() => api.updateCharacter(id, { removeFeatures: [f.name] }), `Quitada: ${f.name}`)}>🗑</button>}
+                  </span>
                 </div>
                 {f.description && <FeatureDesc text={f.description} />}
               </li>
@@ -56,6 +68,25 @@ export function InfoPanel({ id, sheet: s, reload }: { id: string; sheet: Sheet; 
           </ul>
         </section>
       )}
+
+      <section className="panel">
+        <h2>🎁 Dotes y regalos de campaña</h2>
+        <p className="muted small">Otorga cualquier dote (incluidas las homebrew) en cualquier momento — como recompensa o buff. Aplica sus efectos a la hoja igual que una dote normal.</p>
+        <div className="row">
+          <input placeholder="Buscar dote (≥2 letras)…" value={featQuery} onChange={(e) => setFeatQuery(e.target.value)} onKeyDown={(e) => e.key === "Enter" && searchFeats()} />
+          <button className="btn" onClick={searchFeats}>Buscar</button>
+        </div>
+        {feats.length > 0 && (
+          <ul className="line-list" style={{ marginTop: 8 }}>
+            {feats.slice(0, 14).map((f) => (
+              <li key={f.id}>
+                <span><b>{f.name}</b>{f.preview && <span className="muted small"> · {f.preview}</span>}</span>
+                <button className="btn small primary" disabled={busy} onClick={() => grant(f.name)}>+ Otorgar</button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       <section className="panel">
         <h2>Personalidad e historia</h2>

@@ -150,6 +150,10 @@ export function buildApp(): Express {
     res.json({ className: r.className, classLevel: r.classLevel, levelTotal: r.levelTotal, hpLost: r.hpLost, classRemoved: r.classRemoved, sheet: characterSheet(r.character) });
   });
 
+  // Otorgar una dote en cualquier momento (regalo/buff de campaña).
+  app.post("/api/characters/:id/feats", async (req, res) =>
+    res.json(characterSheet(await onCharacter(req.params.id, (c) => chars.grantFeat(c, String(req.body?.feat ?? ""), req.body?.source ? String(req.body.source) : undefined)))));
+
   // Competencias que otorga una clase al multiclasear (para el asistente de subida de nivel).
   app.get("/api/multiclass/:className", (req, res) => res.json(chars.multiclassProficiencies(req.params.className)));
 

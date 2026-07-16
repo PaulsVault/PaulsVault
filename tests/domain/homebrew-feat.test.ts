@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createCharacter } from "../../src/domain/characters.js";
+import { createCharacter, grantFeat } from "../../src/domain/characters.js";
 import { computeActiveModifiers } from "../../src/domain/modifiers.js";
 import { importPack, removePack } from "../../src/domain/content.js";
 import type { Abilities, Database } from "../../src/types.js";
@@ -41,5 +41,15 @@ describe("dotes homebrew con efectos que interactúan con la hoja", () => {
     const m = computeActiveModifiers(c);
     expect(m.ac.final).toBe(m.ac.base + 2);
     expect(m.saves.dex.mode).toBe("advantage");
+  });
+
+  it("grantFeat otorga la dote en cualquier momento y aplica sus efectos; no permite duplicar", () => {
+    const c = createCharacter({ characters: [] } as Database, {
+      name: "H" + Math.random(), className: "Fighter", species: "Human", background: "Personalizado", abilities: ABIL,
+    });
+    grantFeat(c, "Dote Test");
+    expect(c.features.some((f) => f.name === "Dote Test" && f.source === "Regalo de campaña")).toBe(true);
+    expect(computeActiveModifiers(c).ac.final).toBe(computeActiveModifiers(c).ac.base + 2);
+    expect(() => grantFeat(c, "Dote Test")).toThrow();
   });
 });

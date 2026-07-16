@@ -187,6 +187,18 @@ export function applyFeat(c: Character, featName: string, source: string): void 
   if (tools?.length) c.proficiencies.tools = [...new Set([...c.proficiencies.tools, ...tools])];
 }
 
+/** Otorga una dote a un personaje EN CUALQUIER MOMENTO (regalo/buff de campaña), aplicando sus efectos. */
+export function grantFeat(c: Character, featName: string, source = "Regalo de campaña"): Character {
+  const name = featName.trim();
+  if (!name) throw new DomainError("validation", "Indica el nombre de la dote a otorgar.");
+  if (c.features.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
+    throw new DomainError("conflict", `${c.name} ya tiene "${name}".`);
+  }
+  applyFeat(c, findEntry(name.replace(/\s*\(.*/, "").trim(), "feat")?.name ?? name, source);
+  touch(c);
+  return c;
+}
+
 // ─── Operaciones ───
 
 export function createCharacter(db: Database, input: CreateCharacterInput): Character {
