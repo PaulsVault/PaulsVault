@@ -88,6 +88,28 @@ export function searchContent(query = "", opts: SearchOptions = {}): { total: nu
   return { total: pool.length, count: results.length, results };
 }
 
+export interface SpellCard { name: string; level: number; school: string; classes: string[]; summary: string; ritual: boolean; concentration: boolean; }
+
+/** Catálogo de conjuros con datos completos, para el navegador de conjuros (por nivel/escuela/clase). */
+export function spellCatalog(opts: { spellClass?: string } = {}): SpellCard[] {
+  let pool = dedupeByName(allEntries()).filter((e) => e.type === "spell");
+  if (opts.spellClass) {
+    const sc = opts.spellClass.toLowerCase();
+    pool = pool.filter((e) => Array.isArray(e.data["classes"]) && (e.data["classes"] as string[]).some((c) => c.toLowerCase() === sc));
+  }
+  return pool
+    .map((e) => ({
+      name: e.name,
+      level: (e.data["level"] as number) ?? 0,
+      school: (e.data["school"] as string) ?? "",
+      classes: (e.data["classes"] as string[]) ?? [],
+      summary: (e.data["summary"] as string) ?? "",
+      ritual: !!e.data["ritual"],
+      concentration: !!e.data["concentration"],
+    }))
+    .sort((a, b) => a.level - b.level || a.name.localeCompare(b.name));
+}
+
 export function getContentEntry(idOrName: string, type?: ContentType): PackedEntry {
   const e = findEntry(idOrName, type);
   if (!e) throw new DomainError("not_found", `Entrada "${idOrName}" no encontrada.`);

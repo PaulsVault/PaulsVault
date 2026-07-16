@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { AreaGlyph } from "../AreaGlyph";
+import { SpellBrowser } from "./SpellBrowser";
 import { presentRoll } from "../rollPresenter";
 import type { ContentHit, Sheet } from "../types";
 
@@ -146,6 +147,13 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
           </ul>
         )}
       </section>
+
+      <SpellBrowser
+        myClasses={myClasses}
+        known={new Set(view.spells.map((s) => s.name.toLowerCase()))}
+        busy={busy}
+        onLearn={(name) => run(() => api.learnSpell(id, { spell: name }), `Aprendido: ${name}`)}
+      />
 
       <section className="panel">
         <h2>Conocidos {view.concentratingOn && <span className="chip">🌀 {view.concentratingOn}</span>}</h2>

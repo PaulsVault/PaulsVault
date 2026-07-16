@@ -332,6 +332,9 @@ export function buildApp(): Express {
     res.json(await onCharacter(req.params.id, (c) => customizeStyle(c, req.body))));
 
   // ─── Contenido y packs ───
+  app.get("/api/spells-catalog", (req, res) =>
+    res.json({ spells: content.spellCatalog({ spellClass: req.query["class"] as string | undefined }) }));
+
   app.get("/api/content", (req, res) =>
     res.json(content.searchContent(String(req.query["query"] ?? ""), {
       type: req.query["type"] as ContentType | undefined,

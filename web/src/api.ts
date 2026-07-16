@@ -20,6 +20,7 @@ type Dict = Record<string, unknown>;
 export interface AuthUser { id: string; email: string; }
 export interface Invite { id: string; token: string; label: string | null; url: string; used: boolean; usedAt: string | null; expiresAt: string | null; createdAt: string; }
 export interface ChoiceOption { name: string; summary?: string; prerequisite?: string; }
+export interface SpellCard { name: string; level: number; school: string; classes: string[]; summary: string; ritual: boolean; concentration: boolean; }
 export interface LevelChoice { kind: string; label: string; count: number; note?: string; options: ChoiceOption[]; }
 
 export const api = {
@@ -54,6 +55,7 @@ export const api = {
   content: (type: string, query = "") => req<{ results: ContentHit[] }>(`/content?type=${type}&limit=500${query ? `&query=${enc(query)}` : ""}`).then((r) => r.results),
   subclassesFor: (className: string) => req<{ results: ContentHit[] }>(`/content?type=subclass&limit=500&subclassOf=${enc(className)}`).then((r) => r.results),
   originFeats: () => req<{ results: ContentHit[] }>("/content?type=feat&featCategory=O&limit=500").then((r) => r.results),
+  spellCatalog: (spellClass?: string) => req<{ spells: SpellCard[] }>(`/spells-catalog${spellClass ? `?class=${enc(spellClass)}` : ""}`).then((r) => r.spells),
   spells: (opts: { query?: string; spellClass?: string; spellLevel?: number } = {}) =>
     req<{ results: ContentHit[] }>(`/content?type=spell&limit=500${opts.query ? `&query=${enc(opts.query)}` : ""}${opts.spellClass ? `&spellClass=${enc(opts.spellClass)}` : ""}${opts.spellLevel !== undefined ? `&spellLevel=${opts.spellLevel}` : ""}`).then((r) => r.results),
 
