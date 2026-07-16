@@ -338,6 +338,7 @@ export function buildApp(): Express {
       spellLevel: num(req.query["spellLevel"]),
       spellClass: req.query["spellClass"] as string | undefined,
       subclassOf: req.query["subclassOf"] as string | undefined,
+      featCategory: req.query["featCategory"] as string | undefined,
       limit: num(req.query["limit"]),
     })));
 

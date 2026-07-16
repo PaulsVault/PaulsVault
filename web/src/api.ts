@@ -53,6 +53,7 @@ export const api = {
   // Contenido
   content: (type: string, query = "") => req<{ results: ContentHit[] }>(`/content?type=${type}&limit=500${query ? `&query=${enc(query)}` : ""}`).then((r) => r.results),
   subclassesFor: (className: string) => req<{ results: ContentHit[] }>(`/content?type=subclass&limit=500&subclassOf=${enc(className)}`).then((r) => r.results),
+  originFeats: () => req<{ results: ContentHit[] }>("/content?type=feat&featCategory=O&limit=500").then((r) => r.results),
   spells: (opts: { query?: string; spellClass?: string; spellLevel?: number } = {}) =>
     req<{ results: ContentHit[] }>(`/content?type=spell&limit=500${opts.query ? `&query=${enc(opts.query)}` : ""}${opts.spellClass ? `&spellClass=${enc(opts.spellClass)}` : ""}${opts.spellLevel !== undefined ? `&spellLevel=${opts.spellLevel}` : ""}`).then((r) => r.results),
 

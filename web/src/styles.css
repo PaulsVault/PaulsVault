@@ -47,6 +47,11 @@ body {
   background: var(--bg-2); color: var(--text); border: 1px solid var(--line);
   padding: 10px 12px; border-radius: 10px; font-size: 1rem; width: 100%; min-height: 42px;
 }
+/* Radios y checkboxes: tamaño natural (la regla de arriba los agrandaba y rompía el texto al lado). */
+input[type="radio"], input[type="checkbox"] {
+  width: auto; min-width: 0; min-height: 0; padding: 0; margin: 0;
+  flex: none; accent-color: var(--accent); cursor: pointer;
+}
 .search { margin-bottom: 16px; }
 .muted { color: var(--muted); }
 .small { font-size: .82rem; }

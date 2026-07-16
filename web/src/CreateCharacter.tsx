@@ -62,7 +62,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
 
   useEffect(() => {
     void (async () => {
-      const [cl, sp, bgs, ft] = await Promise.all([api.content("class"), api.content("species"), api.content("background"), api.content("feat")]);
+      const [cl, sp, bgs, ft] = await Promise.all([api.content("class"), api.content("species"), api.content("background"), api.originFeats()]);
       setClasses(cl); setSpecies(sp); setBackgrounds(bgs); setFeats(ft);
       setClassName(cl[0]?.name ?? ""); setSpeciesName(sp[0]?.name ?? ""); setBackground(bgs[0]?.name ?? "");
     })().catch((e) => setError((e as Error).message));

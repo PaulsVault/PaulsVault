@@ -51,6 +51,7 @@ export interface SearchOptions {
   spellLevel?: number;
   spellClass?: string;
   subclassOf?: string;   // filtra subclases por su clase (data.class), no por texto
+  featCategory?: string; // filtra dotes por categoría (O=origen, G=general, FS=estilo de combate, EB=don épico)
   limit?: number;
 }
 
@@ -68,6 +69,10 @@ export function searchContent(query = "", opts: SearchOptions = {}): { total: nu
   if (opts.subclassOf) {
     const cn = opts.subclassOf.toLowerCase();
     pool = pool.filter((e) => e.type === "subclass" && String(e.data["class"] ?? "").toLowerCase() === cn);
+  }
+  if (opts.featCategory) {
+    const fc = opts.featCategory.toLowerCase();
+    pool = pool.filter((e) => e.type === "feat" && String(e.data["category"] ?? "").toLowerCase() === fc);
   }
   if (q) {
     // Prioriza coincidencias por nombre sobre las que solo aparecen en la descripción.
