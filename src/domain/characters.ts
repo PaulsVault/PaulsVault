@@ -165,6 +165,28 @@ export function addSubclassFeatures(c: Character, subclassName: string, level: n
   }
 }
 
+/**
+ * Añade una dote al personaje aplicando sus efectos "al tomarla" desde el contenido (homebrew u oficial):
+ * bono a característica, competencias (habilidades/herramientas) y usos por descanso. Los efectos que van
+ * a la hoja de forma continua (CA, salvaciones, ventaja…) los aplica el motor de modificadores por separado.
+ */
+export function applyFeat(c: Character, featName: string, source: string): void {
+  const d = findEntry(featName.replace(/\s*\(.*/, "").trim(), "feat")?.data as Record<string, unknown> | undefined;
+  const uses = d?.["uses"] as { max: number; recharge?: FeatureUses["recharge"] } | undefined;
+  c.features.push({
+    name: featName,
+    source,
+    description: d?.["summary"] as string | undefined,
+    uses: uses && uses.max > 0 ? { max: uses.max, used: 0, recharge: uses.recharge ?? "long_rest" } : undefined,
+  });
+  const ab = d?.["abilityBonus"] as Partial<Abilities> | undefined;
+  if (ab) for (const [k, v] of Object.entries(ab)) c.abilities[k as AbilityKey] = Math.min(20, (c.abilities[k as AbilityKey] ?? 10) + (v ?? 0));
+  const skills = d?.["skills"] as string[] | undefined;
+  if (skills?.length) c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...skills])];
+  const tools = d?.["tools"] as string[] | undefined;
+  if (tools?.length) c.proficiencies.tools = [...new Set([...c.proficiencies.tools, ...tools])];
+}
+
 // ─── Operaciones ───
 
 export function createCharacter(db: Database, input: CreateCharacterInput): Character {
@@ -236,10 +258,7 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
   // Dote de origen (nivel 1): del contenido del trasfondo, o la elegida a mano en un trasfondo personalizado.
   const bg = findEntry(input.background, "background");
   const bgFeat = (bg?.data["feat"] as string | undefined) ?? input.originFeat;
-  if (bgFeat) {
-    const fe = findEntry(bgFeat.replace(/\s*\(.*/, "").trim(), "feat");
-    c.features.push({ name: bgFeat, source: "Trasfondo (dote de origen)", description: (fe?.data["summary"] as string | undefined) });
-  }
+  if (bgFeat) applyFeat(c, bgFeat, "Trasfondo (dote de origen)");
   // Competencias del trasfondo: del contenido, o las elegidas a mano (personalizado). Se suman a las de clase.
   const bgSkills = (bg?.data["skills"] as string[] | undefined) ?? input.backgroundSkills ?? [];
   if (bgSkills.length) c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...bgSkills])];
@@ -420,10 +439,7 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
     }
   }
 
-  if (input.feat) {
-    const fe = findEntry(input.feat.replace(/\s*\(.*/, "").trim(), "feat");
-    c.features.push({ name: input.feat, source: `Dote (nivel ${cls.level})`, description: (fe?.data["summary"] as string | undefined) });
-  }
+  if (input.feat) applyFeat(c, input.feat, `Dote (nivel ${cls.level})`);
 
   if (input.hpRoll && input.hpRoll > cls.hitDie) {
     throw new DomainError("validation", `hpRoll ${input.hpRoll} excede el dado de golpe d${cls.hitDie} de ${cls.name}.`);

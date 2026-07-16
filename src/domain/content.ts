@@ -16,12 +16,14 @@ export function allEntries(): PackedEntry[] {
   return listPacks().flatMap((p) => p.entries.map((e) => ({ ...e, pack: p.id })));
 }
 
-/** Prioridad al colisionar nombres entre packs (mayor gana): 2024 > homebrew > referencia SRD > SRD base. */
+/** Prioridad al colisionar nombres entre packs (mayor gana). El pack "homebrew" del usuario gana a todo
+ * (permite ajustar/override de contenido oficial); otros packs importados van sobre el SRD y bajo 2024. */
 function packPriority(packId: string): number {
+  if (packId === "homebrew") return 5; // ediciones propias del usuario: siempre ganan
   if (packId.startsWith("dnd2024")) return 4;
   if (packId === "srd-52-reference") return 2;
   if (packId === "srd-core" || packId === "srd-subclasses") return 1;
-  return 3; // packs importados por el usuario (homebrew) por encima del SRD, por debajo de 2024
+  return 3; // otros packs importados por encima del SRD, por debajo de 2024
 }
 
 /** De entradas con el mismo (tipo, nombre) conserva solo la del pack de mayor prioridad. */
@@ -128,6 +130,29 @@ export async function importPack(pack: ContentPack): Promise<{ imported: true; p
   }
   await savePack(pack);
   return { imported: true, packId: pack.id, entryCount: pack.entries.length };
+}
+
+/** Guarda una entrada en el pack "homebrew" del usuario (upsert por id; crea el pack si no existe). */
+export async function saveHomebrewEntry(entry: ContentEntry): Promise<{ saved: true; id: string }> {
+  if (!entry.id || !entry.name || !CONTENT_TYPES.includes(entry.type)) {
+    throw new DomainError("validation", "La entrada homebrew necesita id, name y type válido.");
+  }
+  const existing = listPacks().find((p) => p.id === "homebrew");
+  const entries = (existing?.entries ?? []).filter((e) => e.id !== entry.id);
+  entries.push(entry);
+  await savePack({ id: "homebrew", name: "Homebrew", version: "1.0.0", source: "Homebrew (usuario)", entries });
+  return { saved: true, id: entry.id };
+}
+
+/** Elimina una entrada del pack homebrew (por id). */
+export async function deleteHomebrewEntry(entryId: string): Promise<{ removed: boolean; id: string }> {
+  const existing = listPacks().find((p) => p.id === "homebrew");
+  if (!existing) return { removed: false, id: entryId };
+  const entries = existing.entries.filter((e) => e.id !== entryId);
+  if (entries.length === existing.entries.length) return { removed: false, id: entryId };
+  if (entries.length === 0) await deletePack("homebrew");
+  else await savePack({ ...existing, entries });
+  return { removed: true, id: entryId };
 }
 
 export interface PackSummary { id: string; name: string; version: string; source: string; entryCounts: Record<string, number>; }

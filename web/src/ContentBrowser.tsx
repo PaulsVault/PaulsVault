@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
 import { readFile } from "./download";
+import { HomebrewFeatEditor } from "./HomebrewFeatEditor";
 import type { ContentHit } from "./types";
 
 const TYPES = ["", "class", "subclass", "species", "background", "feat", "spell", "item", "condition", "monster", "rule"];
@@ -15,6 +16,18 @@ export function ContentBrowser({ onBack }: { onBack: () => void }) {
   const [detail, setDetail] = useState<Record<string, unknown> | null>(null);
   const [packs, setPacks] = useState<Pack[]>([]);
   const [note, setNote] = useState<string | null>(null);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [editInitial, setEditInitial] = useState<{ name: string; data: Record<string, unknown> } | null>(null);
+
+  function newFeat() { setEditInitial(null); setEditorOpen(true); }
+  async function editFeat(name: string) {
+    try { setEditInitial({ name, data: (await api.getEntry(name)).data }); setEditorOpen(true); }
+    catch (e) { setNote("⚠️ " + (e as Error).message); }
+  }
+  async function afterSave() {
+    setEditorOpen(false); setNote("Dote guardada ✓ — ya aparece en creación y subida de nivel.");
+    await loadPacks(); await search();
+  }
 
   async function search() {
     const r = await api.searchContent({ query, type: type || undefined, limit: 60 });
@@ -54,6 +67,14 @@ export function ContentBrowser({ onBack }: { onBack: () => void }) {
       </div>
       {note && <p className="note">{note}</p>}
 
+      {editorOpen && <HomebrewFeatEditor initial={editInitial} onDone={afterSave} onCancel={() => setEditorOpen(false)} />}
+
+      <div className="panel">
+        <h2>Dotes homebrew</h2>
+        <p className="muted small">Crea tus propias dotes con efectos que interactúan con la hoja, o edita una oficial para ajustarla (se guarda como override tuyo, sin tocar el original).</p>
+        <button className="btn primary small" onClick={newFeat}>+ Crear dote homebrew</button>
+      </div>
+
       <div className="panel">
         <h2>Content packs</h2>
         <ul className="line-list">
@@ -84,7 +105,10 @@ export function ContentBrowser({ onBack }: { onBack: () => void }) {
             <li key={r.id} style={{ display: "block" }}>
               <div className="row" style={{ justifyContent: "space-between", cursor: "pointer" }} onClick={() => toggle(r.name)}>
                 <span><b>{r.name}</b> <span className="muted small">· {r.type} · {r.pack}</span></span>
-                <span className="muted">{open === r.name ? "▲" : "▼"}</span>
+                <span className="row">
+                  {r.type === "feat" && <button className="btn small" title="Editar como homebrew" onClick={(e) => { e.stopPropagation(); void editFeat(r.name); }}>✏️ Editar</button>}
+                  <span className="muted">{open === r.name ? "▲" : "▼"}</span>
+                </span>
               </div>
               {open === r.name && detail && (
                 <pre className="entry-detail">{JSON.stringify(detail, null, 2)}</pre>

@@ -135,6 +135,11 @@ function collect(c: Character): { mods: SourcedMod[]; active: string[]; incapaci
   // Rasgos de clase/subclase y dotes con efecto mecánico (siempre activos).
   let critRange = 20;
   for (const f of c.features) {
+    // Mecánicas declaradas en el CONTENIDO de la dote (homebrew, o dotes oficiales con efectos):
+    // se aplican a la hoja igual que los objetos y condiciones.
+    const contentMechs = findEntry(featureKey(f.name), "feat")?.data?.["mechanics"];
+    if (Array.isArray(contentMechs)) for (const m of contentMechs) mods.push({ ...(m as StatModifier), source: f.name });
+    // Tabla fija por nombre (dotes SRD como Alert/Mobile), para casos especiales (crítico, competencia a iniciativa).
     const fx = FEATURE_MECHANICS[featureKey(f.name)];
     if (!fx) continue;
     if (fx.mods) for (const m of fx.mods) mods.push({ ...m, source: f.name });

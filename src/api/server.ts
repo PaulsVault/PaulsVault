@@ -331,6 +331,21 @@ export function buildApp(): Express {
   app.patch("/api/characters/:id/style", async (req, res) =>
     res.json(await onCharacter(req.params.id, (c) => customizeStyle(c, req.body))));
 
+  // ─── Homebrew (dotes propias del usuario, con efectos que interactúan con la hoja) ───
+  app.post("/api/homebrew/feat", async (req, res) => {
+    const b = (req.body ?? {}) as Record<string, unknown>;
+    const name = String(b["name"] ?? "").trim();
+    const id = `feat:${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+    const keep = (v: unknown) => (v === undefined || v === null || v === "" || (Array.isArray(v) && v.length === 0) ? undefined : v);
+    const data = {
+      summary: keep(b["summary"]), category: keep(b["category"]), prerequisite: keep(b["prerequisite"]),
+      mechanics: keep(b["mechanics"]), abilityBonus: keep(b["abilityBonus"]), skills: keep(b["skills"]),
+      tools: keep(b["tools"]), uses: keep(b["uses"]), homebrew: true,
+    };
+    res.status(201).json(await content.saveHomebrewEntry({ id, type: "feat", name, data }));
+  });
+  app.delete("/api/homebrew/:id", async (req, res) => res.json(await content.deleteHomebrewEntry(req.params.id)));
+
   // ─── Contenido y packs ───
   app.get("/api/spells-catalog", (req, res) =>
     res.json({ spells: content.spellCatalog({ spellClass: req.query["class"] as string | undefined }) }));
