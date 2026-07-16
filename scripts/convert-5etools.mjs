@@ -128,6 +128,58 @@ function parseAdditionalSpells(add) {
   return out;
 }
 
+// ─── Ascendencias/linajes de raza (Giant Ancestry del Goliath, linaje del Elfo, etc.) ───
+// Extrae, por rasgo de "elige uno", las opciones con su descripción. Cubre 3 patrones de 5etools:
+// lista con items nombrados, tabla, y _versions (linajes/legados).
+function extractAncestryChoices(r) {
+  const out = [];
+  const seenTraits = new Set();
+  for (const e of r.entries ?? []) {
+    if (!e || !e.name || !Array.isArray(e.entries)) continue;
+    const intro = e.entries.filter((x) => typeof x === "string").join(" ");
+    if (!/\bchoose\b/i.test(intro)) continue;
+    // Patrón 1: lista con items nombrados (Goliath, Aasimar…).
+    const list = e.entries.find((x) => x && x.type === "list" && Array.isArray(x.items) && x.items.some((it) => it && it.name));
+    if (list) {
+      const options = list.items.filter((it) => it && it.name).map((it) => ({ name: deTag(it.name), description: text(it.entries) }));
+      if (options.length >= 2) { out.push({ trait: deTag(e.name), options }); seenTraits.add(e.name); continue; }
+    }
+    // Patrón 2: tabla (Dragonborn: Dragón → Tipo de daño).
+    const table = e.entries.find((x) => x && x.type === "table" && Array.isArray(x.rows));
+    if (table) {
+      const labels = (table.colLabels ?? []).map(deTag);
+      const options = table.rows.map((row) => {
+        const cells = (Array.isArray(row) ? row : [row]).map((c) => deTag(typeof c === "string" ? c : (c?.roll ? "" : JSON.stringify(c))));
+        return { name: cells[0], description: cells.slice(1).map((c, i) => `${labels[i + 1] ? labels[i + 1] + ": " : ""}${c}`).filter(Boolean).join(", ") };
+      }).filter((o) => o.name);
+      if (options.length >= 2) { out.push({ trait: deTag(e.name), options }); seenTraits.add(e.name); continue; }
+    }
+  }
+  // Patrón 3: _versions (linajes/legados) solo si aún no capturamos un linaje/legado por lista/tabla.
+  if (Array.isArray(r._versions) && r._versions.length >= 2 && !out.some((c) => /lineage|legacy/i.test(c.trait))) {
+    const uniq = [...new Set(r._versions.map((v) => {
+      const full = v.name || v._abstract?.name || "";
+      return full.includes(";") ? full.split(";").slice(1).join(";").trim() : full;
+    }).filter(Boolean))];
+    const lineageTrait = (r.entries ?? []).find((e) => e?.name && /lineage|legacy/i.test(e.name) && !seenTraits.has(e.name));
+    if (uniq.length >= 2 && lineageTrait) {
+      out.push({ trait: deTag(lineageTrait.name), options: uniq.map((name) => ({ name, description: "" })) });
+    }
+  }
+  return out.length ? out : undefined;
+}
+
+// Descripciones de roleplay de los trasfondos (fluff-backgrounds.json).
+function buildBackgroundFluff(dataDir) {
+  const map = {};
+  const file = path.join(dataDir, "fluff-backgrounds.json");
+  if (!fs.existsSync(file)) return map;
+  for (const f of readJson(file).backgroundFluff ?? []) {
+    if (f.entries) map[`${f.name}|${f.source}`] = text(f.entries);
+  }
+  return map;
+}
+
 // Mapa conjuro(min) → clases 2024 (XPHB), desde spells/sources.json.
 function buildSpellClassMap(dataDir) {
   const map = {};
@@ -278,9 +330,13 @@ function convertBackground(bg) {
 }
 if (want("backgrounds")) {
   const entries = [];
+  const fluff = buildBackgroundFluff(DATA_DIR); // descripciones de roleplay
   for (const bg of readJson(path.join(DATA_DIR, "backgrounds.json")).background ?? []) {
     if (!SOURCES_2024.has(bg.source) || bg._copy) continue;
-    entries.push(convertBackground(bg));
+    const e = convertBackground(bg);
+    const desc = fluff[`${bg.name}|${bg.source}`];
+    if (desc) e.data.description = desc;
+    entries.push(e);
   }
   entries.sort((a, b) => a.name.localeCompare(b.name));
   writePack("dnd2024-backgrounds", "D&D 2024 — Trasfondos", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
@@ -297,6 +353,7 @@ function convertRace(r) {
     speed,
     traits,
     ...parseAdditionalSpells(r.additionalSpells), // conjuros otorgados (nivel = nivel de personaje)
+    ...(extractAncestryChoices(r) ? { ancestryChoices: extractAncestryChoices(r) } : {}), // ascendencias/linajes a elegir
     source: r.source,
   } };
 }

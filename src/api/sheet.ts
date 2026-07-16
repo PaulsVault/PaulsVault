@@ -61,6 +61,8 @@ export function characterSheet(c: Character): Record<string, unknown> {
 
   // Rasgos raciales de la especie (del contenido) para la sección de información.
   const speciesTraits = (findEntry(c.species, "species")?.data["traits"] as string[] | undefined) ?? [];
+  // Descripción del trasfondo (para roleplay).
+  const backgroundDescription = (findEntry(c.background, "background")?.data["description"] as string | undefined) ?? null;
   // Diario ordenado por fecha descendente (lo más reciente primero).
   const journal = [...(c.journal ?? [])].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : (a.createdAt < b.createdAt ? 1 : -1)));
 
@@ -83,6 +85,7 @@ export function characterSheet(c: Character): Record<string, unknown> {
     classList,
     features,
     speciesTraits,
+    backgroundDescription,
     personality: c.personality ?? {},
     journal,
     appearance: c.appearance ?? null,

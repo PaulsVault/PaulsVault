@@ -18,6 +18,7 @@ export interface CreateInput {
   level?: number; abilities: Record<AbilityKey, number>;
   abilityBonuses?: Partial<Record<AbilityKey, number>>; skills?: string[]; tools?: string[];
   backgroundSkills?: string[]; originFeat?: string; // trasfondo personalizado
+  ancestryChoices?: Record<string, string>;         // ascendencia/linaje elegido por rasgo
 }
 
 export interface SheetStyle {
@@ -69,6 +70,7 @@ export interface Sheet {
   classList: { name: string; subclass: string | null; level: number }[];
   features: { name: string; source: string; description: string | null }[];
   speciesTraits: string[];
+  backgroundDescription?: string | null;
   critRange: number;
   personality: Personality;
   journal: JournalEntry[];

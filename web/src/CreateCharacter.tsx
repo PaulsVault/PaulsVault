@@ -24,8 +24,10 @@ const ALL_SKILLS = Object.keys(SKILL_LABEL);
 const CUSTOM_BG = "__custom__"; // valor centinela para "trasfondo personalizado"
 
 type Method = "standard" | "pointbuy" | "roll" | "manual";
-interface BgData { abilities?: string[]; skills?: string[]; tool?: string; feat?: string }
+interface BgData { abilities?: string[]; skills?: string[]; tool?: string; feat?: string; description?: string }
 interface ClassData { skillChoices?: number; skillOptions?: string[] }
+interface AncestryChoice { trait: string; options: { name: string; description: string }[] }
+interface SpeciesData { ancestryChoices?: AncestryChoice[] }
 
 export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void; onCreated: (s: Sheet) => void }) {
   const [classes, setClasses] = useState<ContentHit[]>([]);
@@ -64,6 +66,10 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const [cls, setCls] = useState<ClassData | null>(null);
   const [chosenSkills, setChosenSkills] = useState<string[]>([]);
 
+  // Especie: ascendencia/linaje a elegir
+  const [speciesData, setSpeciesData] = useState<SpeciesData | null>(null);
+  const [ancestry, setAncestry] = useState<Record<string, string>>({});
+
   // Creación guiada a nivel alto: tras crear a nivel 1, se sube nivel a nivel eligiendo todo.
   const [guide, setGuide] = useState<{ id: string; classList: ClassLine[]; target: number } | null>(null);
 
@@ -86,6 +92,11 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
     if (!className) return;
     void api.getEntry(className).then((e) => { setCls(e.data as ClassData); setChosenSkills([]); }).catch(() => setCls(null));
   }, [className]);
+
+  useEffect(() => {
+    if (!speciesName) { setSpeciesData(null); setAncestry({}); return; }
+    void api.getEntry(speciesName).then((e) => { setSpeciesData(e.data as SpeciesData); setAncestry({}); }).catch(() => setSpeciesData(null));
+  }, [speciesName]);
 
   // Puntuaciones base según el método
   const base: Record<AbilityKey, number> = useMemo(() => {
@@ -115,7 +126,9 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const bonusOk = (bonusMode === "1-1-1" && !isCustomBg) ? (bg?.abilities?.length ?? 0) > 0 : (!!plus2 && !!plus1 && plus2 !== plus1);
   const skillsOk = skillChoices === 0 || chosenSkills.length === skillChoices;
   const customOk = !isCustomBg || customBgSkills.length === 2;
-  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk;
+  const ancestryList = speciesData?.ancestryChoices ?? [];
+  const ancestryOk = ancestryList.every((ch) => ancestry[ch.trait]);
+  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk && ancestryOk;
 
   function setAssignFor(a: AbilityKey, idx: number | null) {
     setAssign((prev) => {
@@ -149,6 +162,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
         name, className, species: speciesName, level: 1,
         background: isCustomBg ? (customName.trim() || "Personalizado") : background,
         abilities: base, abilityBonuses, skills: chosenSkills,
+        ...(ancestryList.length ? { ancestryChoices: ancestry } : {}),
         ...(isCustomBg ? {
           backgroundSkills: customBgSkills,
           originFeat: customFeat || undefined,
@@ -288,6 +302,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
             </>
           )}
           {bg?.feat && <p className="muted small" style={{ margin: "6px 0 0" }}>🎁 Dote de origen: <b>{bg.feat}</b>{bgSkills.length ? ` · Competencias: ${bgSkills.map((s) => SKILL_LABEL[s] ?? s).join(", ")}` : ""}{bg.tool ? ` · ${bg.tool}` : ""}</p>}
+          {bg?.description && <p className="cond-desc" style={{ margin: "8px 0 0" }}>{bg.description}</p>}
         </fieldset>
 
         {/* ── Trasfondo personalizado ── */}
@@ -339,6 +354,25 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
                 );
               })}
             </div>
+          </fieldset>
+        )}
+
+        {/* ── Ascendencia / linaje de la especie ── */}
+        {ancestryList.length > 0 && (
+          <fieldset className="abilities-input span2">
+            <legend>Ascendencia / linaje de {speciesName}</legend>
+            {ancestryList.map((ch) => {
+              const sel = ch.options.find((o) => o.name === ancestry[ch.trait]);
+              return (
+                <label key={ch.trait} className="field span2"><span>{ch.trait} — elige uno</span>
+                  <select value={ancestry[ch.trait] ?? ""} onChange={(e) => setAncestry((a) => ({ ...a, [ch.trait]: e.target.value }))}>
+                    <option value="">—</option>
+                    {ch.options.map((o) => <option key={o.name} value={o.name}>{o.name}</option>)}
+                  </select>
+                  {sel?.description && <p className="cond-desc" style={{ margin: "6px 0 0" }}>{sel.description}</p>}
+                </label>
+              );
+            })}
           </fieldset>
         )}
 

@@ -29,6 +29,7 @@ export interface CreateCharacterInput {
   tools?: string[];
   backgroundSkills?: string[];     // competencias de un trasfondo personalizado (elegidas a mano)
   originFeat?: string;             // dote de origen de un trasfondo personalizado
+  ancestryChoices?: Record<string, string>; // ascendencia/linaje elegido por rasgo (trait → opción)
   alignment?: string;
   playerName?: string;
   appearance?: string;
@@ -244,6 +245,16 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
   if (bgSkills.length) c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...bgSkills])];
   const bgTool = bg?.data["tool"] as string | undefined;
   if (bgTool) c.proficiencies.tools = [...new Set([...c.proficiencies.tools, bgTool])];
+
+  // Ascendencia/linaje de la especie elegido (Giant Ancestry del Goliath, linaje del Elfo…) como rasgo.
+  if (input.ancestryChoices) {
+    const speciesData = findEntry(input.species, "species")?.data as Record<string, unknown> | undefined;
+    const choices = (speciesData?.["ancestryChoices"] as { trait: string; options: { name: string; description: string }[] }[] | undefined) ?? [];
+    for (const [trait, optName] of Object.entries(input.ancestryChoices)) {
+      const opt = choices.find((ch) => ch.trait === trait)?.options.find((o) => o.name === optName);
+      if (opt) c.features.push({ name: `${trait}: ${opt.name}`, source: "Especie (ascendencia)", description: opt.description || undefined });
+    }
+  }
 
   // Rasgos de clase por cada nivel y rasgos de subclase (si se eligió a nivel 3+).
   for (let l = 1; l <= level; l++) addClassFeatures(c, input.className, l);

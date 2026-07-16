@@ -31,6 +31,7 @@ export function InfoPanel({ id, sheet: s, reload }: { id: string; sheet: Sheet; 
           <div><span className="muted small">Alineación</span><b>{s.alignment ?? "—"}</b></div>
           <div><span className="muted small">Clases</span><b>{s.classList.map((c) => `${c.name}${c.subclass ? ` (${c.subclass})` : ""} ${c.level}`).join(" / ")}</b></div>
         </div>
+        {s.backgroundDescription && <p className="cond-desc" style={{ marginTop: 10 }}>{s.backgroundDescription}</p>}
       </section>
 
       {s.speciesTraits.length > 0 && (
