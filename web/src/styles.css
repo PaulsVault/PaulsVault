@@ -193,6 +193,27 @@ textarea { background: var(--bg-2); color: var(--text); border: 1px solid var(--
 .inv-group + .inv-group { margin-top: 16px; }
 .inv-group-head { font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 0 0 6px; font-weight: 700; }
 .gain-list { margin: 4px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; font-size: .9rem; line-height: 1.45; }
+
+/* ── Mesa del DM (bestiario) ── */
+.dm-bestiary { display: grid; grid-template-columns: minmax(240px, 320px) 1fr; gap: 14px; align-items: start; }
+.dm-list { position: sticky; top: 10px; }
+.dm-mon-list { max-height: 62vh; overflow-y: auto; margin-top: 8px; }
+.dm-mon-list li { cursor: pointer; }
+.dm-mon-list li.active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.mon-block h2 { color: var(--accent); }
+.mon-top { display: flex; flex-wrap: wrap; gap: 16px; padding: 8px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin: 8px 0; }
+.mon-abilities { display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px; margin: 8px 0; }
+.mon-abil { background: var(--bg-2); border-radius: 8px; padding: 6px 4px; text-align: center; display: grid; gap: 2px; }
+.mon-abil b { font-size: 1.05rem; }
+.btn.tiny { padding: 2px 6px; font-size: .74rem; min-height: 0; border-radius: 7px; }
+.btn.tiny.alt { background: none; color: var(--muted); }
+.mon-meta { display: grid; gap: 3px; font-size: .86rem; margin: 6px 0; }
+.mon-section { margin-top: 10px; }
+.mon-section h3 { color: var(--gold-2, var(--accent)); font-size: .95rem; margin: 0 0 6px; border-bottom: 1px solid var(--line); padding-bottom: 3px; }
+.mon-action { margin-bottom: 10px; font-size: .9rem; line-height: 1.45; }
+.mon-action p { margin: 0; }
+.mon-action-btns { margin-top: 5px; gap: 6px; }
+@media (max-width: 720px) { .dm-bestiary { grid-template-columns: 1fr; } .dm-list { position: static; } .mon-abilities { grid-template-columns: repeat(3, 1fr); } }
 .inv-row, .spell-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--bg-2); border-radius: 10px; padding: 10px 12px; }
 .inv-actions, .spell-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 .inv-row { flex-direction: column; align-items: stretch; }

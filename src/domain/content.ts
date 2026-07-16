@@ -92,6 +92,25 @@ export function searchContent(query = "", opts: SearchOptions = {}): { total: nu
 
 export interface SpellCard { name: string; level: number; school: string; classes: string[]; summary: string; ritual: boolean; concentration: boolean; }
 
+export interface MonsterCard { name: string; cr: string; crNum: number; type: string; size: string; ac: number; hp: number; }
+const crToNum = (cr: string) => (cr === "1/8" ? 0.125 : cr === "1/4" ? 0.25 : cr === "1/2" ? 0.5 : Number(cr) || 0);
+
+/** Catálogo ligero de monstruos para el bestiario del DM (el stat block completo se pide con getEntry). */
+export function monsterCatalog(): MonsterCard[] {
+  return dedupeByName(allEntries())
+    .filter((e) => e.type === "monster")
+    .map((e) => ({
+      name: e.name,
+      cr: String(e.data["cr"] ?? "0"),
+      crNum: crToNum(String(e.data["cr"] ?? "0")),
+      type: String(e.data["creatureType"] ?? "—"),
+      size: String(e.data["size"] ?? "—"),
+      ac: Number(e.data["ac"] ?? 10),
+      hp: Number((e.data["hp"] as { average?: number } | undefined)?.average ?? 0),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** Catálogo de conjuros con datos completos, para el navegador de conjuros (por nivel/escuela/clase). */
 export function spellCatalog(opts: { spellClass?: string } = {}): SpellCard[] {
   let pool = dedupeByName(allEntries()).filter((e) => e.type === "spell");

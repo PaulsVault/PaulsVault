@@ -38,6 +38,10 @@ function deTag(s) {
     if (tag === "dc") return `DC ${parts[0]}`;
     if (tag === "hit") return (Number(parts[0]) >= 0 ? "+" : "") + parts[0];
     if (tag === "chance") return `${parts[0]} percent`;
+    // Etiquetas de stat block de monstruo (para descripciones legibles).
+    if (tag === "atk" || tag === "atkr") { const A = { m: "Melee Attack Roll:", r: "Ranged Attack Roll:", mw: "Melee Weapon Attack:", rw: "Ranged Weapon Attack:", ms: "Melee Spell Attack:", rs: "Ranged Spell Attack:" }; return A[(parts[0] || "").trim()] ?? "Attack Roll:"; }
+    if (tag === "h") return "Hit: ";
+    if (tag === "recharge") return parts[0] ? `(Recharge ${parts[0]}-6)` : "(Recharge)";
     let text = parts.length >= 3 ? parts[2] : parts[0];
     if (!text) text = parts[0] || "";
     return text.replace(/\s*\[[^\]]*\]/g, "").trim();
@@ -530,4 +534,100 @@ if (want("optionalfeatures")) {
   }
   entries.sort((a, b) => a.name.localeCompare(b.name));
   writePack("dnd2024-optionalfeatures", "D&D 2024 — Opciones de clase", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
+}
+
+// ─── Bestiario (monstruos con stat block y acciones parseadas) ───
+const CR_XP = { "0": 10, "1/8": 25, "1/4": 50, "1/2": 100, "1": 200, "2": 450, "3": 700, "4": 1100, "5": 1800, "6": 2300, "7": 2900, "8": 3900, "9": 5000, "10": 5900, "11": 7200, "12": 8400, "13": 10000, "14": 11500, "15": 13000, "16": 15000, "17": 18000, "18": 20000, "19": 22000, "20": 25000, "21": 33000, "22": 41000, "23": 50000, "24": 62000, "25": 75000, "26": 90000, "27": 105000, "28": 120000, "29": 135000, "30": 155000 };
+const crNum = (cr) => (cr === "1/8" ? 0.125 : cr === "1/4" ? 0.25 : cr === "1/2" ? 0.5 : Number(cr) || 0);
+const crToPb = (cr) => { const n = crNum(cr); return n <= 4 ? 2 : n <= 8 ? 3 : n <= 12 ? 4 : n <= 16 ? 5 : n <= 20 ? 6 : n <= 24 ? 7 : n <= 28 ? 8 : 9; };
+const DMG_TYPE_MON = { acid: "ácido", bludgeoning: "contundente", cold: "frío", fire: "fuego", force: "fuerza", lightning: "relámpago", necrotic: "necrótico", piercing: "perforante", poison: "veneno", psychic: "psíquico", radiant: "radiante", slashing: "cortante", thunder: "trueno" };
+const SAVE_ABBR = { strength: "str", dexterity: "dex", constitution: "con", intelligence: "int", wisdom: "wis", charisma: "cha" };
+
+function renderSpeed(sp) {
+  if (typeof sp === "number") return `${sp} ft`;
+  if (!sp) return "—";
+  const out = [];
+  for (const [k, v] of Object.entries(sp)) {
+    if (k === "walk") out.unshift(`${typeof v === "object" ? v.number : v} ft`);
+    else if (typeof v === "number" || typeof v === "object") out.push(`${k} ${typeof v === "object" ? v.number : v} ft`);
+  }
+  return out.join(", ");
+}
+function numObj(o) { if (!o) return undefined; const r = {}; for (const [k, v] of Object.entries(o)) { const n = Number(String(v).replace(/[^\d-]/g, "")); if (!Number.isNaN(n)) r[k] = n; } return Object.keys(r).length ? r : undefined; }
+function immuneStr(v) {
+  if (!v) return undefined;
+  const parts = [];
+  for (const e of Array.isArray(v) ? v : [v]) {
+    if (typeof e === "string") parts.push(DMG_TYPE_MON[e] ?? e);
+    else if (e && typeof e === "object") { const list = e.immune ?? e.resist ?? e.vulnerable ?? []; parts.push(`${list.map((x) => DMG_TYPE_MON[x] ?? x).join(", ")}${e.note ? ` ${e.note}` : ""}`); }
+  }
+  return parts.join("; ") || undefined;
+}
+
+// Parsea una acción/rasgo: descripción legible + mecánica de ataque/salvación/recarga.
+function parseAction(a) {
+  const raw = (a.entries ?? []).filter((e) => typeof e === "string").join(" ");
+  const rawName = a.name ?? "";
+  const description = text(a.entries);
+  const out = { name: deTag(rawName), description };
+  const rech = rawName.match(/\{@recharge ?(\d?)\}/);
+  if (rech) { out.name = deTag(rawName.replace(/\{@recharge ?\d?\}/, "").trim()); out.recharge = rech[1] ? `Recarga ${rech[1]}-6` : "Recarga"; }
+  const hit = raw.match(/\{@hit ([+-]?\d+)\}/);
+  const dmgMatches = [...raw.matchAll(/\{@(?:damage|dice) ([^}|]+)/g)].map((m) => m[1].trim());
+  const atk = raw.match(/\{@atkr? ([^}]+)\}/);
+  if (hit) {
+    const typeM = raw.match(/\)\s*(acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poison|psychic|radiant|slashing|thunder)/i);
+    out.attack = { bonus: Number(hit[1]), damage: dmgMatches[0] || undefined, damageType: typeM ? (DMG_TYPE_MON[typeM[1].toLowerCase()] ?? typeM[1]) : undefined, ranged: !!atk && /r/i.test(atk[1]) };
+    if (dmgMatches[1]) out.attack.extraDamage = dmgMatches[1];
+  }
+  const dc = raw.match(/\{@dc (\d+)\}/);
+  if (dc) {
+    const sv = raw.match(/(Strength|Dexterity|Constitution|Intelligence|Wisdom|Charisma) saving throw/i);
+    out.save = { dc: Number(dc[1]), ability: sv ? SAVE_ABBR[sv[1].toLowerCase()] : undefined };
+    if (!out.attack && dmgMatches[0]) { out.save.damage = dmgMatches[0]; const t = raw.match(/(acid|bludgeoning|cold|fire|force|lightning|necrotic|piercing|poison|psychic|radiant|slashing|thunder)/i); if (t) out.save.damageType = DMG_TYPE_MON[t[1].toLowerCase()] ?? t[1]; }
+  }
+  return out;
+}
+
+function convertMonster(m) {
+  const ac = Array.isArray(m.ac) ? (typeof m.ac[0] === "object" ? m.ac[0].ac : m.ac[0]) : m.ac;
+  const acFrom = Array.isArray(m.ac) && typeof m.ac[0] === "object" && m.ac[0].from ? m.ac[0].from.map((x) => deTag(x)).join(", ") : undefined;
+  const type = typeof m.type === "string" ? m.type : (m.type?.type ? (typeof m.type.type === "string" ? m.type.type : deTag(JSON.stringify(m.type.type))) : "—");
+  const cr = typeof m.cr === "object" ? (m.cr.cr ?? "0") : (m.cr ?? "0");
+  const mapActs = (arr) => (arr ?? []).map(parseAction);
+  return { id: slug(m.name, "monster"), type: "monster", name: m.name, data: {
+    size: (Array.isArray(m.size) ? m.size : [m.size]).map((s) => SIZE[s] ?? s).join("/"),
+    creatureType: type,
+    ac, acFrom,
+    hp: m.hp ? { average: m.hp.average, formula: m.hp.formula } : undefined,
+    speed: renderSpeed(m.speed),
+    abilities: { str: m.str, dex: m.dex, con: m.con, int: m.int, wis: m.wis, cha: m.cha },
+    saves: numObj(m.save), skills: numObj(m.skill),
+    senses: (m.senses ?? []).map(deTag).join(", ") || undefined, passivePerception: m.passive,
+    languages: (m.languages ?? []).map(deTag).join(", ") || undefined,
+    cr, xp: CR_XP[cr], pb: crToPb(cr),
+    resist: immuneStr(m.resist), immune: immuneStr(m.immune), vulnerable: immuneStr(m.vulnerable),
+    conditionImmune: (m.conditionImmune ?? []).map((x) => (typeof x === "string" ? x : "")).filter(Boolean).join(", ") || undefined,
+    traits: mapActs(m.trait), actions: mapActs(m.action), bonusActions: mapActs(m.bonus), reactions: mapActs(m.reaction),
+    legendary: mapActs(m.legendary),
+    source: m.source,
+  } };
+}
+
+if (want("monsters")) {
+  const dir = path.join(DATA_DIR, "bestiary");
+  const entries = [];
+  const seen = new Set();
+  for (const f of fs.readdirSync(dir)) {
+    if (!f.startsWith("bestiary-") || !f.endsWith(".json")) continue;
+    for (const m of readJson(path.join(dir, f)).monster ?? []) {
+      if (!SOURCES_2024.has(m.source) || m._copy || m.isNpc) continue;
+      const e = convertMonster(m);
+      if (seen.has(e.id)) continue;
+      seen.add(e.id);
+      entries.push(e);
+    }
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  writePack("dnd2024-monsters", "D&D 2024 — Bestiario", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
 }

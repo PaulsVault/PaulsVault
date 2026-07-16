@@ -21,6 +21,15 @@ export interface AuthUser { id: string; email: string; }
 export interface Invite { id: string; token: string; label: string | null; url: string; used: boolean; usedAt: string | null; expiresAt: string | null; createdAt: string; }
 export interface ChoiceOption { name: string; summary?: string; prerequisite?: string; }
 export interface SpellCard { name: string; level: number; school: string; classes: string[]; summary: string; ritual: boolean; concentration: boolean; }
+export interface MonsterCard { name: string; cr: string; crNum: number; type: string; size: string; ac: number; hp: number; }
+export interface MonAction { name: string; description: string; attack?: { bonus: number; damage?: string; damageType?: string; ranged?: boolean; extraDamage?: string }; save?: { dc: number; ability?: string; damage?: string; damageType?: string }; recharge?: string }
+export interface MonsterData {
+  size: string; creatureType: string; ac: number; acFrom?: string; hp?: { average: number; formula: string };
+  speed: string; abilities: Record<string, number>; saves?: Record<string, number>; skills?: Record<string, number>;
+  senses?: string; passivePerception?: number; languages?: string; cr: string; xp?: number; pb: number;
+  resist?: string; immune?: string; vulnerable?: string; conditionImmune?: string;
+  traits: MonAction[]; actions: MonAction[]; bonusActions: MonAction[]; reactions: MonAction[]; legendary: MonAction[];
+}
 export interface LevelChoice { kind: string; label: string; count: number; note?: string; options: ChoiceOption[]; }
 
 export const api = {
@@ -57,6 +66,8 @@ export const api = {
   subclassesFor: (className: string) => req<{ results: ContentHit[] }>(`/content?type=subclass&limit=500&subclassOf=${enc(className)}`).then((r) => r.results),
   originFeats: () => req<{ results: ContentHit[] }>("/content?type=feat&featCategory=O&limit=500").then((r) => r.results),
   spellCatalog: (spellClass?: string) => req<{ spells: SpellCard[] }>(`/spells-catalog${spellClass ? `?class=${enc(spellClass)}` : ""}`).then((r) => r.spells),
+  monsters: () => req<{ monsters: MonsterCard[] }>("/monsters").then((r) => r.monsters),
+  monster: (name: string) => req<{ data: MonsterData }>(`/content/${enc(name)}`).then((r) => r.data),
   spells: (opts: { query?: string; spellClass?: string; spellLevel?: number } = {}) =>
     req<{ results: ContentHit[] }>(`/content?type=spell&limit=500${opts.query ? `&query=${enc(opts.query)}` : ""}${opts.spellClass ? `&spellClass=${enc(opts.spellClass)}` : ""}${opts.spellLevel !== undefined ? `&spellLevel=${opts.spellLevel}` : ""}`).then((r) => r.results),
 

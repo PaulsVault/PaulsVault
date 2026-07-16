@@ -373,6 +373,8 @@ export function buildApp(): Express {
   app.get("/api/spells-catalog", (req, res) =>
     res.json({ spells: content.spellCatalog({ spellClass: req.query["class"] as string | undefined }) }));
 
+  app.get("/api/monsters", (_req, res) => res.json({ monsters: content.monsterCatalog() }));
+
   app.get("/api/content", (req, res) =>
     res.json(content.searchContent(String(req.query["query"] ?? ""), {
       type: req.query["type"] as ContentType | undefined,
