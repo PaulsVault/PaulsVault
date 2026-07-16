@@ -27,6 +27,8 @@ export interface CreateCharacterInput {
   abilityBonuses?: Partial<Abilities>; // +2/+1 del trasfondo (2024), a sumar sobre las base
   skills?: string[];               // habilidades elegidas de la clase
   tools?: string[];
+  backgroundSkills?: string[];     // competencias de un trasfondo personalizado (elegidas a mano)
+  originFeat?: string;             // dote de origen de un trasfondo personalizado
   alignment?: string;
   playerName?: string;
   appearance?: string;
@@ -230,15 +232,15 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
     createdAt: now,
     updatedAt: now,
   };
-  // Dote de origen que otorga el trasfondo (nivel 1).
+  // Dote de origen (nivel 1): del contenido del trasfondo, o la elegida a mano en un trasfondo personalizado.
   const bg = findEntry(input.background, "background");
-  const bgFeat = bg?.data["feat"] as string | undefined;
+  const bgFeat = (bg?.data["feat"] as string | undefined) ?? input.originFeat;
   if (bgFeat) {
     const fe = findEntry(bgFeat.replace(/\s*\(.*/, "").trim(), "feat");
     c.features.push({ name: bgFeat, source: "Trasfondo (dote de origen)", description: (fe?.data["summary"] as string | undefined) });
   }
-  // Competencias del trasfondo: habilidades fijas + herramienta, sumadas a las elegidas de la clase.
-  const bgSkills = (bg?.data["skills"] as string[] | undefined) ?? [];
+  // Competencias del trasfondo: del contenido, o las elegidas a mano (personalizado). Se suman a las de clase.
+  const bgSkills = (bg?.data["skills"] as string[] | undefined) ?? input.backgroundSkills ?? [];
   if (bgSkills.length) c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...bgSkills])];
   const bgTool = bg?.data["tool"] as string | undefined;
   if (bgTool) c.proficiencies.tools = [...new Set([...c.proficiencies.tools, bgTool])];

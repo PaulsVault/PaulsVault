@@ -17,6 +17,7 @@ const SKILL_LABEL: Record<string, string> = {
   stealth: "Sigilo", survival: "Supervivencia",
 };
 const ALL_SKILLS = Object.keys(SKILL_LABEL);
+const CUSTOM_BG = "__custom__"; // valor centinela para "trasfondo personalizado"
 
 type Method = "standard" | "pointbuy" | "roll" | "manual";
 interface BgData { abilities?: string[]; skills?: string[]; tool?: string; feat?: string }
@@ -47,20 +48,28 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const [plus2, setPlus2] = useState<AbilityKey | "">("");
   const [plus1, setPlus1] = useState<AbilityKey | "">("");
 
+  // Trasfondo personalizado
+  const [feats, setFeats] = useState<ContentHit[]>([]);
+  const [customName, setCustomName] = useState("Personalizado");
+  const [customBgSkills, setCustomBgSkills] = useState<string[]>([]);
+  const [customTool, setCustomTool] = useState("");
+  const [customFeat, setCustomFeat] = useState("");
+  const isCustomBg = background === CUSTOM_BG;
+
   // Clase: habilidades a elegir
   const [cls, setCls] = useState<ClassData | null>(null);
   const [chosenSkills, setChosenSkills] = useState<string[]>([]);
 
   useEffect(() => {
     void (async () => {
-      const [cl, sp, bgs] = await Promise.all([api.content("class"), api.content("species"), api.content("background")]);
-      setClasses(cl); setSpecies(sp); setBackgrounds(bgs);
+      const [cl, sp, bgs, ft] = await Promise.all([api.content("class"), api.content("species"), api.content("background"), api.content("feat")]);
+      setClasses(cl); setSpecies(sp); setBackgrounds(bgs); setFeats(ft);
       setClassName(cl[0]?.name ?? ""); setSpeciesName(sp[0]?.name ?? ""); setBackground(bgs[0]?.name ?? "");
     })().catch((e) => setError((e as Error).message));
   }, []);
 
   useEffect(() => {
-    if (!background) return;
+    if (!background || background === CUSTOM_BG) { setBg(null); setPlus2(""); setPlus1(""); if (background === CUSTOM_BG) setBonusMode("2-1"); return; }
     void api.getEntry(background).then((e) => {
       setBg(e.data as BgData); setPlus2(""); setPlus1("");
     }).catch(() => setBg(null));
@@ -88,15 +97,18 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const pbUsed = ABILITIES.reduce((s, a) => s + (PB_COST[scores[a]] ?? 0), 0);
   const skillOptions = cls?.skillOptions?.[0] === "*" ? ALL_SKILLS : (cls?.skillOptions ?? []);
   const skillChoices = cls?.skillChoices ?? 0;
-  const bgSkills = bg?.skills ?? [];
+  // Características a las que va el +2/+1 y competencias del trasfondo (contenido o personalizado).
+  const bgAbilities: string[] = isCustomBg ? [...ABILITIES] : (bg?.abilities ?? []);
+  const bgSkills = isCustomBg ? customBgSkills : (bg?.skills ?? []);
 
   // Validaciones
   const assignedOk = method === "pointbuy" ? pbUsed <= PB_BUDGET
     : method === "manual" ? true
     : ABILITIES.every((a) => assign[a] != null);
-  const bonusOk = bonusMode === "1-1-1" ? (bg?.abilities?.length ?? 0) > 0 : (plus2 && plus1 && plus2 !== plus1);
+  const bonusOk = (bonusMode === "1-1-1" && !isCustomBg) ? (bg?.abilities?.length ?? 0) > 0 : (!!plus2 && !!plus1 && plus2 !== plus1);
   const skillsOk = skillChoices === 0 || chosenSkills.length === skillChoices;
-  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk;
+  const customOk = !isCustomBg || customBgSkills.length === 2;
+  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk;
 
   function setAssignFor(a: AbilityKey, idx: number | null) {
     setAssign((prev) => {
@@ -126,8 +138,14 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
     setBusy(true); setError(null);
     try {
       const sheet = await api.createCharacter({
-        name, className, species: speciesName, background, level,
+        name, className, species: speciesName, level,
+        background: isCustomBg ? (customName.trim() || "Personalizado") : background,
         abilities: base, abilityBonuses, skills: chosenSkills,
+        ...(isCustomBg ? {
+          backgroundSkills: customBgSkills,
+          originFeat: customFeat || undefined,
+          tools: customTool.trim() ? [customTool.trim()] : undefined,
+        } : {}),
       });
       onCreated(sheet);
     } catch (err) { setError((err as Error).message); setBusy(false); }
@@ -152,7 +170,10 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
           <select value={speciesName} onChange={(e) => setSpeciesName(e.target.value)}>{species.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
         </label>
         <label className="field"><span>Trasfondo</span>
-          <select value={background} onChange={(e) => setBackground(e.target.value)}>{backgrounds.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
+          <select value={background} onChange={(e) => setBackground(e.target.value)}>
+            {backgrounds.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+            <option value={CUSTOM_BG}>✏️ Personalizado…</option>
+          </select>
         </label>
 
         {/* ── Puntuaciones ── */}
@@ -201,25 +222,25 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
 
         {/* ── Bono del trasfondo ── */}
         <fieldset className="abilities-input span2">
-          <legend>Mejora de característica del trasfondo{bg?.abilities?.length ? ` (${bg.abilities.map((a) => ABILITY_LABEL[a as AbilityKey]).join(", ")})` : ""}</legend>
-          {!bg?.abilities?.length ? <p className="muted small">Este trasfondo no define características (elige otro o usa Manual).</p> : (
+          <legend>Mejora de característica del trasfondo{isCustomBg ? " (personalizado: elige)" : bg?.abilities?.length ? ` (${bg.abilities.map((a) => ABILITY_LABEL[a as AbilityKey]).join(", ")})` : ""}</legend>
+          {!bgAbilities.length ? <p className="muted small">Este trasfondo no define características (elige otro o usa Manual).</p> : (
             <>
               <div className="row wrap">
                 <label className="inline"><input type="radio" checked={bonusMode === "2-1"} onChange={() => setBonusMode("2-1")} /> +2 y +1</label>
-                <label className="inline"><input type="radio" checked={bonusMode === "1-1-1"} onChange={() => setBonusMode("1-1-1")} /> +1 a las tres</label>
+                {!isCustomBg && <label className="inline"><input type="radio" checked={bonusMode === "1-1-1"} onChange={() => setBonusMode("1-1-1")} /> +1 a las tres</label>}
               </div>
-              {bonusMode === "2-1" && (
+              {(bonusMode === "2-1" || isCustomBg) && (
                 <div className="row wrap" style={{ marginTop: 6 }}>
                   <label className="field"><span>+2 a</span>
                     <select value={plus2} onChange={(e) => setPlus2(e.target.value as AbilityKey)}>
                       <option value="">—</option>
-                      {bg.abilities.map((a) => <option key={a} value={a}>{ABILITY_LABEL[a as AbilityKey]}</option>)}
+                      {bgAbilities.map((a) => <option key={a} value={a}>{ABILITY_LABEL[a as AbilityKey]}</option>)}
                     </select>
                   </label>
                   <label className="field"><span>+1 a</span>
                     <select value={plus1} onChange={(e) => setPlus1(e.target.value as AbilityKey)}>
                       <option value="">—</option>
-                      {bg.abilities.filter((a) => a !== plus2).map((a) => <option key={a} value={a}>{ABILITY_LABEL[a as AbilityKey]}</option>)}
+                      {bgAbilities.filter((a) => a !== plus2).map((a) => <option key={a} value={a}>{ABILITY_LABEL[a as AbilityKey]}</option>)}
                     </select>
                   </label>
                 </div>
@@ -228,6 +249,39 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
           )}
           {bg?.feat && <p className="muted small" style={{ margin: "6px 0 0" }}>🎁 Dote de origen: <b>{bg.feat}</b>{bgSkills.length ? ` · Competencias: ${bgSkills.map((s) => SKILL_LABEL[s] ?? s).join(", ")}` : ""}{bg.tool ? ` · ${bg.tool}` : ""}</p>}
         </fieldset>
+
+        {/* ── Trasfondo personalizado ── */}
+        {isCustomBg && (
+          <fieldset className="abilities-input span2">
+            <legend>Trasfondo personalizado</legend>
+            <label className="field span2"><span>Nombre del trasfondo</span>
+              <input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="p.ej. Erudito errante" />
+            </label>
+            <p className="muted small" style={{ margin: "8px 0 0" }}>Competencias del trasfondo — elige 2 ({customBgSkills.length}/2):</p>
+            <div className="chips">
+              {ALL_SKILLS.map((sk) => {
+                const on = customBgSkills.includes(sk);
+                return (
+                  <button type="button" key={sk} className={`chip${on ? " removable" : ""}`}
+                    onClick={() => setCustomBgSkills((cur) => cur.includes(sk) ? cur.filter((x) => x !== sk) : cur.length < 2 ? [...cur, sk] : cur)}>
+                    {on ? "✓ " : ""}{SKILL_LABEL[sk] ?? sk}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="row wrap" style={{ marginTop: 8 }}>
+              <label className="field"><span>Herramienta (opcional)</span>
+                <input value={customTool} onChange={(e) => setCustomTool(e.target.value)} placeholder="p.ej. Herramientas de ladrón" />
+              </label>
+              <label className="field"><span>Dote de origen (opcional)</span>
+                <select value={customFeat} onChange={(e) => setCustomFeat(e.target.value)}>
+                  <option value="">— ninguna —</option>
+                  {feats.map((f) => <option key={f.id} value={f.name}>{f.name}</option>)}
+                </select>
+              </label>
+            </div>
+          </fieldset>
+        )}
 
         {/* ── Habilidades de clase ── */}
         {skillChoices > 0 && (

@@ -17,6 +17,7 @@ export interface CreateInput {
   name: string; className: string; species: string; background: string;
   level?: number; abilities: Record<AbilityKey, number>;
   abilityBonuses?: Partial<Record<AbilityKey, number>>; skills?: string[]; tools?: string[];
+  backgroundSkills?: string[]; originFeat?: string; // trasfondo personalizado
 }
 
 export interface SheetStyle {
