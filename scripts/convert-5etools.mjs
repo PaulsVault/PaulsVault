@@ -536,6 +536,74 @@ if (want("optionalfeatures")) {
   writePack("dnd2024-optionalfeatures", "D&D 2024 — Opciones de clase", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
 }
 
+// ─── Clases (progresión por nivel 2024) ───
+const CLASS_WEAPON = (w) => {
+  if (typeof w !== "string") return null;
+  const s = w.toLowerCase();
+  if (s === "simple") return "simple";
+  if (s === "martial") return "martial";
+  if (s.includes("martial")) {
+    const light = /light/.test(s), finesse = /finesse/.test(s);
+    if (finesse && light) return "martial-finesse-light";
+    if (light) return "martial-light";
+    if (finesse) return "martial-finesse";
+    return "martial";
+  }
+  return null;
+};
+// Tabla de espacios de Pacto (Warlock 2024), sparse: el nivel más alto ≤ nivel del Warlock manda.
+const WARLOCK_PACT = { "1": { count: 1, level: 1 }, "2": { count: 2, level: 1 }, "3": { count: 2, level: 2 }, "5": { count: 2, level: 3 }, "7": { count: 2, level: 4 }, "9": { count: 2, level: 5 }, "11": { count: 3, level: 5 }, "17": { count: 4, level: 5 } };
+
+function convertClass(f) {
+  const sp = f.startingProficiencies || {};
+  const skillProf = (sp.skills || [])[0];
+  let skillChoices = 0, skillOptions = [];
+  if (skillProf?.choose) { skillChoices = skillProf.choose.count ?? 0; skillOptions = skillProf.choose.from ?? []; }
+  else if (skillProf?.any) { skillChoices = skillProf.any; skillOptions = ["*"]; } // "elige de cualquiera"
+  const keyFeatures = {};
+  for (const cf of f.classFeatures || []) {
+    const ref = typeof cf === "string" ? cf : cf.classFeature;
+    if (!ref) continue;
+    const parts = ref.split("|");
+    const name = deTag(parts[0]); const level = parts[3] || "1";
+    if (name === "Ability Score Improvement") continue; // la mejora/dote se maneja aparte en la subida de nivel
+    const label = (typeof cf === "object" && cf.gainSubclassFeature) ? "Subclass" : name;
+    (keyFeatures[level] ??= []).push(label);
+  }
+  return { id: slug(f.name, "class"), type: "class", name: f.name, data: {
+    hitDie: f.hd?.faces ?? 8,
+    primaryAbility: f.primaryAbility?.[0] ? Object.keys(f.primaryAbility[0]).filter((k) => f.primaryAbility[0][k]) : [],
+    saves: f.proficiency || [],
+    skillChoices,
+    skillOptions,
+    armor: sp.armor || [],
+    weapons: (sp.weapons || []).map(CLASS_WEAPON).filter(Boolean),
+    subclassLevel: 3,
+    spellcastingAbility: f.spellcastingAbility ?? null,
+    casterType: f.casterProgression ?? undefined,
+    keyFeatures,
+    ...(f.name.toLowerCase() === "warlock" ? { pactSlots: WARLOCK_PACT } : {}),
+    source: f.source,
+  } };
+}
+
+if (want("classes")) {
+  const dir = path.join(DATA_DIR, "class");
+  const entries = [];
+  const seen = new Set();
+  for (const file of fs.readdirSync(dir)) {
+    if (!file.startsWith("class-") || !file.endsWith(".json")) continue;
+    for (const f of readJson(path.join(dir, file)).class ?? []) {
+      if (!SOURCES_2024.has(f.source)) continue;
+      const e = convertClass(f);
+      if (seen.has(e.id)) continue; seen.add(e.id);
+      entries.push(e);
+    }
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  writePack("dnd2024-classes", "D&D 2024 — Clases", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
+}
+
 // ─── Bestiario (monstruos con stat block y acciones parseadas) ───
 const CR_XP = { "0": 10, "1/8": 25, "1/4": 50, "1/2": 100, "1": 200, "2": 450, "3": 700, "4": 1100, "5": 1800, "6": 2300, "7": 2900, "8": 3900, "9": 5000, "10": 5900, "11": 7200, "12": 8400, "13": 10000, "14": 11500, "15": 13000, "16": 15000, "17": 18000, "18": 20000, "19": 22000, "20": 25000, "21": 33000, "22": 41000, "23": 50000, "24": 62000, "25": 75000, "26": 90000, "27": 105000, "28": 120000, "29": 135000, "30": 155000 };
 const crNum = (cr) => (cr === "1/8" ? 0.125 : cr === "1/4" ? 0.25 : cr === "1/2" ? 0.5 : Number(cr) || 0);
