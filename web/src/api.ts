@@ -56,7 +56,7 @@ export const api = {
   levelDown: (id: string, body: Dict = {}) => req<Dict>(`/characters/${enc(id)}/level-down`, { method: "POST", body: JSON.stringify(body) }),
   grantFeat: (id: string, feat: string, source?: string) => req<Sheet>(`/characters/${enc(id)}/feats`, { method: "POST", body: JSON.stringify({ feat, source }) }),
   multiclass: (className: string) => req<{ armor?: string[]; weapons?: string[]; tools?: string[]; skillCount?: number; skillOptions?: string[] }>(`/multiclass/${enc(className)}`),
-  classChoices: (className: string, level: number) => req<{ choices: LevelChoice[] }>(`/class-choices/${enc(className)}/${level}`).then((r) => r.choices),
+  classChoices: (className: string, level: number, subclass?: string) => req<{ choices: LevelChoice[] }>(`/class-choices/${enc(className)}/${level}${subclass ? `?subclass=${enc(subclass)}` : ""}`).then((r) => r.choices),
 
   // Diario de campaña/sesión
   addJournal: (id: string, body: Dict) => req<Sheet>(`/characters/${enc(id)}/journal`, { method: "POST", body: JSON.stringify(body) }),

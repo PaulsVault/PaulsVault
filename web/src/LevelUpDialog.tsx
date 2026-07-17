@@ -58,6 +58,8 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   const existing = classList.find((c) => c.name.toLowerCase() === className.toLowerCase());
   const resultingLevel = existing ? existing.level + 1 : 1;
   const grantsSubclass = resultingLevel === 3 && !existing?.subclass;
+  // Subclase efectiva a este nivel: la que ya tiene, o la que elige ahora (nivel 3) → habilita maniobras, etc.
+  const effectiveSubclass = existing?.subclass ?? (grantsSubclass ? subclass : "");
   const grantsASI = asiLevelsFor(className, resultingLevel);
   const isMulticlass = !existing; // clase nueva → toma su primer nivel
 
@@ -67,11 +69,11 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
     void api.multiclass(className).then((m) => { setMc(m); setMcSkills([]); }).catch(() => setMc(null));
   }, [className]);
 
-  // Elecciones que concede la clase a este nivel (estilo de combate, invocaciones, metamagia…).
+  // Elecciones que concede la clase/subclase a este nivel (estilo de combate, invocaciones, maniobras, metamagia…).
   useEffect(() => {
     if (!className) { setChoices([]); return; }
-    void api.classChoices(className, resultingLevel).then((ch) => { setChoices(ch); setChosen({}); }).catch(() => setChoices([]));
-  }, [className, resultingLevel]);
+    void api.classChoices(className, resultingLevel, effectiveSubclass || undefined).then((ch) => { setChoices(ch); setChosen({}); }).catch(() => setChoices([]));
+  }, [className, resultingLevel, effectiveSubclass]);
 
   // Rasgos que se ganan a este nivel (para que subir no se sienta vacío): clase + subclase.
   useEffect(() => {

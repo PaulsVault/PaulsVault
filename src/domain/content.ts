@@ -70,7 +70,9 @@ export function searchContent(query = "", opts: SearchOptions = {}): { total: nu
   }
   if (opts.subclassOf) {
     const cn = opts.subclassOf.toLowerCase();
-    pool = pool.filter((e) => e.type === "subclass" && String(e.data["class"] ?? "").toLowerCase() === cn);
+    pool = pool
+      .filter((e) => e.type === "subclass" && String(e.data["class"] ?? "").toLowerCase() === cn)
+      .sort((a, b) => a.name.localeCompare(b.name)); // orden alfabético estable (antes salían desordenadas)
   }
   if (opts.featCategory) {
     const fc = opts.featCategory.toLowerCase();

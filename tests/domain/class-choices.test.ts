@@ -11,6 +11,8 @@ beforeAll(async () => {
     entries: [
       { id: "feat:test-defense", type: "feat", name: "Test Defense", data: { category: "FS", summary: "+1 a la CA." } },
       { id: "optionalfeature:test-invocation", type: "optionalfeature", name: "Test Invocation", data: { featureType: ["EI"], summary: "Una invocación de prueba." } },
+      { id: "optionalfeature:test-inv-lvl5", type: "optionalfeature", name: "Test Invocation L5", data: { featureType: ["EI"], prerequisite: "Nivel 5", summary: "Invocación que exige nivel 5." } },
+      { id: "optionalfeature:test-maneuver", type: "optionalfeature", name: "Test Maneuver", data: { featureType: ["MV:B"], summary: "Una maniobra de prueba." } },
     ],
   });
 });
@@ -30,6 +32,24 @@ describe("elecciones de clase por nivel", () => {
     expect(inv!.options.some((o) => o.name === "Test Invocation")).toBe(true);
   });
 
+  it("#12 filtra invocaciones por prerequisito de nivel (solo las desbloqueadas)", () => {
+    const at2 = classChoicesAt("Warlock", 2).find((c) => c.kind === "invocation")!;
+    // A nivel 2 aparece la sin prereq pero NO la que exige nivel 5.
+    expect(at2.options.some((o) => o.name === "Test Invocation")).toBe(true);
+    expect(at2.options.some((o) => o.name === "Test Invocation L5")).toBe(false);
+    // A nivel 5 sí aparece la que exige nivel 5.
+    const at5 = classChoicesAt("Warlock", 5).find((c) => c.kind === "invocation")!;
+    expect(at5.options.some((o) => o.name === "Test Invocation L5")).toBe(true);
+  });
+
+  it("#2 el Maestro de Batalla ofrece maniobras a nivel 3 (elección de subclase)", () => {
+    expect(classChoicesAt("Fighter", 3).some((c) => c.kind === "maneuver")).toBe(false); // sin subclase
+    const man = classChoicesAt("Fighter", 3, "Battle Master").find((c) => c.kind === "maneuver");
+    expect(man).toBeTruthy();
+    expect(man!.count).toBe(3);
+    expect(man!.options.some((o) => o.name === "Test Maneuver")).toBe(true);
+  });
+
   it("Wizard no ofrece elecciones de este tipo", () => {
     expect(classChoicesAt("Wizard", 2)).toHaveLength(0);
   });
@@ -38,6 +58,12 @@ describe("elecciones de clase por nivel", () => {
     const c = createCharacter({ characters: [] } as Database,
       { name: "G", className: "Fighter", level: 1, species: "Human", background: "Soldier", abilities: ABIL });
     levelUp(c, { className: "Fighter", options: ["Test Defense"] });
+    expect(c.features.some((f) => f.name === "Test Defense")).toBe(true);
+  });
+
+  it("#1 createCharacter aplica las elecciones de nivel 1 (estilo de combate)", () => {
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "G2", className: "Fighter", level: 1, species: "Human", background: "Soldier", abilities: ABIL, options: ["Test Defense"] });
     expect(c.features.some((f) => f.name === "Test Defense")).toBe(true);
   });
 });

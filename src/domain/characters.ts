@@ -31,6 +31,7 @@ export interface CreateCharacterInput {
   originFeat?: string;             // dote de origen de un trasfondo personalizado
   ancestryChoices?: Record<string, string>; // ascendencia/linaje elegido por rasgo (trait → opción)
   languages?: string[];            // idiomas del personaje (además de Común)
+  options?: string[];              // elecciones de clase de nivel 1 (estilo de combate, etc.)
   alignment?: string;
   playerName?: string;
   appearance?: string;
@@ -293,6 +294,13 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
   for (let l = 1; l <= level; l++) addClassFeatures(c, input.className, l);
   if (input.subclass && level >= 3) for (let l = 3; l <= level; l++) addSubclassFeatures(c, input.subclass, l);
 
+  // Elecciones de clase de nivel 1 (estilo de combate del Guerrero, etc.).
+  for (const name of input.options ?? []) {
+    if (c.features.some((f) => f.name === name)) continue;
+    const entry = findEntry(name);
+    c.features.push({ name, source: `${input.className} nivel 1`, description: entry?.data["summary"] as string | undefined });
+  }
+
   recalcSlots(c);
   reconcileGrantedSpells(c); // conjuros otorgados por especie/subclase (Parte C)
   db.characters.push(c);
@@ -382,28 +390,50 @@ const CHOICE_DEFS: Record<string, (level: number) => ChoiceDef[]> = {
   paladin: (l) => (l === 2 ? [FIGHTING_STYLE] : []),
   ranger: (l) => (l === 2 ? [FIGHTING_STYLE] : []),
   warlock: (l) => ([1, 2, 5, 7, 9, 12, 15, 18].includes(l)
-    ? [{ kind: "invocation", label: "Invocaciones arcanas", count: l === 2 ? 2 : 1, source: "optionalfeature", match: "EI", note: "Elige la(s) que ganes a este nivel." }] : []),
+    ? [{ kind: "invocation", label: "Invocaciones arcanas", count: l === 2 ? 2 : 1, source: "optionalfeature", match: "EI", note: "Solo aparecen las desbloqueadas a tu nivel. Elige la(s) que ganes ahora." }] : []),
   sorcerer: (l) => (l === 2 ? [{ kind: "metamagic", label: "Metamagia", count: 2, source: "optionalfeature", match: "MM" }]
     : [10, 17].includes(l) ? [{ kind: "metamagic", label: "Metamagia", count: 1, source: "optionalfeature", match: "MM" }] : []),
 };
 
-function resolveOptions(def: ChoiceDef): ChoiceOption[] {
+// Elecciones que dependen de la SUBCLASE (maniobras del Maestro de Batalla, etc.), no solo de la clase.
+const SUBCLASS_CHOICE_DEFS: Record<string, (level: number) => ChoiceDef[]> = {
+  "battle master": (l) => {
+    const perLevel: Record<number, number> = { 3: 3, 7: 2, 10: 2, 15: 2 };
+    return perLevel[l]
+      ? [{ kind: "maneuver", label: "Maniobras (Maestro de Batalla)", count: perLevel[l], source: "optionalfeature", match: "MV:B", note: "Elige las maniobras que aprendes a este nivel." }]
+      : [];
+  },
+};
+
+/** Nivel mínimo exigido por el prerequisito ("Nivel 5" → 5), o 0 si no exige nivel. */
+function prereqLevel(prereq: string | undefined): number {
+  const m = /Nivel\s+(\d+)/i.exec(prereq ?? "");
+  return m ? Number(m[1]) : 0;
+}
+
+function resolveOptions(def: ChoiceDef, level: number): ChoiceOption[] {
   const seen = new Set<string>();
   const out: ChoiceOption[] = [];
   for (const e of allEntries()) {
     if (def.source === "feat" ? (e.type !== "feat" || e.data["category"] !== def.match)
       : (e.type !== "optionalfeature" || !(Array.isArray(e.data["featureType"]) && (e.data["featureType"] as string[]).includes(def.match)))) continue;
     if (seen.has(e.name.toLowerCase())) continue;
+    const prerequisite = (e.data["prerequisite"] as string) ?? undefined;
+    // Solo lo desbloqueado a este nivel (invocaciones "Nivel 5", etc.); sin prereq de nivel → siempre.
+    if (prereqLevel(prerequisite) > level) continue;
     seen.add(e.name.toLowerCase());
-    out.push({ name: e.name, summary: (e.data["summary"] as string) ?? undefined, prerequisite: (e.data["prerequisite"] as string) ?? undefined });
+    out.push({ name: e.name, summary: (e.data["summary"] as string) ?? undefined, prerequisite });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** Elecciones (estilo de combate, invocaciones, metamagia…) que concede una clase a un nivel, con sus opciones. */
-export function classChoicesAt(className: string, level: number): LevelChoice[] {
-  const defs = CHOICE_DEFS[className.toLowerCase()]?.(level) ?? [];
-  return defs.map((d) => ({ kind: d.kind, label: d.label, count: d.count, note: d.note, options: resolveOptions(d) }));
+/** Elecciones (estilo de combate, invocaciones, maniobras, metamagia…) que concede una clase/subclase a un nivel. */
+export function classChoicesAt(className: string, level: number, subclass?: string): LevelChoice[] {
+  const defs = [
+    ...(CHOICE_DEFS[className.toLowerCase()]?.(level) ?? []),
+    ...(subclass ? SUBCLASS_CHOICE_DEFS[subclass.toLowerCase()]?.(level) ?? [] : []),
+  ];
+  return defs.map((d) => ({ kind: d.kind, label: d.label, count: d.count, note: d.note, options: resolveOptions(d, level) }));
 }
 
 export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {

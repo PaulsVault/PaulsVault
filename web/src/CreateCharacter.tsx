@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "./api";
+import { api, type LevelChoice } from "./api";
 import { LevelUpDialog } from "./LevelUpDialog";
 import { ABILITIES, ABILITY_LABEL, type AbilityKey, type ContentHit, type Sheet } from "./types";
 
@@ -72,6 +72,10 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const [speciesData, setSpeciesData] = useState<SpeciesData | null>(null);
   const [ancestry, setAncestry] = useState<Record<string, string>>({});
 
+  // Elecciones de clase de nivel 1 (estilo de combate del Guerrero, etc.).
+  const [choices, setChoices] = useState<LevelChoice[]>([]);
+  const [chosen, setChosen] = useState<Record<string, string[]>>({});
+
   // Idiomas y alineación
   const [alignment, setAlignment] = useState("");
   const [languages, setLanguages] = useState<string[]>([]);
@@ -97,6 +101,12 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   useEffect(() => {
     if (!className) return;
     void api.getEntry(className).then((e) => { setCls(e.data as ClassData); setChosenSkills([]); }).catch(() => setCls(null));
+  }, [className]);
+
+  // Elecciones que la clase concede a nivel 1 (estilo de combate, invocación de nivel 1…).
+  useEffect(() => {
+    if (!className) { setChoices([]); return; }
+    void api.classChoices(className, 1).then((ch) => { setChoices(ch); setChosen({}); }).catch(() => setChoices([]));
   }, [className]);
 
   useEffect(() => {
@@ -134,7 +144,8 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const customOk = !isCustomBg || customBgSkills.length === 2;
   const ancestryList = speciesData?.ancestryChoices ?? [];
   const ancestryOk = ancestryList.every((ch) => ancestry[ch.trait]);
-  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk && ancestryOk;
+  const choicesOk = choices.every((ch) => (chosen[ch.kind] ?? []).length === ch.count);
+  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk && ancestryOk && choicesOk;
 
   function setAssignFor(a: AbilityKey, idx: number | null) {
     setAssign((prev) => {
@@ -150,6 +161,11 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   function toggleSkill(sk: string) {
     setChosenSkills((cur) => cur.includes(sk) ? cur.filter((x) => x !== sk) : cur.length < skillChoices ? [...cur, sk] : cur);
   }
+  const toggleOption = (kind: string, name: string, max: number) => setChosen((cur) => {
+    const list = cur[kind] ?? [];
+    const next = list.includes(name) ? list.filter((x) => x !== name) : list.length < max ? [...list, name] : list;
+    return { ...cur, [kind]: next };
+  });
 
   function switchMethod(m: Method) {
     setMethod(m);
@@ -170,6 +186,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
         abilities: base, abilityBonuses, skills: chosenSkills,
         alignment: alignment || undefined,
         languages: languages.length ? languages : undefined,
+        ...(choices.length ? { options: Object.values(chosen).flat() } : {}),
         ...(ancestryList.length ? { ancestryChoices: ancestry } : {}),
         ...(isCustomBg ? {
           backgroundSkills: customBgSkills,
@@ -364,6 +381,27 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
             </div>
           </fieldset>
         )}
+
+        {/* ── Elecciones de clase de nivel 1 (estilo de combate, etc.) ── */}
+        {choices.map((ch) => (
+          <fieldset key={ch.kind} className="abilities-input span2">
+            <legend>{ch.label} — elige {ch.count} ({(chosen[ch.kind] ?? []).length}/{ch.count})</legend>
+            {ch.note && <p className="muted small" style={{ margin: "0 0 4px" }}>{ch.note}</p>}
+            <div className="chips">
+              {ch.options.map((o) => {
+                const on = (chosen[ch.kind] ?? []).includes(o.name);
+                return (
+                  <button type="button" key={o.name} className={`chip${on ? " removable" : ""}`}
+                    title={[o.prerequisite ? `Requisito: ${o.prerequisite}` : "", o.summary ?? ""].filter(Boolean).join(" — ")}
+                    onClick={() => toggleOption(ch.kind, o.name, ch.count)}>
+                    {on ? "✓ " : ""}{o.name}
+                  </button>
+                );
+              })}
+              {ch.options.length === 0 && <span className="muted small">Sin opciones cargadas — re-sincroniza el contenido.</span>}
+            </div>
+          </fieldset>
+        ))}
 
         {/* ── Ascendencia / linaje de la especie ── */}
         {ancestryList.length > 0 && (

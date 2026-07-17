@@ -20,6 +20,7 @@ export interface CreateInput {
   backgroundSkills?: string[]; originFeat?: string; // trasfondo personalizado
   ancestryChoices?: Record<string, string>;         // ascendencia/linaje elegido por rasgo
   languages?: string[]; alignment?: string;
+  options?: string[];                                // elecciones de clase de nivel 1 (estilo de combate…)
 }
 
 export interface SheetStyle {
