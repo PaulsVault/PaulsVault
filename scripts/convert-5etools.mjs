@@ -170,6 +170,15 @@ function extractAncestryChoices(r) {
       out.push({ trait: deTag(lineageTrait.name), options: uniq.map((name) => ({ name, description: "" })) });
     }
   }
+  // Efecto mecánico de linaje: velocidad que sobreescribe la base (Wood Elf → 35 ft), leída de _versions.
+  if (Array.isArray(r._versions)) {
+    for (const ch of out) {
+      for (const opt of ch.options) {
+        const ver = r._versions.find((v) => String(v.name || v._abstract?.name || "").includes(opt.name));
+        if (ver && typeof ver.speed === "number") opt.speed = ver.speed;
+      }
+    }
+  }
   return out.length ? out : undefined;
 }
 
@@ -367,15 +376,36 @@ if (want("backgrounds")) {
 }
 
 // ─── Especies ───
+// Elección de habilidad de la especie (Human Skillful: {any:1} → elige 1 de cualquiera).
+function parseRaceSkillChoice(sp) {
+  const first = Array.isArray(sp) ? sp[0] : undefined;
+  if (!first || typeof first !== "object") return undefined;
+  if (first.choose?.from) return { count: first.choose.count ?? 1, from: first.choose.from };
+  if (typeof first.any === "number") return { count: first.any, from: ["*"] };
+  return undefined;
+}
+// Dotes que la especie deja elegir (Human Versatile: 1 dote de origen).
+function parseRaceFeatChoices(feats) {
+  if (!Array.isArray(feats)) return undefined;
+  const out = [];
+  for (const f of feats) {
+    if (f?.anyFromCategory) out.push({ category: (f.anyFromCategory.category ?? ["O"])[0], count: f.anyFromCategory.count ?? 1 });
+  }
+  return out.length ? out : undefined;
+}
 function convertRace(r) {
   const speed = typeof r.speed === "number" ? r.speed : (r.speed?.walk ?? 30);
   // Los rasgos ya vienen descritos en las entradas (incluida la visión en la oscuridad y resistencias);
   // no los duplicamos con texto propio en español.
   const traits = (r.entries ?? []).filter((e) => e && e.name).map((e) => `${deTag(e.name)}: ${text(e.entries)}`);
+  const skillChoice = parseRaceSkillChoice(r.skillProficiencies);
+  const featChoices = parseRaceFeatChoices(r.feats);
   return { id: slug(r.name, "species"), type: "species", name: r.name, data: {
     size: (r.size ?? ["M"]).map((s) => SIZE[s] ?? s).join(" o "),
     speed,
     traits,
+    ...(skillChoice ? { skillChoice } : {}),   // habilidad a elegir de la especie (Human)
+    ...(featChoices ? { featChoices } : {}),    // dote(s) a elegir de la especie (Human Versatile)
     ...parseAdditionalSpells(r.additionalSpells), // conjuros otorgados (nivel = nivel de personaje)
     ...(extractAncestryChoices(r) ? { ancestryChoices: extractAncestryChoices(r) } : {}), // ascendencias/linajes a elegir
     source: r.source,

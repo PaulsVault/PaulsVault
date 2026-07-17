@@ -29,8 +29,8 @@ type Method = "standard" | "pointbuy" | "roll" | "manual";
 type FeatChoice = { from: string[]; count: number; amount: number };
 interface BgData { abilities?: string[]; skills?: string[]; tool?: string; feat?: string; description?: string }
 interface ClassData { skillChoices?: number; skillOptions?: string[] }
-interface AncestryChoice { trait: string; options: { name: string; description: string }[] }
-interface SpeciesData { ancestryChoices?: AncestryChoice[] }
+interface AncestryChoice { trait: string; options: { name: string; description: string; speed?: number }[] }
+interface SpeciesData { ancestryChoices?: AncestryChoice[]; skillChoice?: { count: number; from: string[] }; featChoices?: { category: string; count: number }[] }
 
 export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void; onCreated: (s: Sheet) => void }) {
   const [classes, setClasses] = useState<ContentHit[]>([]);
@@ -74,6 +74,12 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   // Especie: ascendencia/linaje a elegir
   const [speciesData, setSpeciesData] = useState<SpeciesData | null>(null);
   const [ancestry, setAncestry] = useState<Record<string, string>>({});
+
+  // Especie: habilidad y dote de origen a elegir (Human Skillful / Versatile)
+  const [speciesSkills, setSpeciesSkills] = useState<string[]>([]);
+  const [speciesFeat, setSpeciesFeat] = useState("");
+  const [speciesFeatChoice, setSpeciesFeatChoice] = useState<FeatChoice | null>(null);
+  const [speciesFeatAbil, setSpeciesFeatAbil] = useState<Partial<Record<AbilityKey, number>>>({});
 
   // Elecciones de clase de nivel 1 (estilo de combate del Guerrero, etc.).
   const [choices, setChoices] = useState<LevelChoice[]>([]);
@@ -122,8 +128,18 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
 
   useEffect(() => {
     if (!speciesName) { setSpeciesData(null); setAncestry({}); return; }
-    void api.getEntry(speciesName).then((e) => { setSpeciesData(e.data as SpeciesData); setAncestry({}); }).catch(() => setSpeciesData(null));
+    void api.getEntry(speciesName).then((e) => {
+      setSpeciesData(e.data as SpeciesData); setAncestry({}); setSpeciesSkills([]); setSpeciesFeat(""); setSpeciesFeatChoice(null); setSpeciesFeatAbil({});
+    }).catch(() => setSpeciesData(null));
   }, [speciesName]);
+
+  // Media dote de especie (Human Versatile): si la dote elegida da "+1 a X o Y", pide la característica.
+  useEffect(() => {
+    if (!speciesFeat) { setSpeciesFeatChoice(null); setSpeciesFeatAbil({}); return; }
+    void api.getEntry(speciesFeat).then((e) => {
+      setSpeciesFeatChoice((e.data as { abilityChoice?: FeatChoice }).abilityChoice ?? null); setSpeciesFeatAbil({});
+    }).catch(() => { setSpeciesFeatChoice(null); setSpeciesFeatAbil({}); });
+  }, [speciesFeat]);
 
   // Puntuaciones base según el método
   const base: Record<AbilityKey, number> = useMemo(() => {
@@ -157,7 +173,13 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const ancestryOk = ancestryList.every((ch) => ancestry[ch.trait]);
   const choicesOk = choices.every((ch) => (chosen[ch.kind] ?? []).length === ch.count);
   const customFeatOk = !customFeatChoice || Object.keys(customFeatAbil).length === customFeatChoice.count;
-  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk && ancestryOk && choicesOk && customFeatOk;
+  // Rasgos de especie (Human): habilidad(es) + dote(s) a elegir.
+  const speciesSkillChoice = speciesData?.skillChoice;
+  const speciesSkillOptions = speciesSkillChoice?.from[0] === "*" ? ALL_SKILLS : (speciesSkillChoice?.from ?? []);
+  const speciesNeedsFeat = (speciesData?.featChoices?.length ?? 0) > 0;
+  const speciesSkillsOk = !speciesSkillChoice || speciesSkills.length === speciesSkillChoice.count;
+  const speciesFeatOk = !speciesNeedsFeat || (!!speciesFeat && (!speciesFeatChoice || Object.keys(speciesFeatAbil).length === speciesFeatChoice.count));
+  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk && ancestryOk && choicesOk && customFeatOk && speciesSkillsOk && speciesFeatOk;
 
   function setAssignFor(a: AbilityKey, idx: number | null) {
     setAssign((prev) => {
@@ -183,6 +205,13 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
     if (!customFeatChoice || Object.keys(cur).length >= customFeatChoice.count) return cur;
     return { ...cur, [a]: customFeatChoice.amount };
   });
+  const toggleSpeciesFeatAbil = (a: AbilityKey) => setSpeciesFeatAbil((cur) => {
+    if (cur[a]) { const { [a]: _drop, ...rest } = cur; return rest; }
+    if (!speciesFeatChoice || Object.keys(cur).length >= speciesFeatChoice.count) return cur;
+    return { ...cur, [a]: speciesFeatChoice.amount };
+  });
+  const toggleSpeciesSkill = (sk: string) => setSpeciesSkills((cur) =>
+    cur.includes(sk) ? cur.filter((x) => x !== sk) : cur.length < (speciesSkillChoice?.count ?? 0) ? [...cur, sk] : cur);
 
   function switchMethod(m: Method) {
     setMethod(m);
@@ -204,6 +233,8 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
         alignment: alignment || undefined,
         languages: languages.length ? languages : undefined,
         ...(choices.length ? { options: Object.values(chosen).flat() } : {}),
+        ...(speciesSkills.length ? { speciesSkills } : {}),
+        ...(speciesFeat ? { speciesFeats: [{ name: speciesFeat, abilities: Object.keys(speciesFeatAbil).length ? speciesFeatAbil : undefined }] } : {}),
         ...(ancestryList.length ? { ancestryChoices: ancestry } : {}),
         ...(isCustomBg ? {
           backgroundSkills: customBgSkills,
@@ -432,6 +463,46 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
             </div>
           </fieldset>
         ))}
+
+        {/* ── Rasgos de especie a elegir (Human: habilidad + dote de origen) ── */}
+        {(speciesSkillChoice || speciesNeedsFeat) && (
+          <fieldset className="abilities-input span2">
+            <legend>Rasgos de {speciesName}</legend>
+            {speciesSkillChoice && (
+              <>
+                <p className="muted small" style={{ margin: "0 0 4px" }}>Habilidad de especie — elige {speciesSkillChoice.count} ({speciesSkills.length}/{speciesSkillChoice.count}):</p>
+                <div className="chips">
+                  {speciesSkillOptions.map((sk) => {
+                    const on = speciesSkills.includes(sk);
+                    return <button type="button" key={sk} className={`chip${on ? " removable" : ""}`} onClick={() => toggleSpeciesSkill(sk)}>{on ? "✓ " : ""}{SKILL_LABEL[sk] ?? sk}</button>;
+                  })}
+                </div>
+              </>
+            )}
+            {speciesNeedsFeat && (
+              <div style={{ marginTop: speciesSkillChoice ? 10 : 0 }}>
+                <label className="field span2"><span>Dote de origen (rasgo Versátil)</span>
+                  <select value={speciesFeat} onChange={(e) => setSpeciesFeat(e.target.value)}>
+                    <option value="">— elige una —</option>
+                    {feats.map((f) => <option key={f.id} value={f.name}>{f.name}</option>)}
+                  </select>
+                </label>
+                {speciesFeatChoice && (
+                  <div style={{ marginTop: 8 }}>
+                    <p className="muted small" style={{ margin: "0 0 4px" }}>Media dote: elige {speciesFeatChoice.count === 1 ? "una característica" : `${speciesFeatChoice.count} características`} para +{speciesFeatChoice.amount} ({Object.keys(speciesFeatAbil).length}/{speciesFeatChoice.count}):</p>
+                    <div className="chips">
+                      {speciesFeatChoice.from.map((a) => {
+                        const key = a as AbilityKey;
+                        const on = !!speciesFeatAbil[key];
+                        return <button type="button" key={a} className={`chip${on ? " removable" : ""}`} onClick={() => toggleSpeciesFeatAbil(key)}>{on ? "✓ " : ""}{ABILITY_LABEL[key] ?? a.toUpperCase()} +{speciesFeatChoice.amount}</button>;
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </fieldset>
+        )}
 
         {/* ── Ascendencia / linaje de la especie ── */}
         {ancestryList.length > 0 && (

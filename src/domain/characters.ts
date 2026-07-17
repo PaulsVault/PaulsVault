@@ -31,6 +31,8 @@ export interface CreateCharacterInput {
   originFeat?: string;             // dote de origen de un trasfondo personalizado
   featAbilities?: Partial<Abilities>; // media dote de origen: mejora de característica elegida
   ancestryChoices?: Record<string, string>; // ascendencia/linaje elegido por rasgo (trait → opción)
+  speciesSkills?: string[];        // habilidad(es) elegidas de la especie (Human Skillful)
+  speciesFeats?: { name: string; abilities?: Partial<Abilities> }[]; // dote(s) elegidas de la especie (Human Versatile)
   languages?: string[];            // idiomas del personaje (además de Común)
   options?: string[];              // elecciones de clase de nivel 1 (estilo de combate, etc.)
   alignment?: string;
@@ -288,11 +290,22 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
   // Ascendencia/linaje de la especie elegido (Giant Ancestry del Goliath, linaje del Elfo…) como rasgo.
   if (input.ancestryChoices) {
     const speciesData = findEntry(input.species, "species")?.data as Record<string, unknown> | undefined;
-    const choices = (speciesData?.["ancestryChoices"] as { trait: string; options: { name: string; description: string }[] }[] | undefined) ?? [];
+    const choices = (speciesData?.["ancestryChoices"] as { trait: string; options: { name: string; description: string; speed?: number }[] }[] | undefined) ?? [];
     for (const [trait, optName] of Object.entries(input.ancestryChoices)) {
       const opt = choices.find((ch) => ch.trait === trait)?.options.find((o) => o.name === optName);
-      if (opt) c.features.push({ name: `${trait}: ${opt.name}`, source: "Especie (ascendencia)", description: opt.description || undefined });
+      if (opt) {
+        c.features.push({ name: `${trait}: ${opt.name}`, source: "Especie (ascendencia)", description: opt.description || undefined });
+        // El linaje puede subir la velocidad base (Wood Elf → 35 ft).
+        if (typeof opt.speed === "number" && opt.speed > c.speed) c.speed = opt.speed;
+      }
     }
+  }
+
+  // Habilidades elegidas de la especie (Human Skillful) — se suman a las de clase/trasfondo.
+  if (input.speciesSkills?.length) c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...input.speciesSkills])];
+  // Dote(s) elegidas de la especie (Human Versatile: una dote de origen), con su media dote si aplica.
+  for (const sf of input.speciesFeats ?? []) {
+    if (!c.features.some((f) => f.name.toLowerCase() === sf.name.toLowerCase())) applyFeat(c, sf.name, "Especie (dote)", sf.abilities);
   }
 
   // Rasgos de clase por cada nivel y rasgos de subclase (si se eligió a nivel 3+).

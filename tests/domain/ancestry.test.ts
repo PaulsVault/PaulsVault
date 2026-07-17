@@ -15,6 +15,20 @@ beforeAll(async () => {
           { name: "Stone's Endurance", description: "Reacción para reducir daño." },
         ] }],
       } },
+      // Elfo de prueba: el linaje Wood sube la velocidad a 35 (override de la base 30).
+      { id: "species:elf-test", type: "species", name: "Elf Test", data: {
+        size: "Medium", speed: 30, traits: [],
+        ancestryChoices: [{ trait: "Elven Lineage", options: [
+          { name: "High Elf", description: "Prestidigitación." },
+          { name: "Wood Elf", description: "Tu velocidad sube a 35.", speed: 35 },
+        ] }],
+      } },
+      // Especie con elección de habilidad y dote de origen (estilo Human Skillful/Versatile).
+      { id: "species:human-test", type: "species", name: "Human Test", data: {
+        size: "Medium", speed: 30, traits: [],
+        skillChoice: { count: 1, from: ["*"] }, featChoices: [{ category: "O", count: 1 }],
+      } },
+      { id: "feat:origin-tough", type: "feat", name: "Origin Tough", data: { category: "O", summary: "+2 PG por nivel." } },
     ],
   });
 });
@@ -32,5 +46,27 @@ describe("ascendencia/linaje de especie", () => {
     expect(f!.description).toMatch(/fuego/i);
     // no añade la opción no elegida
     expect(c.features.some((x) => x.name.includes("Stone's Endurance"))).toBe(false);
+  });
+
+  it("#11 el linaje Wood Elf sube la velocidad a 35", () => {
+    const wood = createCharacter({ characters: [] } as Database, {
+      name: "W" + Math.random(), className: "Wizard", species: "Elf Test", background: "Sage",
+      abilities: ABIL, ancestryChoices: { "Elven Lineage": "Wood Elf" },
+    });
+    expect(wood.speed).toBe(35);
+    const high = createCharacter({ characters: [] } as Database, {
+      name: "H" + Math.random(), className: "Wizard", species: "Elf Test", background: "Sage",
+      abilities: ABIL, ancestryChoices: { "Elven Lineage": "High Elf" },
+    });
+    expect(high.speed).toBe(30); // el linaje sin bonus no cambia la velocidad
+  });
+
+  it("#11 aplica habilidad de especie y dote de origen elegidas (estilo Human)", () => {
+    const c = createCharacter({ characters: [] } as Database, {
+      name: "Hu" + Math.random(), className: "Fighter", species: "Human Test", background: "Soldier",
+      abilities: ABIL, speciesSkills: ["arcana"], speciesFeats: [{ name: "Origin Tough" }],
+    });
+    expect(c.proficiencies.skills).toContain("arcana");
+    expect(c.features.some((f) => f.name === "Origin Tough" && f.source === "Especie (dote)")).toBe(true);
   });
 });

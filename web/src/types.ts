@@ -18,7 +18,10 @@ export interface CreateInput {
   level?: number; abilities: Record<AbilityKey, number>;
   abilityBonuses?: Partial<Record<AbilityKey, number>>; skills?: string[]; tools?: string[];
   backgroundSkills?: string[]; originFeat?: string; // trasfondo personalizado
+  featAbilities?: Partial<Record<AbilityKey, number>>; // media dote de origen elegida
   ancestryChoices?: Record<string, string>;         // ascendencia/linaje elegido por rasgo
+  speciesSkills?: string[];                          // habilidad(es) elegidas de la especie (Human Skillful)
+  speciesFeats?: { name: string; abilities?: Partial<Record<AbilityKey, number>> }[]; // dote(s) de especie (Versatile)
   languages?: string[]; alignment?: string;
   options?: string[];                                // elecciones de clase de nivel 1 (estilo de combate…)
 }
