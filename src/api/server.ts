@@ -16,6 +16,7 @@ import * as chars from "../domain/characters.js";
 import * as inv from "../domain/inventory.js";
 import * as spells from "../domain/spells.js";
 import * as combat from "../domain/combat.js";
+import * as masteries from "../domain/masteries.js";
 import * as companions from "../domain/companions.js";
 import * as checks from "../domain/checks.js";
 import * as content from "../domain/content.js";
@@ -159,6 +160,14 @@ export function buildApp(): Express {
     const r = await onCharacter(req.params.id, (c) => chars.levelDown(c, req.body?.className));
     res.json({ className: r.className, classLevel: r.classLevel, levelTotal: r.levelTotal, hpLost: r.hpLost, classRemoved: r.classRemoved, sheet: characterSheet(r.character) });
   });
+
+  // Maestrías de arma (regla 2024): fijar las armas cuya propiedad de maestría conoce el personaje.
+  app.post("/api/characters/:id/weapon-masteries", async (req, res) =>
+    res.json(characterSheet(await onCharacter(req.params.id, (c) => masteries.setWeaponMasteries(c, (req.body?.weapons as string[]) ?? [])))));
+
+  // Armas con maestría elegibles (competente + con propiedad de maestría) para el selector.
+  app.get("/api/characters/:id/mastery-options", async (req, res) =>
+    res.json({ max: masteries.weaponMasteryMax(chars.requireCharacter(await loadDb(), req.params.id)), options: masteries.eligibleMasteryWeapons(chars.requireCharacter(await loadDb(), req.params.id)) }));
 
   // Gastar/restaurar un uso de un rasgo con cargas (Ancestría del Goliath, dotes con usos…). delta ±1.
   app.post("/api/characters/:id/feature-use", async (req, res) =>

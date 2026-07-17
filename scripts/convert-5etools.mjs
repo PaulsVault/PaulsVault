@@ -498,6 +498,8 @@ function convertItem(it) {
     damage: it.dmg1 ? `${it.dmg1} ${DMG_TYPE[it.dmgType] ?? it.dmgType ?? ""}`.trim() : undefined,
     // Categoría de arma (simple/marcial) para validar competencias de clase.
     weaponCategory: itemType === "weapon" && it.weaponCategory ? String(it.weaponCategory).toLowerCase() : undefined,
+    // Propiedad(es) de maestría de arma (Cleave, Vex…) para la regla 2024 de maestrías.
+    mastery: Array.isArray(it.mastery) ? it.mastery.map(stripSrc) : undefined,
     properties: props.length ? props : undefined,
     magicBonus,
     rarity: it.rarity && it.rarity !== "none" ? it.rarity : undefined,
@@ -588,6 +590,17 @@ if (want("items")) {
   }
   entries.sort((a, b) => a.name.localeCompare(b.name));
   writePack("dnd2024-items", "D&D 2024 — Objetos y equipo", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
+}
+
+// ─── Propiedades de maestría de arma (Cleave, Graze, Nick, Push, Sap, Slow, Topple, Vex) ───
+if (want("masteries")) {
+  const entries = [];
+  for (const m of readJson(path.join(DATA_DIR, "items-base.json")).itemMastery ?? []) {
+    if (!SOURCES_2024.has(m.source)) continue;
+    entries.push({ id: slug(m.name, "mastery"), type: "rule", name: m.name, data: { summary: text(m.entries), category: "weapon-mastery", source: m.source } });
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+  writePack("dnd2024-masteries", "D&D 2024 — Maestrías de arma", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
 }
 
 // ─── Subclases (con rasgos por nivel) ───
@@ -687,6 +700,12 @@ const CLASS_WEAPON = (w) => {
 };
 // Tabla de espacios de Pacto (Warlock 2024), sparse: el nivel más alto ≤ nivel del Warlock manda.
 const WARLOCK_PACT = { "1": { count: 1, level: 1 }, "2": { count: 2, level: 1 }, "3": { count: 2, level: 2 }, "5": { count: 2, level: 3 }, "7": { count: 2, level: 4 }, "9": { count: 2, level: 5 }, "11": { count: 3, level: 5 }, "17": { count: 4, level: 5 } };
+// Nº de maestrías de arma conocidas por nivel (2024). El Guerrero escala; el resto de marciales tienen 2.
+// (La progresión no viene estructurada en 5etools; es tabla fija de reglas, como WARLOCK_PACT.)
+const WEAPON_MASTERY = {
+  fighter: { "1": 3, "4": 4, "10": 5, "16": 6 },
+  barbarian: { "1": 2 }, paladin: { "1": 2 }, ranger: { "1": 2 }, rogue: { "1": 2 },
+};
 
 function convertClass(f) {
   const sp = f.startingProficiencies || {};
@@ -717,6 +736,7 @@ function convertClass(f) {
     casterType: f.casterProgression ?? undefined,
     keyFeatures,
     ...(f.name.toLowerCase() === "warlock" ? { pactSlots: WARLOCK_PACT } : {}),
+    ...(WEAPON_MASTERY[f.name.toLowerCase()] ? { weaponMastery: WEAPON_MASTERY[f.name.toLowerCase()] } : {}),
     source: f.source,
   } };
 }

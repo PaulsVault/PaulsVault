@@ -21,6 +21,26 @@ export function CharacterSheet({ sheet: s, onRoll, id, reload }: { sheet: Sheet;
   const [busyUse, setBusyUse] = useState(false);
   const dmgFaces = (dmg: string | null) => { const x = dmg?.match(/d(\d+)/); return x ? Number(x[1]) : undefined; };
 
+  // Maestrías de arma (regla 2024): editor con selector de armas elegibles.
+  const wm = s.weaponMastery;
+  const [editMastery, setEditMastery] = useState(false);
+  const [mastOpts, setMastOpts] = useState<{ name: string; mastery: string[] }[]>([]);
+  const [mastSel, setMastSel] = useState<string[]>([]);
+  const [mastBusy, setMastBusy] = useState(false);
+  const chosenWeapons = [...new Set((wm?.chosen ?? []).map((m) => m.weapon))];
+  async function openMasteryEditor() {
+    setMastSel(chosenWeapons);
+    setEditMastery(true);
+    try { setMastOpts((await api.masteryOptions(id)).options); } catch { setMastOpts([]); }
+  }
+  const toggleMast = (name: string) => setMastSel((cur) =>
+    cur.includes(name) ? cur.filter((x) => x !== name) : cur.length < (wm?.max ?? 0) ? [...cur, name] : cur);
+  async function saveMasteries() {
+    setMastBusy(true);
+    try { await api.setMasteries(id, mastSel); await reload(); setEditMastery(false); }
+    finally { setMastBusy(false); }
+  }
+
   // Rasgos con cargas (Ancestría del Goliath, dotes con usos…): gastar/restaurar un uso.
   const usableFeatures = s.features.filter((f) => f.uses && f.uses.max > 0);
   const RECHARGE_LABEL: Record<string, string> = { short_rest: "descanso corto", long_rest: "descanso largo", dawn: "amanecer", manual: "manual" };
@@ -96,6 +116,47 @@ export function CharacterSheet({ sheet: s, onRoll, id, reload }: { sheet: Sheet;
             <div className="chips">
               {s.resistances.map((r) => <span key={r} className="chip">{r}</span>)}
             </div>
+          </section>
+        )}
+
+        {wm && wm.max > 0 && (
+          <section className="panel">
+            <h2 className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+              <span>⚔️ Maestrías de arma <span className="muted small">({chosenWeapons.length}/{wm.max})</span></span>
+              {!editMastery && <button className="btn small" onClick={openMasteryEditor}>Elegir</button>}
+            </h2>
+            {!editMastery ? (
+              wm.chosen.length > 0 ? (
+                <ul className="line-list">
+                  {wm.chosen.map((m) => (
+                    <li key={`${m.weapon}-${m.mastery}`} style={{ display: "block" }}>
+                      <div><b>{m.weapon}</b> — <span className="accent">{m.mastery}</span></div>
+                      {m.description && <p className="muted small" style={{ margin: "2px 0 0" }}>{m.description}</p>}
+                    </li>
+                  ))}
+                </ul>
+              ) : <p className="muted small">Aún no eliges tus maestrías. Puedes usar la propiedad de maestría de {wm.max} arma(s). Toca «Elegir».</p>
+            ) : (
+              <>
+                <p className="muted small" style={{ margin: "0 0 4px" }}>Elige hasta {wm.max} arma(s) competente(s) ({mastSel.length}/{wm.max}). Puedes cambiarlas en cada descanso largo.</p>
+                <div className="chips">
+                  {mastOpts.map((o) => {
+                    const on = mastSel.includes(o.name);
+                    return (
+                      <button type="button" key={o.name} className={`chip${on ? " removable" : ""}`} title={o.mastery.join(", ")}
+                        onClick={() => toggleMast(o.name)}>
+                        {on ? "✓ " : ""}{o.name} <span className="muted small">({o.mastery.join("/")})</span>
+                      </button>
+                    );
+                  })}
+                  {mastOpts.length === 0 && <span className="muted small">Cargando armas… (si no aparecen, re-sincroniza el contenido).</span>}
+                </div>
+                <div className="row" style={{ marginTop: 8 }}>
+                  <button className="btn small" onClick={() => setEditMastery(false)}>Cancelar</button>
+                  <button className="btn small primary" disabled={mastBusy} onClick={saveMasteries}>{mastBusy ? "Guardando…" : "Guardar"}</button>
+                </div>
+              </>
+            )}
           </section>
         )}
 

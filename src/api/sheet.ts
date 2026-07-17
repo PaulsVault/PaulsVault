@@ -2,6 +2,7 @@
 // más desgloses de cálculo (de dónde sale cada número), armas equipadas y trucos (para tirar desde la hoja).
 import { ABILITIES, SKILLS, computedSheet, saveBonus, skillBonus, totalLevel } from "../rules.js";
 import { effectiveFeatureMax } from "../domain/combat.js";
+import { weaponMasteryView } from "../domain/masteries.js";
 import { computeActiveModifiers } from "../domain/modifiers.js";
 import { armorPenalty, isProficientWithItem } from "../domain/proficiency.js";
 import { scaleCantripDamage, spellMechanics } from "../domain/spells.js";
@@ -91,6 +92,7 @@ export function characterSheet(c: Character): Record<string, unknown> {
     speciesTraits,
     backgroundDescription,
     resistances: c.resistances ?? [],
+    weaponMastery: weaponMasteryView(c),
     languages: c.proficiencies.languages,
     tools: c.proficiencies.tools,
     personality: c.personality ?? {},

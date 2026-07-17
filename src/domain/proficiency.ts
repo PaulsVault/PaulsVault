@@ -59,7 +59,7 @@ function itemContent(name: string): Record<string, unknown> {
   return (findEntry(name, "item")?.data ?? {}) as Record<string, unknown>;
 }
 
-function weaponCatProficient(tokens: Set<string>, category: string, props: string[]): boolean {
+export function weaponCatProficient(tokens: Set<string>, category: string, props: string[]): boolean {
   const hasLight = props.some((p) => p.includes("light"));
   const hasFinesse = props.some((p) => p.includes("finesse"));
   for (const t of tokens) {

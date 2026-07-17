@@ -76,6 +76,7 @@ export interface Sheet {
   features: { name: string; source: string; description: string | null; uses?: { used: number; max: number; recharge: string } | null }[];
   speciesTraits: string[];
   resistances?: string[];
+  weaponMastery?: { max: number; chosen: { weapon: string; mastery: string; description: string | null }[] };
   backgroundDescription?: string | null;
   languages?: string[];
   tools?: string[];
