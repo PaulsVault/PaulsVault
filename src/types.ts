@@ -175,6 +175,7 @@ export interface Character {
   features: Feature[];
   resistances?: string[];      // tipos de daño con resistencia (afinidad dracónica, etc.)
   weaponMasteries?: string[];  // armas cuyas propiedades de maestría conoce (regla 2024)
+  wildShape?: { used: number };// usos de Forma Salvaje gastados (Druida)
   inventory: InventoryItem[];
   currency: Currency;
   spellcasting: Spellcasting;

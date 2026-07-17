@@ -282,6 +282,7 @@ export function rest(c: Character, type: "short" | "long", hitDiceToSpend = 0): 
     }
     if (c.spellcasting.pactSlots) { c.spellcasting.pactSlots.used = 0; notes.push("Slots de pacto recuperados."); }
     for (const f of c.features) if (f.uses?.recharge === "short_rest") f.uses.used = 0;
+    if (c.wildShape && c.wildShape.used > 0) { c.wildShape.used = Math.max(0, c.wildShape.used - 1); notes.push("Recuperas un uso de Forma Salvaje."); } // 2024: 1 uso en descanso corto
     notes.push(...rechargeItemsOnRest(c, "short"));
   } else {
     c.hp.current = c.hp.max;
@@ -290,6 +291,7 @@ export function rest(c: Character, type: "short" | "long", hitDiceToSpend = 0): 
     for (const slot of Object.values(c.spellcasting.slots)) slot.used = 0;
     if (c.spellcasting.pactSlots) c.spellcasting.pactSlots.used = 0;
     for (const f of c.features) if (f.uses && (f.uses.recharge === "short_rest" || f.uses.recharge === "long_rest")) f.uses.used = 0;
+    if (c.wildShape) c.wildShape.used = 0; // 2024: todos los usos de Forma Salvaje en descanso largo
     const exh = c.conditions.find((x) => x.name.toLowerCase() === "exhaustion");
     if (exh) {
       exh.level = (exh.level ?? 1) - 1;

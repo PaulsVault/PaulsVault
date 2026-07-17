@@ -1,4 +1,4 @@
-import type { CharacterSummary, ContentHit, CreateInput, Sheet } from "./types";
+import type { BeastForm, CharacterSummary, ContentHit, CreateInput, Sheet } from "./types";
 
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch("/api" + path, {
@@ -58,6 +58,8 @@ export const api = {
   featureUse: (id: string, feature: string, delta: number) => req<Sheet>(`/characters/${enc(id)}/feature-use`, { method: "POST", body: JSON.stringify({ feature, delta }) }),
   masteryOptions: (id: string) => req<{ max: number; options: { name: string; mastery: string[] }[] }>(`/characters/${enc(id)}/mastery-options`),
   setMasteries: (id: string, weapons: string[]) => req<Sheet>(`/characters/${enc(id)}/weapon-masteries`, { method: "POST", body: JSON.stringify({ weapons }) }),
+  wildShape: (id: string, delta: number) => req<Sheet>(`/characters/${enc(id)}/wild-shape`, { method: "POST", body: JSON.stringify({ delta }) }),
+  wildShapeBeasts: (id: string) => req<{ beasts: BeastForm[] }>(`/characters/${enc(id)}/wild-shape-beasts`).then((r) => r.beasts),
   multiclass: (className: string) => req<{ armor?: string[]; weapons?: string[]; tools?: string[]; skillCount?: number; skillOptions?: string[] }>(`/multiclass/${enc(className)}`),
   classChoices: (className: string, level: number, subclass?: string) => req<{ choices: LevelChoice[] }>(`/class-choices/${enc(className)}/${level}${subclass ? `?subclass=${enc(subclass)}` : ""}`).then((r) => r.choices),
 

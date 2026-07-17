@@ -26,6 +26,12 @@ export interface CreateInput {
   options?: string[];                                // elecciones de clase de nivel 1 (estilo de combate…)
 }
 
+export interface WildShapeState {
+  druidLevel: number; maxUses: number; used: number;
+  maxCRNum: number; maxCRLabel: string; knownForms: number; fly: boolean; hours: number;
+}
+export interface BeastForm { name: string; cr: string; crNum: number; size: string; ac: number; hp: number; speed: string; fly: boolean; swim: boolean }
+
 export interface SheetStyle {
   theme?: string; accentColor?: string; fontFamily?: string;
   layout?: string; showPortrait?: boolean; artUrl?: string;
@@ -77,6 +83,7 @@ export interface Sheet {
   speciesTraits: string[];
   resistances?: string[];
   weaponMastery?: { max: number; chosen: { weapon: string; mastery: string; description: string | null }[] };
+  wildShape?: WildShapeState | null;
   backgroundDescription?: string | null;
   languages?: string[];
   tools?: string[];

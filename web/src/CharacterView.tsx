@@ -13,13 +13,14 @@ export interface RollRequest { type: string; target?: string; label: string; adv
 import { CombatPanel } from "./panels/CombatPanel";
 import { InfoPanel } from "./panels/InfoPanel";
 import { SpellsPanel } from "./panels/SpellsPanel";
+import { WildShapePanel } from "./panels/WildShapePanel";
 import { InventoryPanel } from "./panels/InventoryPanel";
 import { CompanionsPanel } from "./panels/CompanionsPanel";
 import { DiceTray } from "./panels/DiceTray";
 import { JournalPanel } from "./panels/JournalPanel";
 import { StylePanel } from "./panels/StylePanel";
 
-const TABS = ["Hoja", "Info", "Combate", "Conjuros", "Inventario", "Compañeros", "Dados", "Diario", "Estilo"] as const;
+const TABS = ["Hoja", "Info", "Combate", "Conjuros", "Formas", "Inventario", "Compañeros", "Dados", "Diario", "Estilo"] as const;
 type Tab = (typeof TABS)[number];
 
 export function CharacterView({ id, onBack }: { id: string; onBack: () => void }) {
@@ -72,7 +73,8 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
   const diceColor = s.style.tokens?.dice ?? accent;
   const diceMaterial = s.style.tokens?.diceMaterial ?? "none";
   const hasSpells = !!s.spellcasting;
-  const tabs = TABS.filter((t) => t !== "Conjuros" || hasSpells);
+  const hasWildShape = !!s.wildShape;
+  const tabs = TABS.filter((t) => (t !== "Conjuros" || hasSpells) && (t !== "Formas" || hasWildShape));
 
   async function exportJson() {
     const r = await api.exportCharacter(id, "json") as { character: unknown };
@@ -142,6 +144,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
         {tab === "Info" && <InfoPanel id={id} sheet={s} reload={reload} />}
         {tab === "Combate" && <CombatPanel id={id} sheet={s} reload={reload} />}
         {tab === "Conjuros" && hasSpells && <SpellsPanel id={id} sheet={s} reload={reload} />}
+        {tab === "Formas" && hasWildShape && <WildShapePanel id={id} sheet={s} reload={reload} />}
         {tab === "Inventario" && <InventoryPanel id={id} reload={reload} />}
         {tab === "Compañeros" && <CompanionsPanel id={id} />}
         {tab === "Dados" && <DiceTray id={id} inspiration={s.inspiration} reload={reload} />}
