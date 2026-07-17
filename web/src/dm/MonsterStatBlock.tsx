@@ -6,25 +6,32 @@ const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 const ABIL: [string, string][] = [["str", "FUE"], ["dex", "DES"], ["con", "CON"], ["int", "INT"], ["wis", "SAB"], ["cha", "CAR"]];
 const SAVE_LABEL: Record<string, string> = { str: "FUE", dex: "DES", con: "CON", int: "INT", wis: "SAB", cha: "CAR" };
 
-export function MonsterStatBlock({ name, data, roll }: {
+export function MonsterStatBlock({ name, data, roll, spent, onToggleSpent }: {
   name: string;
   data: MonsterData;
   roll: (label: string, expr: string, profile: RollProfile) => void;
+  spent?: string[];               // acciones ya gastadas (recarga/limitadas), en modo encuentro
+  onToggleSpent?: (actionName: string) => void;
 }) {
-  const actionRow = (a: MonAction) => (
-    <div key={a.name} className="mon-action">
-      <p><b>{a.name}{a.recharge ? ` (${a.recharge})` : ""}.</b> {a.description}</p>
-      {(a.attack || a.save) && (
-        <div className="row wrap mon-action-btns">
-          {a.attack && <button className="btn small" onClick={() => roll(`${a.name} — ataque`, `1d20${fmt(a.attack!.bonus)}`, "fast")}>🎯 Atacar {fmt(a.attack.bonus)}</button>}
-          {a.attack?.damage && <button className="btn small primary" onClick={() => roll(`${a.name} — daño`, a.attack!.damage!, "heavy")}>💥 {a.attack.damage}{a.attack.damageType ? ` ${a.attack.damageType}` : ""}</button>}
-          {a.attack?.extraDamage && <button className="btn small" onClick={() => roll(`${a.name} — daño extra`, a.attack!.extraDamage!, "heavy")}>+ {a.attack.extraDamage}</button>}
-          {a.save && <span className="chip">🛡️ CD {a.save.dc}{a.save.ability ? ` · salv. ${SAVE_LABEL[a.save.ability] ?? a.save.ability}` : ""}</span>}
-          {a.save?.damage && <button className="btn small primary" onClick={() => roll(`${a.name} — daño`, a.save!.damage!, "heavy")}>💥 {a.save.damage}{a.save.damageType ? ` ${a.save.damageType}` : ""}</button>}
-        </div>
-      )}
-    </div>
-  );
+  const actionRow = (a: MonAction) => {
+    const limited = !!a.recharge && !!onToggleSpent;
+    const isSpent = limited && (spent ?? []).includes(a.name);
+    return (
+      <div key={a.name} className="mon-action">
+        <p style={isSpent ? { opacity: .5 } : undefined}><b>{a.name}{a.recharge ? ` (${a.recharge})` : ""}.</b> {a.description}</p>
+        {(a.attack || a.save || limited) && (
+          <div className="row wrap mon-action-btns">
+            {a.attack && <button className="btn small" disabled={isSpent} onClick={() => roll(`${a.name} — ataque`, `1d20${fmt(a.attack!.bonus)}`, "fast")}>🎯 Atacar {fmt(a.attack.bonus)}</button>}
+            {a.attack?.damage && <button className="btn small primary" disabled={isSpent} onClick={() => roll(`${a.name} — daño`, a.attack!.damage!, "heavy")}>💥 {a.attack.damage}{a.attack.damageType ? ` ${a.attack.damageType}` : ""}</button>}
+            {a.attack?.extraDamage && <button className="btn small" disabled={isSpent} onClick={() => roll(`${a.name} — daño extra`, a.attack!.extraDamage!, "heavy")}>+ {a.attack.extraDamage}</button>}
+            {a.save && <span className="chip">🛡️ CD {a.save.dc}{a.save.ability ? ` · salv. ${SAVE_LABEL[a.save.ability] ?? a.save.ability}` : ""}</span>}
+            {a.save?.damage && <button className="btn small primary" disabled={isSpent} onClick={() => roll(`${a.name} — daño`, a.save!.damage!, "heavy")}>💥 {a.save.damage}{a.save.damageType ? ` ${a.save.damageType}` : ""}</button>}
+            {limited && <button className="btn small alt" onClick={() => onToggleSpent!(a.name)}>{isSpent ? "♻ recargar" : "✓ marcar usado"}</button>}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const section = (title: string, arr: MonAction[]) => arr && arr.length > 0 ? (
     <div className="mon-section"><h3>{title}</h3>{arr.map(actionRow)}</div>

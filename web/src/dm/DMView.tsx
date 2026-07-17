@@ -3,11 +3,36 @@ import { api, type MonsterCard, type MonsterData } from "../api";
 import { DiceOverlay } from "../DiceOverlay";
 import { presentRoll } from "../rollPresenter";
 import { MonsterStatBlock } from "./MonsterStatBlock";
+import { EncounterTracker } from "./EncounterTracker";
 
 const crn = (cr: string) => (cr === "1/8" ? 0.125 : cr === "1/4" ? 0.25 : cr === "1/2" ? 0.5 : Number(cr) || 0);
 export type RollProfile = "fast" | "normal" | "heavy";
+export type RollFn = (label: string, expr: string, profile: RollProfile) => void;
 
 export function DMView() {
+  const [tab, setTab] = useState<"bestiary" | "encounters">("bestiary");
+  return (
+    <div className="dm-view">
+      <DiceOverlay themeColor="#c0392b" />
+      <div className="library-head"><h1>⚔️ Mesa del DM</h1></div>
+      <div className="tabs">
+        <button className={`tab${tab === "bestiary" ? " active" : ""}`} onClick={() => setTab("bestiary")}>📖 Bestiario</button>
+        <button className={`tab${tab === "encounters" ? " active" : ""}`} onClick={() => setTab("encounters")}>⚔️ Encuentros</button>
+      </div>
+      {tab === "bestiary" ? <Bestiary /> : <EncounterTracker roll={dmRoll} />}
+    </div>
+  );
+}
+
+async function dmRoll(label: string, expr: string, profile: RollProfile) {
+  try {
+    const res = await api.roll(expr);
+    const r0 = res.rolls[0];
+    presentRoll({ label, total: r0.total, breakdown: r0.breakdown, crit: r0.crit as "critical" | "fumble" | null, dice3d: r0.dice3d ?? [], profile });
+  } catch { /* noop */ }
+}
+
+function Bestiary() {
   const [monsters, setMonsters] = useState<MonsterCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -30,19 +55,9 @@ export function DMView() {
     try { setSelected({ name, data: await api.monster(name) }); } catch { setSelected(null); } finally { setLoadingMon(false); }
   }
 
-  async function roll(label: string, expr: string, profile: RollProfile) {
-    try {
-      const res = await api.roll(expr);
-      const r0 = res.rolls[0];
-      presentRoll({ label, total: r0.total, breakdown: r0.breakdown, crit: r0.crit as "critical" | "fumble" | null, dice3d: r0.dice3d ?? [], profile });
-    } catch { /* noop */ }
-  }
-
   return (
-    <div className="dm-view">
-      <DiceOverlay themeColor="#c0392b" />
-      <div className="library-head"><h1>⚔️ Mesa del DM</h1></div>
-      <p className="muted small">Bestiario del Manual de Monstruos 2024: stat blocks con tiradas de ataque, daño y salvación. El tracker de iniciativa y encuentros llega en la siguiente fase.</p>
+    <>
+      <p className="muted small">Bestiario del Manual de Monstruos 2024: stat blocks con tiradas de ataque, daño y salvación.</p>
 
       <div className="dm-bestiary">
         <div className="panel dm-list">
@@ -67,9 +82,9 @@ export function DMView() {
           <p className="muted small">{monsters.length} monstruos{shown.length >= 250 ? " · mostrando 250, afina la búsqueda" : ""}</p>
         </div>
         <div className="dm-detail">
-          {loadingMon ? <p className="muted">Cargando…</p> : selected ? <MonsterStatBlock name={selected.name} data={selected.data} roll={roll} /> : <p className="muted">Elige un monstruo de la lista para ver su stat block y usar sus acciones.</p>}
+          {loadingMon ? <p className="muted">Cargando…</p> : selected ? <MonsterStatBlock name={selected.name} data={selected.data} roll={dmRoll} /> : <p className="muted">Elige un monstruo de la lista para ver su stat block y usar sus acciones.</p>}
         </div>
       </div>
-    </div>
+    </>
   );
 }

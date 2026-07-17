@@ -22,6 +22,8 @@ export interface Invite { id: string; token: string; label: string | null; url: 
 export interface ChoiceOption { name: string; summary?: string; prerequisite?: string; }
 export interface SpellCard { name: string; level: number; school: string; classes: string[]; summary: string; ritual: boolean; concentration: boolean; }
 export interface MonsterCard { name: string; cr: string; crNum: number; type: string; size: string; ac: number; hp: number; }
+export interface Combatant { id: string; name: string; kind: "monster" | "player" | "npc"; ref?: string; initiative: number | null; initiativeBonus?: number; ac: number; hp: { current: number; max: number; temp: number }; conditions: string[]; spent: string[]; notes?: string }
+export interface Encounter { id: string; name: string; round: number; turnIndex: number; combatants: Combatant[]; createdAt: string; updatedAt: string }
 export interface MonAction { name: string; description: string; attack?: { bonus: number; damage?: string; damageType?: string; ranged?: boolean; extraDamage?: string }; save?: { dc: number; ability?: string; damage?: string; damageType?: string }; recharge?: string }
 export interface MonsterData {
   size: string; creatureType: string; ac: number; acFrom?: string; hp?: { average: number; formula: string };
@@ -68,6 +70,15 @@ export const api = {
   spellCatalog: (spellClass?: string) => req<{ spells: SpellCard[] }>(`/spells-catalog${spellClass ? `?class=${enc(spellClass)}` : ""}`).then((r) => r.spells),
   monsters: () => req<{ monsters: MonsterCard[] }>("/monsters").then((r) => r.monsters),
   monster: (name: string) => req<{ data: MonsterData }>(`/content/${enc(name)}`).then((r) => r.data),
+
+  // Encuentros del DM (tracker de iniciativa)
+  encounters: () => req<{ encounters: Encounter[] }>("/encounters").then((r) => r.encounters),
+  createEncounter: (name?: string) => req<Encounter>("/encounters", { method: "POST", body: JSON.stringify({ name }) }),
+  saveEncounter: (id: string, e: Encounter) => req<Encounter>(`/encounters/${enc(id)}`, { method: "PUT", body: JSON.stringify(e) }),
+  deleteEncounter: (id: string) => req<{ removed: boolean; id: string }>(`/encounters/${enc(id)}`, { method: "DELETE" }),
+  addMonsterToEnc: (id: string, monster: string, count: number) => req<Encounter>(`/encounters/${enc(id)}/monster`, { method: "POST", body: JSON.stringify({ monster, count }) }),
+  addPlayerToEnc: (id: string, characterId: string) => req<Encounter>(`/encounters/${enc(id)}/player`, { method: "POST", body: JSON.stringify({ characterId }) }),
+  addNpcToEnc: (id: string, npc: { name: string; ac: number; hp: number; initiative: number | null }) => req<Encounter>(`/encounters/${enc(id)}/npc`, { method: "POST", body: JSON.stringify(npc) }),
   spells: (opts: { query?: string; spellClass?: string; spellLevel?: number } = {}) =>
     req<{ results: ContentHit[] }>(`/content?type=spell&limit=500${opts.query ? `&query=${enc(opts.query)}` : ""}${opts.spellClass ? `&spellClass=${enc(opts.spellClass)}` : ""}${opts.spellLevel !== undefined ? `&spellLevel=${opts.spellLevel}` : ""}`).then((r) => r.results),
 

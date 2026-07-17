@@ -214,6 +214,24 @@ textarea { background: var(--bg-2); color: var(--text); border: 1px solid var(--
 .mon-action p { margin: 0; }
 .mon-action-btns { margin-top: 5px; gap: 6px; }
 @media (max-width: 720px) { .dm-bestiary { grid-template-columns: 1fr; } .dm-list { position: static; } .mon-abilities { grid-template-columns: repeat(3, 1fr); } }
+
+/* ── Tracker de encuentros ── */
+.enc-list { gap: 8px; }
+.cbt-row { padding: 10px 12px; }
+.cbt-current { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.cbt-dead { opacity: .6; }
+.cbt-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cbt-turn { width: 14px; color: var(--accent); font-weight: 700; }
+.cbt-init { width: 52px; text-align: center; min-height: 34px; padding: 4px; }
+.cbt-name { flex: 1; min-width: 120px; }
+.cbt-hp { font-size: 1.05rem; }
+.cbt-hp .hp-zero { color: var(--danger); }
+.cbt-hp .hp-temp { color: var(--accent); font-size: .85rem; }
+.cbt-controls { margin-top: 8px; gap: 6px; align-items: center; }
+.cbt-statblock { margin-top: 8px; }
+.cbt-statblock .panel { background: var(--bg); }
+.tag.good { background: color-mix(in srgb, var(--good) 20%, transparent); color: var(--good); border-radius: 999px; padding: 2px 8px; font-size: .8rem; }
+.tag.bad { background: color-mix(in srgb, var(--danger) 20%, transparent); color: var(--danger); border-radius: 999px; padding: 2px 8px; font-size: .8rem; }
 .inv-row, .spell-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--bg-2); border-radius: 10px; padding: 10px 12px; }
 .inv-actions, .spell-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 .inv-row { flex-direction: column; align-items: stretch; }

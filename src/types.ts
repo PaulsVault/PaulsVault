@@ -208,6 +208,32 @@ export interface JournalEntry {
   createdAt: string;
 }
 
+// ─── Encuentros del DM (tracker de iniciativa/combate) ───
+
+export interface Combatant {
+  id: string;
+  name: string;
+  kind: "monster" | "player" | "npc";
+  ref?: string;                 // nombre del monstruo (contenido) o id del personaje jugador
+  initiative: number | null;
+  initiativeBonus?: number;     // bono para tirar iniciativa (DES + extra)
+  ac: number;
+  hp: { current: number; max: number; temp: number };
+  conditions: string[];
+  spent: string[];              // acciones/usos marcados como gastados (recarga/limitados)
+  notes?: string;
+}
+
+export interface Encounter {
+  id: string;
+  name: string;
+  round: number;
+  turnIndex: number;
+  combatants: Combatant[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ─── Content packs ───
 
 export type ContentType =

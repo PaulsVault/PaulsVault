@@ -6,7 +6,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { loadDb, saveDb, dataDir, listPacks, requestContext, getUserById, init } from "../store.js";
+import { loadDb, saveDb, dataDir, listPacks, requestContext, getUserById, init, loadEncounters, saveEncounter, deleteEncounterRow } from "../store.js";
 import { DomainError, STATUS_BY_CODE } from "../domain/errors.js";
 import { verifyToken, signToken, SESSION_COOKIE, TOKEN_MAX_AGE_MS } from "../auth.js";
 import { dice3dFrom } from "../dice.js";
@@ -19,6 +19,7 @@ import * as combat from "../domain/combat.js";
 import * as companions from "../domain/companions.js";
 import * as checks from "../domain/checks.js";
 import * as content from "../domain/content.js";
+import * as encounters from "../domain/encounters.js";
 import * as sharing from "../domain/sharing.js";
 import { customizeStyle } from "../domain/style.js";
 import { computeActiveModifiers } from "../domain/modifiers.js";
@@ -46,6 +47,15 @@ async function onCharacter<T>(id: string, fn: (c: Character, db: Database) => T)
   const c = chars.requireCharacter(db, id);
   const result = fn(c, db);
   await saveDb(db);
+  return result;
+}
+
+// Carga los encuentros del dueño, localiza uno por id, aplica fn, y lo persiste.
+async function onEncounter<T>(id: string, fn: (e: import("../types.js").Encounter) => T): Promise<T> {
+  const list = await loadEncounters();
+  const enc = encounters.requireEncounter(list, id);
+  const result = fn(enc);
+  await saveEncounter(enc);
   return result;
 }
 
@@ -374,6 +384,36 @@ export function buildApp(): Express {
     res.json({ spells: content.spellCatalog({ spellClass: req.query["class"] as string | undefined }) }));
 
   app.get("/api/monsters", (_req, res) => res.json({ monsters: content.monsterCatalog() }));
+
+  // ─── Encuentros del DM (tracker de iniciativa/combate) ───
+  app.get("/api/encounters", async (_req, res) => res.json({ encounters: await loadEncounters() }));
+  app.post("/api/encounters", async (req, res) => {
+    const enc = encounters.newEncounter(req.body?.name);
+    await saveEncounter(enc);
+    res.status(201).json(enc);
+  });
+  app.get("/api/encounters/:id", async (req, res) => res.json(encounters.requireEncounter(await loadEncounters(), req.params.id)));
+  app.put("/api/encounters/:id", async (req, res) =>
+    res.json(await onEncounter(req.params.id, (e) => {
+      const b = (req.body ?? {}) as Partial<import("../types.js").Encounter>;
+      if (Array.isArray(b.combatants)) e.combatants = b.combatants;
+      if (typeof b.round === "number") e.round = b.round;
+      if (typeof b.turnIndex === "number") e.turnIndex = b.turnIndex;
+      if (typeof b.name === "string" && b.name.trim()) e.name = b.name.trim();
+      return encounters.sanitizeEncounter(e);
+    })));
+  app.delete("/api/encounters/:id", async (req, res) => res.json({ removed: await deleteEncounterRow(req.params.id), id: req.params.id }));
+  app.post("/api/encounters/:id/monster", async (req, res) =>
+    res.json(await onEncounter(req.params.id, (e) => { encounters.addMonsterToEncounter(e, String(req.body?.monster ?? ""), Number(req.body?.count ?? 1)); return e; })));
+  app.post("/api/encounters/:id/player", async (req, res) => {
+    const c = chars.requireCharacter(await loadDb(), String(req.body?.characterId ?? ""));
+    res.json(await onEncounter(req.params.id, (e) => { encounters.addPlayerToEncounter(e, c); return e; }));
+  });
+  app.post("/api/encounters/:id/npc", async (req, res) =>
+    res.json(await onEncounter(req.params.id, (e) => {
+      encounters.addNpcToEncounter(e, String(req.body?.name ?? "NPC"), Number(req.body?.ac ?? 10), Number(req.body?.hp ?? 1), req.body?.initiative != null ? Number(req.body.initiative) : null);
+      return e;
+    })));
 
   app.get("/api/content", (req, res) =>
     res.json(content.searchContent(String(req.query["query"] ?? ""), {

@@ -9,7 +9,7 @@ import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createClient, type Client } from "@libsql/client";
-import type { Character, ContentPack, Database } from "./types.js";
+import type { Character, ContentPack, Database, Encounter } from "./types.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SEED_DIR = path.join(__dirname, "data");
@@ -36,6 +36,7 @@ function ready(): Promise<void> {
     await c.execute("CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, owner_id TEXT, data TEXT NOT NULL, updated_at TEXT)");
     await c.execute("CREATE TABLE IF NOT EXISTS content_packs (id TEXT PRIMARY KEY, data TEXT NOT NULL)");
     await c.execute("CREATE TABLE IF NOT EXISTS invites (id TEXT PRIMARY KEY, token TEXT UNIQUE NOT NULL, created_by TEXT, label TEXT, expires_at TEXT, used_by TEXT, used_at TEXT, created_at TEXT NOT NULL)");
+    await c.execute("CREATE TABLE IF NOT EXISTS encounters (id TEXT PRIMARY KEY, owner_id TEXT, data TEXT NOT NULL, updated_at TEXT)");
     await refreshPacks();
   })();
   return _ready;
@@ -125,6 +126,28 @@ export async function saveDb(database: Database): Promise<void> {
     if (!ids.has(rid)) stmts.push({ sql: "DELETE FROM characters WHERE id = ? AND owner_id IS ?", args: [rid, own] });
   }
   if (stmts.length) await c.batch(stmts, "write");
+}
+
+// ─── Encuentros del DM (scoped por dueño) ───
+
+export async function loadEncounters(): Promise<Encounter[]> {
+  await ready();
+  const rs = await client().execute({ sql: "SELECT data FROM encounters WHERE owner_id IS ? ORDER BY updated_at DESC", args: [owner()] });
+  return rs.rows.map((r) => JSON.parse(r["data"] as string) as Encounter);
+}
+
+export async function saveEncounter(enc: Encounter): Promise<void> {
+  await ready();
+  await client().execute({
+    sql: "INSERT INTO encounters (id, owner_id, data, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at",
+    args: [enc.id, owner(), JSON.stringify(enc), enc.updatedAt ?? new Date().toISOString()],
+  });
+}
+
+export async function deleteEncounterRow(id: string): Promise<boolean> {
+  await ready();
+  const info = await client().execute({ sql: "DELETE FROM encounters WHERE id = ? AND owner_id IS ?", args: [id, owner()] });
+  return Number(info.rowsAffected ?? 0) > 0;
 }
 
 export function getCharacter(database: Database, idOrName: string): Character {
