@@ -22,7 +22,7 @@ export interface Invite { id: string; token: string; label: string | null; url: 
 export interface ChoiceOption { name: string; summary?: string; prerequisite?: string; }
 export interface SpellCard { name: string; level: number; school: string; classes: string[]; summary: string; ritual: boolean; concentration: boolean; }
 export interface MonsterCard { name: string; cr: string; crNum: number; type: string; size: string; ac: number; hp: number; }
-export interface Combatant { id: string; name: string; kind: "monster" | "player" | "npc"; ref?: string; initiative: number | null; initiativeBonus?: number; ac: number; hp: { current: number; max: number; temp: number }; conditions: string[]; spent: string[]; notes?: string }
+export interface Combatant { id: string; name: string; kind: "monster" | "player" | "npc"; ref?: string; initiative: number | null; initiativeBonus?: number; ac: number; hp: { current: number; max: number; temp: number }; conditions: string[]; spent: string[]; legendaryUsed?: number; notes?: string }
 export interface Encounter { id: string; name: string; round: number; turnIndex: number; combatants: Combatant[]; createdAt: string; updatedAt: string }
 export interface MonAction { name: string; description: string; attack?: { bonus: number; damage?: string; damageType?: string; ranged?: boolean; extraDamage?: string }; save?: { dc: number; ability?: string; damage?: string; damageType?: string }; recharge?: string }
 export interface MonsterData {

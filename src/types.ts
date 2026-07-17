@@ -225,6 +225,7 @@ export interface Combatant {
   hp: { current: number; max: number; temp: number };
   conditions: string[];
   spent: string[];              // acciones/usos marcados como gastados (recarga/limitados)
+  legendaryUsed?: number;       // acciones legendarias gastadas esta ronda (se reinician al empezar la ronda)
   notes?: string;
 }
 

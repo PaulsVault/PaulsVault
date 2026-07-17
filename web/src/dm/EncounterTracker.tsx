@@ -42,6 +42,8 @@ export function EncounterTracker({ roll }: { roll: RollFn }) {
     setEnc(next); save(next);
   }
   const patchC = (id: string, fn: (c: Combatant) => void) => mutate((e) => { const c = e.combatants.find((x) => x.id === id); if (c) fn(c); });
+  const legendaryCount = (c: Combatant) => (c.ref ? statblocks[c.ref]?.legendary?.length ?? 0 : 0);
+  const hasLegendary = !!enc && enc.combatants.some((c) => legendaryCount(c) > 0);
 
   // ─── Encuentros ───
   async function createEnc() {
@@ -75,13 +77,17 @@ export function EncounterTracker({ roll }: { roll: RollFn }) {
   // ─── Iniciativa / turnos ───
   const sortInit = () => mutate((e) => { e.combatants.sort((a, b) => initVal(b) - initVal(a)); e.turnIndex = 0; });
   const rollInitiative = () => mutate((e) => {
-    for (const c of e.combatants) c.initiative = d20() + (c.initiativeBonus ?? 0);
+    for (const c of e.combatants) { c.initiative = d20() + (c.initiativeBonus ?? 0); c.legendaryUsed = 0; }
     e.combatants.sort((a, b) => initVal(b) - initVal(a)); e.turnIndex = 0; e.round = 1;
   });
   const nextTurn = () => mutate((e) => {
     if (e.combatants.length === 0) return;
     e.turnIndex += 1;
-    if (e.turnIndex >= e.combatants.length) { e.turnIndex = 0; e.round += 1; }
+    if (e.turnIndex >= e.combatants.length) {
+      e.turnIndex = 0; e.round += 1;
+      for (const c of e.combatants) c.legendaryUsed = 0; // se reinician al empezar la ronda
+      if (hasLegendary) setNote(`🏛️ Ronda ${e.round} · Cuenta 20: turno de acciones de guarida. Acciones legendarias reiniciadas.`);
+    }
   });
 
   // ─── PG ───
@@ -122,6 +128,11 @@ export function EncounterTracker({ roll }: { roll: RollFn }) {
           <button className="btn small" onClick={rollInitiative}>🎲 Tirar iniciativa (todos)</button>
           <button className="btn small" onClick={sortInit}>↕ Ordenar por iniciativa</button>
         </div>
+        {hasLegendary && (
+          <p className="muted small" style={{ margin: "8px 0 0" }}>
+            🏛️ Hay criaturas <b>legendarias</b>: usa sus <b>acciones legendarias</b> tras los turnos de otros combatientes (contador en cada ficha) y sus <b>acciones de guarida</b> en la <b>cuenta 20</b> (inicio de ronda). Se reinician cada ronda.
+          </p>
+        )}
       </div>
 
       <AddBar chars={chars} monsters={monsters} onMonster={addMonster} onPlayer={addPlayer} onNpc={addNpc} />
@@ -130,7 +141,8 @@ export function EncounterTracker({ roll }: { roll: RollFn }) {
       <div className="stack enc-list">
         {ordered.map((c, i) => (
           <CombatantRow key={c.id} c={c} current={i === enc.turnIndex} statblock={c.ref ? statblocks[c.ref] : undefined}
-            roll={roll} expanded={expanded.has(c.id)}
+            roll={roll} expanded={expanded.has(c.id)} legendaryMax={legendaryCount(c) > 0 ? 3 : 0}
+            onLegendary={(d) => patchC(c.id, (x) => { x.legendaryUsed = Math.max(0, Math.min(3, (x.legendaryUsed ?? 0) + d)); })}
             onToggleExpand={() => setExpanded((s) => { const n = new Set(s); n.has(c.id) ? n.delete(c.id) : n.add(c.id); return n; })}
             onInit={(v) => patchC(c.id, (x) => { x.initiative = v; })}
             onDamage={(n) => patchC(c.id, (x) => applyDamage(x, n))}
@@ -148,11 +160,14 @@ export function EncounterTracker({ roll }: { roll: RollFn }) {
 }
 
 // ─── Fila de combatiente ───
-function CombatantRow({ c, current, statblock, roll, expanded, onToggleExpand, onInit, onDamage, onHeal, onTemp, onCondition, onToggleSpent, onRemove }: {
-  c: Combatant; current: boolean; statblock?: MonsterData; roll: RollFn; expanded: boolean;
+function CombatantRow({ c, current, statblock, roll, expanded, legendaryMax, onLegendary, onToggleExpand, onInit, onDamage, onHeal, onTemp, onCondition, onToggleSpent, onRemove }: {
+  c: Combatant; current: boolean; statblock?: MonsterData; roll: RollFn; expanded: boolean; legendaryMax: number;
+  onLegendary: (delta: number) => void;
   onToggleExpand: () => void; onInit: (v: number) => void; onDamage: (n: number) => void; onHeal: (n: number) => void;
   onTemp: (n: number) => void; onCondition: (c: string) => void; onToggleSpent: (a: string) => void; onRemove: () => void;
 }) {
+  const legUsed = c.legendaryUsed ?? 0;
+  const legLeft = legendaryMax - legUsed;
   const [amt, setAmt] = useState(0);
   const [condOpen, setCondOpen] = useState(false);
   const dead = c.hp.current <= 0;
@@ -177,6 +192,15 @@ function CombatantRow({ c, current, statblock, roll, expanded, onToggleExpand, o
         {c.conditions.map((cond) => <span key={cond} className="chip removable" onClick={() => onCondition(cond)}>{cond} ✕</span>)}
       </div>
       {condOpen && <div className="chips" style={{ marginTop: 4 }}>{[...new Set(CONDITIONS)].map((cond) => <button key={cond} type="button" className={`chip${c.conditions.includes(cond) ? " removable" : ""}`} onClick={() => onCondition(cond)}>{cond}</button>)}</div>}
+      {legendaryMax > 0 && (
+        <div className="row wrap" style={{ alignItems: "center", marginTop: 4, gap: 6 }}>
+          <span className="muted small" title="Acciones legendarias (se reinician al empezar la ronda)">🏛️ Legendarias:</span>
+          <span style={{ letterSpacing: 2 }}>{"●".repeat(Math.max(0, legLeft))}{"○".repeat(legUsed)}</span>
+          <span className="muted small">{legLeft}/{legendaryMax}</span>
+          <button className="btn tiny" disabled={legLeft <= 0} onClick={() => onLegendary(1)}>− Usar</button>
+          <button className="btn tiny alt" disabled={legUsed <= 0} onClick={() => onLegendary(-1)}>＋</button>
+        </div>
+      )}
       {expanded && statblock && (
         <div className="cbt-statblock">
           <MonsterStatBlock name={c.name} data={statblock} roll={roll} spent={c.spent} onToggleSpent={onToggleSpent} />
