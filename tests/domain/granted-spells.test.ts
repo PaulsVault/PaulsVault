@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createCharacter, levelDown } from "../../src/domain/characters.js";
+import { createCharacter, levelDown, levelUp } from "../../src/domain/characters.js";
 import { grantedSpellChoiceNotes } from "../../src/domain/spells.js";
 import { importPack, removePack, searchContent } from "../../src/domain/content.js";
 import type { Abilities, Database } from "../../src/types.js";
@@ -23,6 +23,9 @@ beforeAll(async () => {
       { id: "spell:bendicion-test", type: "spell", name: "Bendicion Test", data: { level: 1, classes: ["Cleric"], summary: "Bendice." } },
       { id: "spell:revivir-test", type: "spell", name: "Revivir Test", data: { level: 3, classes: ["Cleric"], summary: "Revive." } },
       { id: "spell:bola-test", type: "spell", name: "Bola Test", data: { level: 3, classes: ["Wizard"], summary: "8d6 de fuego." } },
+      // #13: invocación que otorga un conjuro a voluntad.
+      { id: "optionalfeature:invoc-armadura", type: "optionalfeature", name: "Armadura de Sombras Test", data: { featureType: ["EI"], summary: "Lanzas Armadura de Mago a voluntad.", grantedSpells: [{ level: 1, name: "Armadura Test" }] } },
+      { id: "spell:armadura-test", type: "spell", name: "Armadura Test", data: { level: 1, classes: ["Warlock"], summary: "+3 CA." } },
     ],
   });
 });
@@ -65,6 +68,15 @@ describe("conjuros otorgados por especie/subclase (Parte C)", () => {
     const c = make({ species: "Variante Test" });
     expect(c.spellcasting.known.length).toBe(0);
     expect(grantedSpellChoiceNotes(c).length).toBeGreaterThan(0);
+  });
+
+  it("#13 una invocación elegida otorga su conjuro al grimorio", () => {
+    const w = createCharacter(db(), { name: "W" + Math.random(), className: "Warlock", level: 1, species: "Humano Test", background: "Acolyte", abilities: ABIL });
+    expect(w.spellcasting.known.some((s) => s.name === "Armadura Test")).toBe(false); // aún no la eligió
+    levelUp(w, { className: "Warlock", options: ["Armadura de Sombras Test"] });
+    const sp = w.spellcasting.known.find((s) => s.name === "Armadura Test");
+    expect(sp).toBeDefined();
+    expect(sp!.alwaysPrepared).toBe(true);
   });
 });
 

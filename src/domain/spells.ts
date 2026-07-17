@@ -194,6 +194,11 @@ export function reconcileGrantedSpells(c: Character): void {
 
   addFrom(findEntry(c.species, "species")?.data, totalLevel(c), c.species);
   for (const cl of c.classes) if (cl.subclass) addFrom(findEntry(cl.subclass, "subclass")?.data, cl.level, cl.subclass);
+  // Conjuros otorgados por invocaciones (u otras opciones de clase) que el personaje ya eligió como rasgo.
+  for (const f of c.features) {
+    const of = findEntry(f.name, "optionalfeature");
+    if (of?.data["grantedSpells"]) addFrom(of.data as Record<string, unknown>, totalLevel(c), f.name);
+  }
 
   for (const t of targets) {
     if (c.spellcasting.known.some((s) => s.name.toLowerCase() === t.name.toLowerCase())) continue;

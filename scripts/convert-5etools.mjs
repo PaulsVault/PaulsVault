@@ -132,6 +132,28 @@ function parseAdditionalSpells(add) {
   return out;
 }
 
+// Conjuros que otorga una INVOCACIÓN (u opción de clase): innate "a voluntad" + conocidos fijos.
+// A diferencia de las especies, aquí SÍ queremos los innate (Armor of Shadows → Mage Armor a voluntad).
+// Nivel 1 = disponible desde que tienes la invocación (no hay progresión por nivel de personaje).
+function parseGrantedSpellNames(add) {
+  if (!Array.isArray(add) || !add.length) return undefined;
+  const names = [];
+  const collect = (val) => {
+    if (typeof val === "string") { names.push(spellRefName(val)); return; }
+    if (Array.isArray(val)) { for (const it of val) collect(it); return; }
+    if (val && typeof val === "object") {
+      if (val.choose) return; // elección: no es un conjuro fijo
+      for (const v of Object.values(val)) collect(v);
+    }
+  };
+  for (const grp of add) {
+    collect(grp.innate);
+    collect(grp.known);
+  }
+  const uniq = [...new Set(names)].filter(Boolean);
+  return uniq.length ? uniq.map((name) => ({ level: 1, name })) : undefined;
+}
+
 // ─── Ascendencias/linajes de raza (Giant Ancestry del Goliath, linaje del Elfo, etc.) ───
 // Extrae, por rasgo de "elige uno", las opciones con su descripción. Cubre 3 patrones de 5etools:
 // lista con items nombrados, tabla, y _versions (linajes/legados).
@@ -632,10 +654,12 @@ if (want("optionalfeatures")) {
     const id = slug(of.name, "optionalfeature");
     if (seen.has(id)) continue;
     seen.add(id);
+    const grantedSpells = parseGrantedSpellNames(of.additionalSpells); // conjuros que la invocación otorga
     entries.push({ id, type: "optionalfeature", name: of.name, data: {
       featureType: of.featureType,
       prerequisite: renderPrereq(of.prerequisite),
       summary: text(of.entries),
+      ...(grantedSpells ? { grantedSpells } : {}),
       source: of.source,
     } });
   }
