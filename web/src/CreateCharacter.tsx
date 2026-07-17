@@ -26,6 +26,7 @@ const LANGUAGES = ["Dracónico", "Enano", "Élfico", "Gigante", "Gnómico", "Gob
 const ALIGNMENTS = ["Legal bueno", "Neutral bueno", "Caótico bueno", "Legal neutral", "Neutral", "Caótico neutral", "Legal malvado", "Neutral malvado", "Caótico malvado"];
 
 type Method = "standard" | "pointbuy" | "roll" | "manual";
+type FeatChoice = { from: string[]; count: number; amount: number };
 interface BgData { abilities?: string[]; skills?: string[]; tool?: string; feat?: string; description?: string }
 interface ClassData { skillChoices?: number; skillOptions?: string[] }
 interface AncestryChoice { trait: string; options: { name: string; description: string }[] }
@@ -62,6 +63,8 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const [customBgSkills, setCustomBgSkills] = useState<string[]>([]);
   const [customTool, setCustomTool] = useState("");
   const [customFeat, setCustomFeat] = useState("");
+  const [customFeatChoice, setCustomFeatChoice] = useState<FeatChoice | null>(null);
+  const [customFeatAbil, setCustomFeatAbil] = useState<Partial<Record<AbilityKey, number>>>({});
   const isCustomBg = background === CUSTOM_BG;
 
   // Clase: habilidades a elegir
@@ -109,6 +112,14 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
     void api.classChoices(className, 1).then((ch) => { setChoices(ch); setChosen({}); }).catch(() => setChoices([]));
   }, [className]);
 
+  // Media dote de origen (trasfondo personalizado): si da "+1 a X o Y", pide la característica.
+  useEffect(() => {
+    if (!isCustomBg || !customFeat) { setCustomFeatChoice(null); setCustomFeatAbil({}); return; }
+    void api.getEntry(customFeat).then((e) => {
+      setCustomFeatChoice((e.data as { abilityChoice?: FeatChoice }).abilityChoice ?? null); setCustomFeatAbil({});
+    }).catch(() => { setCustomFeatChoice(null); setCustomFeatAbil({}); });
+  }, [customFeat, isCustomBg]);
+
   useEffect(() => {
     if (!speciesName) { setSpeciesData(null); setAncestry({}); return; }
     void api.getEntry(speciesName).then((e) => { setSpeciesData(e.data as SpeciesData); setAncestry({}); }).catch(() => setSpeciesData(null));
@@ -145,7 +156,8 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const ancestryList = speciesData?.ancestryChoices ?? [];
   const ancestryOk = ancestryList.every((ch) => ancestry[ch.trait]);
   const choicesOk = choices.every((ch) => (chosen[ch.kind] ?? []).length === ch.count);
-  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk && ancestryOk && choicesOk;
+  const customFeatOk = !customFeatChoice || Object.keys(customFeatAbil).length === customFeatChoice.count;
+  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk && ancestryOk && choicesOk && customFeatOk;
 
   function setAssignFor(a: AbilityKey, idx: number | null) {
     setAssign((prev) => {
@@ -165,6 +177,11 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
     const list = cur[kind] ?? [];
     const next = list.includes(name) ? list.filter((x) => x !== name) : list.length < max ? [...list, name] : list;
     return { ...cur, [kind]: next };
+  });
+  const toggleCustomFeatAbil = (a: AbilityKey) => setCustomFeatAbil((cur) => {
+    if (cur[a]) { const { [a]: _drop, ...rest } = cur; return rest; }
+    if (!customFeatChoice || Object.keys(cur).length >= customFeatChoice.count) return cur;
+    return { ...cur, [a]: customFeatChoice.amount };
   });
 
   function switchMethod(m: Method) {
@@ -192,6 +209,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
           backgroundSkills: customBgSkills,
           originFeat: customFeat || undefined,
           tools: customTool.trim() ? [customTool.trim()] : undefined,
+          ...(customFeatChoice && Object.keys(customFeatAbil).length ? { featAbilities: customFeatAbil } : {}),
         } : {}),
       });
       if (level > 1) setGuide({ id: sheet.id, classList: sheet.classList, target: level });
@@ -360,6 +378,18 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
                 </select>
               </label>
             </div>
+            {customFeatChoice && (
+              <div style={{ marginTop: 8 }}>
+                <p className="muted small" style={{ margin: "0 0 4px" }}>Media dote: elige {customFeatChoice.count === 1 ? "una característica" : `${customFeatChoice.count} características`} para +{customFeatChoice.amount} ({Object.keys(customFeatAbil).length}/{customFeatChoice.count}):</p>
+                <div className="chips">
+                  {customFeatChoice.from.map((a) => {
+                    const key = a as AbilityKey;
+                    const on = !!customFeatAbil[key];
+                    return <button type="button" key={a} className={`chip${on ? " removable" : ""}`} onClick={() => toggleCustomFeatAbil(key)}>{on ? "✓ " : ""}{ABILITY_LABEL[key] ?? a.toUpperCase()} +{customFeatChoice.amount}</button>;
+                  })}
+                </div>
+              </div>
+            )}
           </fieldset>
         )}
 

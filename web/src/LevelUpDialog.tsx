@@ -32,6 +32,8 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   const [asiMode, setAsiMode] = useState<"asi" | "feat">("asi");
   const [asi, setAsi] = useState<Partial<Record<AbilityKey, number>>>({});
   const [feat, setFeat] = useState("");
+  const [featChoice, setFeatChoice] = useState<{ from: string[]; count: number; amount: number } | null>(null);
+  const [featAbil, setFeatAbil] = useState<Partial<Record<AbilityKey, number>>>({});
   const [mc, setMc] = useState<Mc | null>(null);
   const [mcSkills, setMcSkills] = useState<string[]>([]);
   const [choices, setChoices] = useState<LevelChoice[]>([]);
@@ -75,6 +77,15 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
     void api.classChoices(className, resultingLevel, effectiveSubclass || undefined).then((ch) => { setChoices(ch); setChosen({}); }).catch(() => setChoices([]));
   }, [className, resultingLevel, effectiveSubclass]);
 
+  // Media dote: si la dote elegida da "+1 a X o Y", cargamos la elección para pedir la característica.
+  useEffect(() => {
+    if (!feat) { setFeatChoice(null); setFeatAbil({}); return; }
+    void api.getEntry(feat).then((e) => {
+      const ac = (e.data as { abilityChoice?: { from: string[]; count: number; amount: number } }).abilityChoice ?? null;
+      setFeatChoice(ac); setFeatAbil({});
+    }).catch(() => { setFeatChoice(null); setFeatAbil({}); });
+  }, [feat]);
+
   // Rasgos que se ganan a este nivel (para que subir no se sienta vacío): clase + subclase.
   useEffect(() => {
     if (!className) { setClassData(null); return; }
@@ -91,6 +102,13 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
     const next = list.includes(name) ? list.filter((x) => x !== name) : list.length < max ? [...list, name] : list;
     return { ...cur, [kind]: next };
   });
+  // Media dote: elige hasta `count` características de `from`, cada una +`amount`.
+  const toggleFeatAbil = (a: AbilityKey) => setFeatAbil((cur) => {
+    if (cur[a]) { const { [a]: _drop, ...rest } = cur; return rest; }
+    if (!featChoice || Object.keys(cur).length >= featChoice.count) return cur;
+    return { ...cur, [a]: featChoice.amount };
+  });
+  const featChoiceComplete = !featChoice || Object.keys(featAbil).length === featChoice.count;
 
   const classOptions = useMemo(() => {
     const names = new Set(classList.map((c) => c.name));
@@ -121,7 +139,10 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
         hpRoll: hpMode === "roll" ? hpRoll : undefined,
       };
       if (grantsASI) {
-        if (asiMode === "feat") body["feat"] = feat || undefined;
+        if (asiMode === "feat") {
+          body["feat"] = feat || undefined;
+          if (featChoice && Object.keys(featAbil).length) body["featAbilities"] = featAbil;
+        }
         else {
           const inc = Object.fromEntries(Object.entries(asi).filter(([, v]) => v && v !== 0));
           if (Object.keys(inc).length) body["abilityIncreases"] = inc;
@@ -264,6 +285,22 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
                     {feats.map((f) => <option key={f.id} value={f.name}>{f.name}</option>)}
                   </select>
                   {selectedFeat?.preview && <p className="spell-desc">{selectedFeat.preview}</p>}
+                  {featChoice && (
+                    <div style={{ marginTop: 6 }}>
+                      <p className="muted small" style={{ margin: "0 0 4px" }}>Media dote: elige {featChoice.count === 1 ? "una característica" : `${featChoice.count} características`} para +{featChoice.amount} ({Object.keys(featAbil).length}/{featChoice.count}):</p>
+                      <div className="chips">
+                        {featChoice.from.map((a) => {
+                          const key = a as AbilityKey;
+                          const on = !!featAbil[key];
+                          return (
+                            <button type="button" key={a} className={`chip${on ? " removable" : ""}`} onClick={() => toggleFeatAbil(key)}>
+                              {on ? "✓ " : ""}{ABILITY_LABEL[key] ?? a.toUpperCase()} +{featChoice.amount}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </fieldset>
@@ -272,7 +309,7 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
           {error && <p className="error span2">⚠️ {error}</p>}
           <div className="span2 form-actions">
             <button className="btn" onClick={onClose}>Cancelar</button>
-            <button className="btn primary" disabled={busy} onClick={submit}>{busy ? "Subiendo…" : "Confirmar"}</button>
+            <button className="btn primary" disabled={busy || (grantsASI && asiMode === "feat" && !featChoiceComplete)} onClick={submit}>{busy ? "Subiendo…" : "Confirmar"}</button>
           </div>
         </div>
       </div>

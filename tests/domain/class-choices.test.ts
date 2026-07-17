@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { classChoicesAt, createCharacter, levelUp } from "../../src/domain/characters.js";
+import { classChoicesAt, createCharacter, grantFeat, levelUp } from "../../src/domain/characters.js";
 import { importPack, removePack } from "../../src/domain/content.js";
 import type { Abilities, Database } from "../../src/types.js";
 
@@ -13,6 +13,7 @@ beforeAll(async () => {
       { id: "optionalfeature:test-invocation", type: "optionalfeature", name: "Test Invocation", data: { featureType: ["EI"], summary: "Una invocación de prueba." } },
       { id: "optionalfeature:test-inv-lvl5", type: "optionalfeature", name: "Test Invocation L5", data: { featureType: ["EI"], prerequisite: "Nivel 5", summary: "Invocación que exige nivel 5." } },
       { id: "optionalfeature:test-maneuver", type: "optionalfeature", name: "Test Maneuver", data: { featureType: ["MV:B"], summary: "Una maniobra de prueba." } },
+      { id: "feat:test-half", type: "feat", name: "Test Half Feat", data: { category: "G", summary: "+1 a Fuerza o Destreza.", abilityChoice: { from: ["str", "dex"], count: 1, amount: 1 } } },
     ],
   });
 });
@@ -65,5 +66,22 @@ describe("elecciones de clase por nivel", () => {
     const c = createCharacter({ characters: [] } as Database,
       { name: "G2", className: "Fighter", level: 1, species: "Human", background: "Soldier", abilities: ABIL, options: ["Test Defense"] });
     expect(c.features.some((f) => f.name === "Test Defense")).toBe(true);
+  });
+
+  it("#3 media dote aplica la mejora de característica elegida al subir de nivel", () => {
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "H1", className: "Fighter", level: 3, species: "Human", background: "Soldier", abilities: ABIL });
+    const before = c.abilities.dex;
+    levelUp(c, { className: "Fighter", feat: "Test Half Feat", featAbilities: { dex: 1 } });
+    expect(c.abilities.dex).toBe(before + 1);
+    expect(c.abilities.str).toBe(ABIL.str); // no toca la que no eligió
+  });
+
+  it("#3 grantFeat (regalo) aplica también la media dote elegida", () => {
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "H2", className: "Fighter", level: 1, species: "Human", background: "Soldier", abilities: ABIL });
+    const before = c.abilities.str;
+    grantFeat(c, "Test Half Feat", "Regalo de campaña", { str: 1 });
+    expect(c.abilities.str).toBe(before + 1);
   });
 });

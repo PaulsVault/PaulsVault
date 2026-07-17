@@ -54,7 +54,7 @@ export const api = {
   deleteCharacter: (id: string) => req<unknown>(`/characters/${enc(id)}?confirm=true`, { method: "DELETE" }),
   levelUp: (id: string, body: Dict) => req<Dict>(`/characters/${enc(id)}/level-up`, { method: "POST", body: JSON.stringify(body) }),
   levelDown: (id: string, body: Dict = {}) => req<Dict>(`/characters/${enc(id)}/level-down`, { method: "POST", body: JSON.stringify(body) }),
-  grantFeat: (id: string, feat: string, source?: string) => req<Sheet>(`/characters/${enc(id)}/feats`, { method: "POST", body: JSON.stringify({ feat, source }) }),
+  grantFeat: (id: string, feat: string, source?: string, abilities?: Record<string, number>) => req<Sheet>(`/characters/${enc(id)}/feats`, { method: "POST", body: JSON.stringify({ feat, source, abilities }) }),
   multiclass: (className: string) => req<{ armor?: string[]; weapons?: string[]; tools?: string[]; skillCount?: number; skillOptions?: string[] }>(`/multiclass/${enc(className)}`),
   classChoices: (className: string, level: number, subclass?: string) => req<{ choices: LevelChoice[] }>(`/class-choices/${enc(className)}/${level}${subclass ? `?subclass=${enc(subclass)}` : ""}`).then((r) => r.choices),
 

@@ -292,11 +292,31 @@ if (want("spells")) {
 }
 
 // ─── Dotes ───
+// Mejora de característica de una dote: fija ({str:1}) y/o a elegir ({choose:{from,count,amount}}).
+// Las medias dotes 2024 (Slasher, Sentinel, Piercer…) dan "+1 a X o Y" → abilityChoice.
+function parseFeatAbility(ability) {
+  if (!Array.isArray(ability)) return {};
+  const fixed = {};
+  let choice;
+  for (const a of ability) {
+    if (!a || typeof a !== "object") continue;
+    if (a.choose && Array.isArray(a.choose.from)) {
+      choice = { from: a.choose.from, count: a.choose.count ?? 1, amount: a.choose.amount ?? 1 };
+    } else {
+      for (const [k, v] of Object.entries(a)) if (typeof v === "number") fixed[k] = (fixed[k] ?? 0) + v;
+    }
+  }
+  const out = {};
+  if (Object.keys(fixed).length) out.abilityBonus = fixed;
+  if (choice) out.abilityChoice = choice;
+  return out;
+}
 function convertFeat(ft) {
   return { id: slug(ft.name, "feat"), type: "feat", name: ft.name, data: {
     summary: text(ft.entries),
     category: ft.category,
     prerequisite: renderPrereq(ft.prerequisite),
+    ...parseFeatAbility(ft.ability),
     source: ft.source,
   } };
 }
