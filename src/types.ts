@@ -17,6 +17,7 @@ export interface FeatureUses {
   max: number;
   used: number;
   recharge: "short_rest" | "long_rest" | "dawn" | "manual";
+  perProficiencyBonus?: boolean; // usos = bono de competencia (Ancestría de Gigante del Goliath). max efectivo = PB actual.
 }
 
 export interface Feature {

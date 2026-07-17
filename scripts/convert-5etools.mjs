@@ -164,11 +164,14 @@ function extractAncestryChoices(r) {
     if (!e || !e.name || !Array.isArray(e.entries)) continue;
     const intro = e.entries.filter((x) => typeof x === "string").join(" ");
     if (!/\bchoose\b/i.test(intro)) continue;
+    // Rasgo usable X veces por descanso largo = bono de competencia (Ancestría de Gigante del Goliath).
+    const usesPb = /number of times equal to your .*Proficiency/i.test(intro);
+    const meta = usesPb ? { usesPb: true } : {};
     // Patrón 1: lista con items nombrados (Goliath, Aasimar…).
     const list = e.entries.find((x) => x && x.type === "list" && Array.isArray(x.items) && x.items.some((it) => it && it.name));
     if (list) {
       const options = list.items.filter((it) => it && it.name).map((it) => ({ name: deTag(it.name), description: text(it.entries) }));
-      if (options.length >= 2) { out.push({ trait: deTag(e.name), options }); seenTraits.add(e.name); continue; }
+      if (options.length >= 2) { out.push({ trait: deTag(e.name), ...meta, options }); seenTraits.add(e.name); continue; }
     }
     // Patrón 2: tabla (Dragonborn: Dragón → Tipo de daño).
     const table = e.entries.find((x) => x && x.type === "table" && Array.isArray(x.rows));
@@ -178,7 +181,7 @@ function extractAncestryChoices(r) {
         const cells = (Array.isArray(row) ? row : [row]).map((c) => deTag(typeof c === "string" ? c : (c?.roll ? "" : JSON.stringify(c))));
         return { name: cells[0], description: cells.slice(1).map((c, i) => `${labels[i + 1] ? labels[i + 1] + ": " : ""}${c}`).filter(Boolean).join(", ") };
       }).filter((o) => o.name);
-      if (options.length >= 2) { out.push({ trait: deTag(e.name), options }); seenTraits.add(e.name); continue; }
+      if (options.length >= 2) { out.push({ trait: deTag(e.name), ...meta, options }); seenTraits.add(e.name); continue; }
     }
   }
   // Patrón 3: _versions (linajes/legados) solo si aún no capturamos un linaje/legado por lista/tabla.

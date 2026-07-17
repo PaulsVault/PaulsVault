@@ -1,6 +1,7 @@
 // Hoja calculada para la API: computedSheet base + valores finales con modificadores activos,
 // más desgloses de cálculo (de dónde sale cada número), armas equipadas y trucos (para tirar desde la hoja).
 import { ABILITIES, SKILLS, computedSheet, saveBonus, skillBonus, totalLevel } from "../rules.js";
+import { effectiveFeatureMax } from "../domain/combat.js";
 import { computeActiveModifiers } from "../domain/modifiers.js";
 import { armorPenalty, isProficientWithItem } from "../domain/proficiency.js";
 import { scaleCantripDamage, spellMechanics } from "../domain/spells.js";
@@ -57,7 +58,10 @@ export function characterSheet(c: Character): Record<string, unknown> {
     });
 
   const classList = c.classes.map((cl) => ({ name: cl.name, subclass: cl.subclass ?? null, level: cl.level }));
-  const features = c.features.map((f) => ({ name: f.name, source: f.source, description: f.description ?? describe(f.name, f.source) }));
+  const features = c.features.map((f) => ({
+    name: f.name, source: f.source, description: f.description ?? describe(f.name, f.source),
+    uses: f.uses ? { used: f.uses.used, max: effectiveFeatureMax(c, f), recharge: f.uses.recharge } : undefined,
+  }));
 
   // Rasgos raciales de la especie (del contenido) para la sección de información.
   const speciesTraits = (findEntry(c.species, "species")?.data["traits"] as string[] | undefined) ?? [];

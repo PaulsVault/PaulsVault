@@ -4,10 +4,26 @@
 import { findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
 import { rechargeItemsOnRest } from "./inventory.js";
-import { abilityMod, newId } from "../rules.js";
-import type { ActiveCondition, Character, Companion } from "../types.js";
+import { abilityMod, newId, proficiencyBonus, totalLevel } from "../rules.js";
+import type { ActiveCondition, Character, Companion, Feature } from "../types.js";
 
 const INCAPACITATING = ["incapacitated", "paralyzed", "petrified", "stunned", "unconscious"];
+
+/** Máximo efectivo de usos de un rasgo (PB actual si sus usos son "= bono de competencia"). */
+export function effectiveFeatureMax(c: Character, f: Feature): number {
+  if (!f.uses) return 0;
+  return f.uses.perProficiencyBonus ? proficiencyBonus(totalLevel(c)) : f.uses.max;
+}
+
+/** Gasta (delta +1) o restaura (delta -1) un uso de un rasgo con cargas; respeta 0..máximo. */
+export function adjustFeatureUse(c: Character, featureName: string, delta: number): Feature {
+  const f = c.features.find((x) => x.name.toLowerCase() === featureName.toLowerCase());
+  if (!f?.uses) throw new DomainError("not_found", `El rasgo "${featureName}" no tiene cargas.`);
+  const max = effectiveFeatureMax(c, f);
+  f.uses.used = Math.max(0, Math.min(max, f.uses.used + delta));
+  c.updatedAt = new Date().toISOString();
+  return f;
+}
 
 /** Rompe la concentración del personaje (si la hay) y elimina su efecto. Devuelve el nombre roto o "". */
 export function breakConcentration(c: Character): string {

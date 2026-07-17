@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { api } from "./api";
 import { FeatureDesc } from "./FeatureDesc";
 import { ABILITIES, ABILITY_LABEL, type AbilityKey, type Sheet } from "./types";
 
@@ -14,10 +15,20 @@ const modeBadge = (mode: string) => (mode === "advantage" ? "▲ ventaja" : mode
 
 export interface RollReq { type: string; target?: string; label: string; critical?: boolean; faces?: number; damageExpr?: string; damageType?: string; }
 
-export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r: RollReq) => void }) {
+export function CharacterSheet({ sheet: s, onRoll, id, reload }: { sheet: Sheet; onRoll: (r: RollReq) => void; id: string; reload: () => Promise<void> }) {
   const m = s.modifiers;
   const [showFeatures, setShowFeatures] = useState(false);
+  const [busyUse, setBusyUse] = useState(false);
   const dmgFaces = (dmg: string | null) => { const x = dmg?.match(/d(\d+)/); return x ? Number(x[1]) : undefined; };
+
+  // Rasgos con cargas (Ancestría del Goliath, dotes con usos…): gastar/restaurar un uso.
+  const usableFeatures = s.features.filter((f) => f.uses && f.uses.max > 0);
+  const RECHARGE_LABEL: Record<string, string> = { short_rest: "descanso corto", long_rest: "descanso largo", dawn: "amanecer", manual: "manual" };
+  async function useFeature(name: string, delta: number) {
+    setBusyUse(true);
+    try { await api.featureUse(id, name, delta); await reload(); }
+    finally { setBusyUse(false); }
+  }
 
   // Detalles de cálculo, mostrados al pasar el cursor (hover), no siempre visibles.
   const acDetail = s.acFormula + (m.ac.sources.length ? " · " + m.ac.sources.join(", ") : "");
@@ -51,6 +62,33 @@ export function CharacterSheet({ sheet: s, onRoll }: { sheet: Sheet; onRoll: (r:
             ))}
           </div>
         </section>
+
+        {usableFeatures.length > 0 && (
+          <section className="panel">
+            <h2>⚡ Rasgos usables (cargas)</h2>
+            <ul className="line-list">
+              {usableFeatures.map((f) => {
+                const u = f.uses!;
+                const left = u.max - u.used;
+                return (
+                  <li key={`${f.name}-${f.source}`} style={{ display: "block" }}>
+                    <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
+                      <b>{f.name}</b>
+                      <span className="row" style={{ gap: 6, alignItems: "center" }}>
+                        <span title={`Se recarga en: ${RECHARGE_LABEL[u.recharge] ?? u.recharge}`}>
+                          {"●".repeat(left)}{"○".repeat(u.used)} <span className="muted small">{left}/{u.max}</span>
+                        </span>
+                        <button className="icon-btn" title="Gastar un uso" disabled={busyUse || left <= 0} onClick={() => useFeature(f.name, 1)}>−</button>
+                        <button className="icon-btn" title="Restaurar un uso" disabled={busyUse || u.used <= 0} onClick={() => useFeature(f.name, -1)}>＋</button>
+                      </span>
+                    </div>
+                    <p className="muted small" style={{ margin: "2px 0 0" }}>Recarga: {RECHARGE_LABEL[u.recharge] ?? u.recharge}. {f.source}</p>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
 
         {s.features.length > 0 && (
           <section className="panel">

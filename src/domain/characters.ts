@@ -8,7 +8,7 @@ import { multiclassProficiencies, type MulticlassProfs } from "./proficiency.js"
 import { reconcileGrantedSpells } from "./spells.js";
 import {
   abilityMod, computedSheet, effectiveCasterLevel, newId,
-  slotsForCasterLevel, totalLevel,
+  proficiencyBonus, slotsForCasterLevel, totalLevel,
 } from "../rules.js";
 import type {
   AbilityKey, Abilities, Character, ClassLevel, Database, FeatureUses, JournalEntry, Personality,
@@ -290,11 +290,14 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
   // Ascendencia/linaje de la especie elegido (Giant Ancestry del Goliath, linaje del Elfo…) como rasgo.
   if (input.ancestryChoices) {
     const speciesData = findEntry(input.species, "species")?.data as Record<string, unknown> | undefined;
-    const choices = (speciesData?.["ancestryChoices"] as { trait: string; options: { name: string; description: string; speed?: number }[] }[] | undefined) ?? [];
+    const choices = (speciesData?.["ancestryChoices"] as { trait: string; usesPb?: boolean; options: { name: string; description: string; speed?: number }[] }[] | undefined) ?? [];
     for (const [trait, optName] of Object.entries(input.ancestryChoices)) {
-      const opt = choices.find((ch) => ch.trait === trait)?.options.find((o) => o.name === optName);
+      const ch = choices.find((x) => x.trait === trait);
+      const opt = ch?.options.find((o) => o.name === optName);
       if (opt) {
-        c.features.push({ name: `${trait}: ${opt.name}`, source: "Especie (ascendencia)", description: opt.description || undefined });
+        // Rasgo usable con cargas = bono de competencia por descanso largo (Ancestría de Gigante del Goliath).
+        const uses = ch?.usesPb ? { max: proficiencyBonus(level), used: 0, recharge: "long_rest" as const, perProficiencyBonus: true } : undefined;
+        c.features.push({ name: `${trait}: ${opt.name}`, source: "Especie (ascendencia)", description: opt.description || undefined, uses });
         // El linaje puede subir la velocidad base (Wood Elf → 35 ft).
         if (typeof opt.speed === "number" && opt.speed > c.speed) c.speed = opt.speed;
       }

@@ -160,6 +160,10 @@ export function buildApp(): Express {
     res.json({ className: r.className, classLevel: r.classLevel, levelTotal: r.levelTotal, hpLost: r.hpLost, classRemoved: r.classRemoved, sheet: characterSheet(r.character) });
   });
 
+  // Gastar/restaurar un uso de un rasgo con cargas (Ancestría del Goliath, dotes con usos…). delta ±1.
+  app.post("/api/characters/:id/feature-use", async (req, res) =>
+    res.json(characterSheet(await onCharacter(req.params.id, (c) => { combat.adjustFeatureUse(c, String(req.body?.feature ?? ""), Number(req.body?.delta ?? 1)); return c; }))));
+
   // Otorgar una dote en cualquier momento (regalo/buff de campaña). abilities: media dote elegida.
   app.post("/api/characters/:id/feats", async (req, res) =>
     res.json(characterSheet(await onCharacter(req.params.id, (c) => chars.grantFeat(c, String(req.body?.feat ?? ""), req.body?.source ? String(req.body.source) : undefined, req.body?.abilities as Record<string, number> | undefined)))));

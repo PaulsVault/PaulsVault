@@ -138,7 +138,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
       </nav>
 
       <div className="tab-body">
-        {tab === "Hoja" && <CharacterSheet sheet={s} onRoll={doRoll} />}
+        {tab === "Hoja" && <CharacterSheet sheet={s} onRoll={doRoll} id={id} reload={reload} />}
         {tab === "Info" && <InfoPanel id={id} sheet={s} reload={reload} />}
         {tab === "Combate" && <CombatPanel id={id} sheet={s} reload={reload} />}
         {tab === "Conjuros" && hasSpells && <SpellsPanel id={id} sheet={s} reload={reload} />}

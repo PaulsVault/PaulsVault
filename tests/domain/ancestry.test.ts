@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createCharacter } from "../../src/domain/characters.js";
+import { adjustFeatureUse } from "../../src/domain/combat.js";
 import { importPack, removePack } from "../../src/domain/content.js";
 import type { Abilities, Database } from "../../src/types.js";
 
@@ -10,7 +11,7 @@ beforeAll(async () => {
     id: "test-ancestry", name: "ancestria test", version: "1.0.0", source: "test", entries: [
       { id: "species:goliath-test", type: "species", name: "Goliath Test", data: {
         size: "Medium", speed: 35, traits: [],
-        ancestryChoices: [{ trait: "Giant Ancestry", options: [
+        ancestryChoices: [{ trait: "Giant Ancestry", usesPb: true, options: [
           { name: "Fire's Burn", description: "1d10 de fuego al golpear." },
           { name: "Stone's Endurance", description: "Reacción para reducir daño." },
         ] }],
@@ -59,6 +60,25 @@ describe("ascendencia/linaje de especie", () => {
       abilities: ABIL, ancestryChoices: { "Elven Lineage": "High Elf" },
     });
     expect(high.speed).toBe(30); // el linaje sin bonus no cambia la velocidad
+  });
+
+  it("#9 la ancestría del Goliath es usable con cargas = bono de competencia (descanso largo)", () => {
+    const c = createCharacter({ characters: [] } as Database, {
+      name: "Gol" + Math.random(), className: "Barbarian", level: 5, species: "Goliath Test", background: "Soldier",
+      abilities: ABIL, ancestryChoices: { "Giant Ancestry": "Fire's Burn" },
+    });
+    const f = c.features.find((x) => x.name === "Giant Ancestry: Fire's Burn")!;
+    expect(f.uses).toBeDefined();
+    expect(f.uses!.perProficiencyBonus).toBe(true);
+    expect(f.uses!.max).toBe(3); // nivel 5 → PB 3
+    expect(f.uses!.used).toBe(0);
+    // Gastar y restaurar usos, respetando el máximo (PB).
+    adjustFeatureUse(c, "Giant Ancestry: Fire's Burn", 1);
+    expect(f.uses!.used).toBe(1);
+    adjustFeatureUse(c, "Giant Ancestry: Fire's Burn", 5); // no pasa del máximo
+    expect(f.uses!.used).toBe(3);
+    adjustFeatureUse(c, "Giant Ancestry: Fire's Burn", -10); // no baja de 0
+    expect(f.uses!.used).toBe(0);
   });
 
   it("#11 aplica habilidad de especie y dote de origen elegidas (estilo Human)", () => {
