@@ -490,20 +490,77 @@ function convertItem(it) {
     source: it.source,
   } };
 }
+// Tipo de objeto (y base a la que se aplica) de una variante mágica, según sus filtros `requires`.
+function variantItemType(requires) {
+  const flat = Object.assign({}, ...(requires ?? []));
+  if (flat.armor) return { itemType: "armor", baseNote: "una armadura" };
+  if (flat.sword) return { itemType: "weapon", baseNote: "una espada" };
+  if (flat.bow || flat.crossbow) return { itemType: "weapon", baseNote: "un arma a distancia" };
+  if (flat.axe) return { itemType: "weapon", baseNote: "un hacha" };
+  if (flat.spear || flat.polearm) return { itemType: "weapon", baseNote: "un arma de asta" };
+  if (flat.weapon || flat.weaponCategory || flat.property) return { itemType: "weapon", baseNote: "un arma" };
+  if (flat.arrow || flat.bolt) return { itemType: "ammunition", baseNote: "munición" };
+  if (flat.type) return { itemType: ITEM_TYPE[stripSrc(flat.type)] ?? "wondrous", baseNote: null };
+  return { itemType: "wondrous", baseNote: null };
+}
+// Variantes mágicas genéricas (Nine Lives Stealer, Flame Tongue, Vicious…): en 5etools se aplican a
+// un arma/armadura base. Convertimos solo las reimpresas en XDMG 2024, como UN objeto usable por variante
+// (el daño y la categoría los aporta el arma base que elija el jugador).
+function convertMagicVariant(mv) {
+  const inh = mv.inherits ?? {};
+  const reprint = (inh.reprintedAs ?? []).find((r) => /\|XDMG$/i.test(r));
+  if (!reprint) return null; // solo el material 2024
+  const name = stripSrc(reprint);
+  const { itemType, baseNote } = variantItemType(mv.requires);
+  const bonus = inh.bonusWeapon ?? inh.bonusAc ?? inh.bonusWeaponAttack;
+  const magicBonus = bonus ? Number(String(bonus).replace(/[^\d-]/g, "")) || undefined : undefined;
+  const head = [];
+  if (inh.rarity && inh.rarity !== "none") head.push(`Rareza: ${inh.rarity}.`);
+  if (inh.reqAttune) head.push(typeof inh.reqAttune === "string" ? `Requiere sintonización ${inh.reqAttune}.` : "Requiere sintonización.");
+  if (baseNote) {
+    const keep = itemType === "armor" || itemType === "shield" ? "conserva la CA y las propiedades de la base" : "conserva el daño y la categoría del arma base";
+    head.push(`Se aplica a ${baseNote} (${keep}).`);
+  }
+  if (inh.charges != null) head.push(`Cargas: ${deTag(String(inh.charges))}.`);
+  if (inh.resist) head.push(`Resistencia: ${(Array.isArray(inh.resist) ? inh.resist : [inh.resist]).map(stripSrc).join(", ")}.`);
+  // 5etools usa plantillas {=campo} en el texto de la variante (p.ej. {=bonusAc} → "+1"): las resolvemos con los valores heredados.
+  const body = text(inh.entries).replace(/\{=(\w+)[^}]*\}/g, (_, k) => String(inh[k] ?? ""));
+  const description = [head.join(" "), body].filter(Boolean).join(" ") || undefined;
+  // Conjuros con coste en cargas, si la variante los otorga.
+  let spells;
+  if (inh.attachedSpells?.charges) {
+    spells = [];
+    for (const [cost, list] of Object.entries(inh.attachedSpells.charges)) {
+      for (const s of list) spells.push({ cost: Number(cost), name: titleCase(stripSrc(s)) });
+    }
+  }
+  return { id: slug(name, "item"), type: "item", name, data: {
+    itemType,
+    requiresAttunement: !!inh.reqAttune,
+    magicBonus,
+    rarity: inh.rarity && inh.rarity !== "none" ? inh.rarity : undefined,
+    spells,
+    isVariant: true, // se aplica a un arma/armadura base
+    description,
+    source: "XDMG",
+  } };
+}
 if (want("items")) {
   const entries = [];
   const seen = new Set();
+  const addEntry = (e) => { if (e && !seen.has(e.id)) { seen.add(e.id); entries.push(e); } };
   const add = (arr) => {
     for (const it of arr ?? []) {
       if (!SOURCES_2024.has(it.source) || it._copy) continue;
-      const e = convertItem(it);
-      if (seen.has(e.id)) continue;
-      seen.add(e.id);
-      entries.push(e);
+      addEntry(convertItem(it));
     }
   };
   add(readJson(path.join(DATA_DIR, "items-base.json")).baseitem);
   add(readJson(path.join(DATA_DIR, "items.json")).item);
+  // Variantes mágicas 2024 (armas/armaduras genéricas reimpresas en XDMG).
+  for (const mv of readJson(path.join(DATA_DIR, "magicvariants.json")).magicvariant ?? []) {
+    addEntry(convertMagicVariant(mv));
+  }
   entries.sort((a, b) => a.name.localeCompare(b.name));
   writePack("dnd2024-items", "D&D 2024 — Objetos y equipo", "D&D 2024 (uso privado; © Wizards of the Coast)", entries);
 }
