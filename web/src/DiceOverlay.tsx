@@ -3,6 +3,7 @@ import { DiceRoll, type RollView } from "./DiceRoll";
 import { Dice3D, type Roll3D } from "./Dice3D";
 import { type Die } from "./diceEngine";
 import { dice3dEnabled } from "./theme";
+import { playDiceSound } from "./diceSound";
 import { setRollListener, type PresentRoll } from "./rollPresenter";
 
 // Se monta UNA sola vez (en CharacterView). Escucha las tiradas de todos los paneles y muestra
@@ -13,6 +14,7 @@ export function DiceOverlay({ themeColor, material = "none" }: { themeColor: str
 
   useEffect(() => {
     setRollListener((r: PresentRoll) => {
+      playDiceSound(r.profile ?? "normal"); // sonido de dados (respeta el toggle)
       const dice: Die[] = r.dice3d && r.dice3d.length
         ? r.dice3d
         : (r.natural != null ? [{ sides: 20, value: r.natural }] : []);

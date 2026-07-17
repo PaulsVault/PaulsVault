@@ -24,3 +24,11 @@ export function dice3dEnabled(): boolean {
 export function setDice3d(on: boolean): void {
   localStorage.setItem("dnd-dice3d", on ? "on" : "off");
 }
+
+// ─── Sonido de los dados (por defecto encendido; se sintetiza con WebAudio, sin archivos) ───
+export function diceSoundEnabled(): boolean {
+  return localStorage.getItem("dnd-dice-sound") !== "off";
+}
+export function setDiceSound(on: boolean): void {
+  localStorage.setItem("dnd-dice-sound", on ? "on" : "off");
+}

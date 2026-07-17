@@ -494,3 +494,41 @@ body {
 :root[data-theme="light"] .auth-card { background: #ffffff; border-color: var(--gold-2); box-shadow: 0 10px 44px rgba(0,0,0,.14); }
 :root[data-theme="light"] .auth-brand { color: var(--gold-2); text-shadow: none; }
 :root[data-theme="light"] .auth-tagline { color: var(--muted); }
+
+/* ─── Hoja imprimible (PDF) ─── */
+.print-root { position: fixed; inset: 0; z-index: 3000; background: #6b6b6b; overflow: auto; padding: 20px 0 60px; }
+.ps-toolbar { position: sticky; top: 0; z-index: 1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+  justify-content: center; padding: 10px; background: #2a2a2a; margin: -20px 0 20px; }
+.ps-sheet { max-width: 820px; margin: 0 auto; background: #fff; color: #111; padding: 26px 30px; border-radius: 4px;
+  box-shadow: 0 8px 40px rgba(0,0,0,.5); font-family: Georgia, "Times New Roman", serif; }
+.ps-head { border-bottom: 3px double #111; padding-bottom: 8px; margin-bottom: 12px; }
+.ps-head h1 { margin: 0; font-size: 30px; letter-spacing: .5px; }
+.ps-head p { margin: 2px 0; font-size: 14px; }
+.ps-sub { color: #444; }
+.ps-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 14px; }
+.ps-box { border: 2px solid #111; border-radius: 6px; padding: 6px 4px; text-align: center; display: flex; flex-direction: column; }
+.ps-box-l { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #333; }
+.ps-box-v { font-size: 20px; line-height: 1.1; }
+.ps-box-s { font-size: 10px; color: #555; }
+.ps-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+.ps-col { display: flex; flex-direction: column; gap: 12px; }
+.ps-card { border: 1px solid #999; border-radius: 6px; padding: 8px 10px; break-inside: avoid; }
+.ps-card.ps-wide { margin-top: 14px; }
+.ps-card h2 { font-size: 13px; margin: 0 0 6px; border-bottom: 1px solid #ccc; padding-bottom: 3px; text-transform: uppercase; letter-spacing: .3px; }
+.ps-line { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; padding: 1px 0; border-bottom: 1px dotted #ddd; }
+.ps-feat { font-size: 12px; margin: 3px 0; }
+.ps-spell-line { font-size: 12px; margin: 3px 0; }
+.ps-slots { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 6px; }
+.ps-slot { font-size: 12px; border: 1px solid #999; border-radius: 10px; padding: 1px 8px; }
+.ps-muted { color: #777; font-size: 11px; }
+.ps-card p { font-size: 12px; margin: 3px 0; }
+
+@media print {
+  body { background: #fff !important; }
+  body * { visibility: hidden; }
+  .print-root, .print-root * { visibility: visible; }
+  .print-root { position: absolute; inset: 0; background: #fff; padding: 0; overflow: visible; }
+  .ps-sheet { box-shadow: none; max-width: none; margin: 0; padding: 0 6mm; border-radius: 0; }
+  .no-print { display: none !important; }
+  .ps-card, .ps-stats, .ps-head { break-inside: avoid; }
+}

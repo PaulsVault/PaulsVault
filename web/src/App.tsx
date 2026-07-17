@@ -8,6 +8,7 @@ import { InvitesPanel } from "./InvitesPanel";
 import { DMView } from "./dm/DMView";
 import { ThemeToggle } from "./ThemeToggle";
 import { Dice3DToggle } from "./Dice3DToggle";
+import { DiceSoundToggle } from "./DiceSoundToggle";
 
 type View = { name: "library" } | { name: "sheet"; id: string } | { name: "content" } | { name: "invites" } | { name: "dm" };
 
@@ -40,6 +41,7 @@ export function App() {
         {isAdmin && <button className={`tab${view.name === "invites" ? " active" : ""}`} onClick={() => setView({ name: "invites" })}>Invitaciones</button>}
         <span className="topbar-user">{user.email}</span>
         <Dice3DToggle />
+        <DiceSoundToggle />
         <ThemeToggle />
         <button className="btn small" onClick={logout}>Salir</button>
       </header>

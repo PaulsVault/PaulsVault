@@ -14,6 +14,7 @@ import { CombatPanel } from "./panels/CombatPanel";
 import { InfoPanel } from "./panels/InfoPanel";
 import { SpellsPanel } from "./panels/SpellsPanel";
 import { WildShapePanel } from "./panels/WildShapePanel";
+import { PrintSheet } from "./PrintSheet";
 import { InventoryPanel } from "./panels/InventoryPanel";
 import { CompanionsPanel } from "./panels/CompanionsPanel";
 import { DiceTray } from "./panels/DiceTray";
@@ -28,6 +29,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("Hoja");
   const [levelUp, setLevelUp] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   useEffect(() => { if (dice3dEnabled()) preloadDice3D("#7c5cff"); }, []);
 
@@ -103,6 +105,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
         <div className="row wrap">
           <button className="btn small" onClick={() => setLevelUp(true)}>⬆ Subir nivel</button>
           <button className="btn small" onClick={doLevelDown}>⬇ Bajar nivel</button>
+          <button className="btn small primary" onClick={() => setPrinting(true)} title="Hoja imprimible / guardar como PDF">🖨️ PDF</button>
           <button className="btn small" onClick={exportJson} title="Exportar JSON">⬇ JSON</button>
           <button className="btn small" onClick={exportMd} title="Exportar hoja Markdown">⬇ MD</button>
           <button className="btn small" onClick={exportPackage} title="Paquete .dndchar autocontenido">⬇ .dndchar</button>
@@ -112,6 +115,8 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
       {levelUp && (
         <LevelUpDialog id={id} classList={s.classList} onClose={() => setLevelUp(false)} onDone={() => { setLevelUp(false); void reload(); }} />
       )}
+
+      {printing && <PrintSheet id={id} sheet={s} onClose={() => setPrinting(false)} />}
 
       <DiceOverlay themeColor={diceColor} material={diceMaterial} />
 
