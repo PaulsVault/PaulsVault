@@ -76,6 +76,7 @@ export interface LevelUpInput {
   featAbilities?: Partial<Abilities>; // media dote: mejora de característica elegida (Slasher/Sentinel…)
   skills?: string[]; // habilidad(es) elegidas al multiclasear (clases que la conceden)
   options?: string[]; // elecciones de clase (estilo de combate, invocaciones, metamagia…)
+  resistances?: string[]; // tipo(s) de daño elegidos (afinidad dracónica): concede resistencia
 }
 
 export interface LevelUpResult {
@@ -401,7 +402,9 @@ export { multiclassProficiencies };
 export type { MulticlassProfs };
 
 // ─── Elecciones de clase por nivel (estilo de combate, invocaciones, metamagia…) ───
-interface ChoiceDef { kind: string; label: string; count: number; source: "feat" | "optionalfeature"; match: string; note?: string; }
+interface ChoiceDef { kind: string; label: string; count: number; source: "feat" | "optionalfeature" | "literal"; match: string; note?: string; literalOptions?: ChoiceOption[]; }
+// Tipos de daño de la Afinidad Elemental del Hechicero Dracónico (2024).
+const DRACONIC_DAMAGE: ChoiceOption[] = ["Ácido", "Frío", "Fuego", "Relámpago", "Veneno"].map((name) => ({ name }));
 export interface ChoiceOption { name: string; summary?: string; prerequisite?: string; }
 export interface LevelChoice { kind: string; label: string; count: number; note?: string; options: ChoiceOption[]; }
 
@@ -424,6 +427,10 @@ const SUBCLASS_CHOICE_DEFS: Record<string, (level: number) => ChoiceDef[]> = {
       ? [{ kind: "maneuver", label: "Maniobras (Maestro de Batalla)", count: perLevel[l], source: "optionalfeature", match: "MV:B", note: "Elige las maniobras que aprendes a este nivel." }]
       : [];
   },
+  // Hechicero Dracónico: Afinidad Elemental (nivel 6) — elige el tipo de daño con el que tienes resistencia.
+  "draconic sorcery": (l) => (l === 6
+    ? [{ kind: "resistance", label: "Afinidad elemental (tipo de dragón)", count: 1, source: "literal", match: "", literalOptions: DRACONIC_DAMAGE, note: "Ganas resistencia a ese tipo de daño y sumas tu mod. de Carisma al daño de ese tipo." }]
+    : []),
 };
 
 /** Nivel mínimo exigido por el prerequisito ("Nivel 5" → 5), o 0 si no exige nivel. */
@@ -454,7 +461,7 @@ export function classChoicesAt(className: string, level: number, subclass?: stri
     ...(CHOICE_DEFS[className.toLowerCase()]?.(level) ?? []),
     ...(subclass ? SUBCLASS_CHOICE_DEFS[subclass.toLowerCase()]?.(level) ?? [] : []),
   ];
-  return defs.map((d) => ({ kind: d.kind, label: d.label, count: d.count, note: d.note, options: resolveOptions(d, level) }));
+  return defs.map((d) => ({ kind: d.kind, label: d.label, count: d.count, note: d.note, options: d.source === "literal" ? (d.literalOptions ?? []) : resolveOptions(d, level) }));
 }
 
 export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
@@ -494,6 +501,17 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
       if (c.features.some((f) => f.name === name)) continue;
       const entry = findEntry(name);
       c.features.push({ name, source: `${cls.name} nivel ${cls.level}`, description: (entry?.data["summary"] as string | undefined) });
+    }
+  }
+
+  // Resistencias elegidas (Afinidad Elemental del Hechicero Dracónico): resistencia + rasgo con nombre claro.
+  if (input.resistances?.length) {
+    c.resistances = [...new Set([...(c.resistances ?? []), ...input.resistances])];
+    for (const dmg of input.resistances) {
+      const fname = `Afinidad elemental (${dmg})`;
+      if (!c.features.some((f) => f.name === fname)) {
+        c.features.push({ name: fname, source: `${cls.name} nivel ${cls.level}`, description: `Resistencia a daño de tipo ${dmg}; sumas tu mod. de Carisma al daño de ese tipo.` });
+      }
     }
   }
 

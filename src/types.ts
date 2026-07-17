@@ -173,6 +173,7 @@ export interface Character {
     armor: string[];
   };
   features: Feature[];
+  resistances?: string[];      // tipos de daño con resistencia (afinidad dracónica, etc.)
   inventory: InventoryItem[];
   currency: Currency;
   spellcasting: Spellcasting;

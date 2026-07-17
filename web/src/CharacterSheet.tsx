@@ -90,6 +90,15 @@ export function CharacterSheet({ sheet: s, onRoll, id, reload }: { sheet: Sheet;
           </section>
         )}
 
+        {s.resistances && s.resistances.length > 0 && (
+          <section className="panel">
+            <h2>🛡️ Resistencias a daño</h2>
+            <div className="chips">
+              {s.resistances.map((r) => <span key={r} className="chip">{r}</span>)}
+            </div>
+          </section>
+        )}
+
         {s.features.length > 0 && (
           <section className="panel">
             <h2 className="collapse-h" onClick={() => setShowFeatures((v) => !v)} title="Mostrar/ocultar">

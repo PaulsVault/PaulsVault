@@ -149,8 +149,11 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
         }
       }
       if (isMulticlass && mc?.skillCount && mcSkills.length) body["skills"] = mcSkills;
-      const opts = Object.values(chosen).flat();
+      // Las resistencias (afinidad dracónica) van en su propio campo; el resto son "options".
+      const { resistance: resChosen, ...optChosen } = chosen;
+      const opts = Object.values(optChosen).flat();
       if (opts.length) body["options"] = opts;
+      if (resChosen?.length) body["resistances"] = resChosen;
       await api.levelUp(id, body);
       onDone();
     } catch (e) { setError((e as Error).message); setBusy(false); }

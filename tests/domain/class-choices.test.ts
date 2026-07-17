@@ -51,6 +51,19 @@ describe("elecciones de clase por nivel", () => {
     expect(man!.options.some((o) => o.name === "Test Maneuver")).toBe(true);
   });
 
+  it("#14 el Hechicero Dracónico elige tipo de daño (afinidad elemental) a nivel 6", () => {
+    expect(classChoicesAt("Sorcerer", 6).some((c) => c.kind === "resistance")).toBe(false); // sin subclase
+    const res = classChoicesAt("Sorcerer", 6, "Draconic Sorcery").find((c) => c.kind === "resistance");
+    expect(res).toBeTruthy();
+    expect(res!.options.map((o) => o.name)).toContain("Fuego");
+    // Al aplicarla, el personaje gana la resistencia y un rasgo con nombre claro.
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "S" + Math.random(), className: "Sorcerer", level: 5, species: "Human", background: "Sage", abilities: ABIL });
+    levelUp(c, { className: "Sorcerer", subclass: "Draconic Sorcery", resistances: ["Fuego"] });
+    expect(c.resistances).toContain("Fuego");
+    expect(c.features.some((f) => f.name === "Afinidad elemental (Fuego)")).toBe(true);
+  });
+
   it("Wizard no ofrece elecciones de este tipo", () => {
     expect(classChoicesAt("Wizard", 2)).toHaveLength(0);
   });
