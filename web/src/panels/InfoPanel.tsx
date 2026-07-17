@@ -38,6 +38,9 @@ export function InfoPanel({ id, sheet: s, reload }: { id: string; sheet: Sheet; 
           <div><span className="muted small">Trasfondo</span><b>{s.background}</b></div>
           <div><span className="muted small">Alineación</span><b>{s.alignment ?? "—"}</b></div>
           <div><span className="muted small">Clases</span><b>{s.classList.map((c) => `${c.name}${c.subclass ? ` (${c.subclass})` : ""} ${c.level}`).join(" / ")}</b></div>
+          <div><span className="muted small">Velocidad</span><b>{s.speed} ft</b></div>
+          {s.languages && s.languages.length > 0 && <div><span className="muted small">Idiomas</span><b>{s.languages.join(", ")}</b></div>}
+          {s.tools && s.tools.length > 0 && <div><span className="muted small">Herramientas</span><b>{s.tools.join(", ")}</b></div>}
         </div>
         {s.backgroundDescription && <p className="cond-desc" style={{ marginTop: 10 }}>{s.backgroundDescription}</p>}
       </section>

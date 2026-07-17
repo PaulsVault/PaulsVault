@@ -86,6 +86,8 @@ export function characterSheet(c: Character): Record<string, unknown> {
     features,
     speciesTraits,
     backgroundDescription,
+    languages: c.proficiencies.languages,
+    tools: c.proficiencies.tools,
     personality: c.personality ?? {},
     journal,
     appearance: c.appearance ?? null,

@@ -22,6 +22,8 @@ const SKILL_LABEL: Record<string, string> = {
 };
 const ALL_SKILLS = Object.keys(SKILL_LABEL);
 const CUSTOM_BG = "__custom__"; // valor centinela para "trasfondo personalizado"
+const LANGUAGES = ["Dracónico", "Enano", "Élfico", "Gigante", "Gnómico", "Goblin", "Mediano", "Orco", "Abisal", "Celestial", "Infernal", "Primordial", "Silvano", "Infracomún", "Lengua de señas común"];
+const ALIGNMENTS = ["Legal bueno", "Neutral bueno", "Caótico bueno", "Legal neutral", "Neutral", "Caótico neutral", "Legal malvado", "Neutral malvado", "Caótico malvado"];
 
 type Method = "standard" | "pointbuy" | "roll" | "manual";
 interface BgData { abilities?: string[]; skills?: string[]; tool?: string; feat?: string; description?: string }
@@ -69,6 +71,10 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   // Especie: ascendencia/linaje a elegir
   const [speciesData, setSpeciesData] = useState<SpeciesData | null>(null);
   const [ancestry, setAncestry] = useState<Record<string, string>>({});
+
+  // Idiomas y alineación
+  const [alignment, setAlignment] = useState("");
+  const [languages, setLanguages] = useState<string[]>([]);
 
   // Creación guiada a nivel alto: tras crear a nivel 1, se sube nivel a nivel eligiendo todo.
   const [guide, setGuide] = useState<{ id: string; classList: ClassLine[]; target: number } | null>(null);
@@ -162,6 +168,8 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
         name, className, species: speciesName, level: 1,
         background: isCustomBg ? (customName.trim() || "Personalizado") : background,
         abilities: base, abilityBonuses, skills: chosenSkills,
+        alignment: alignment || undefined,
+        languages: languages.length ? languages : undefined,
         ...(ancestryList.length ? { ancestryChoices: ancestry } : {}),
         ...(isCustomBg ? {
           backgroundSkills: customBgSkills,
@@ -375,6 +383,24 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
             })}
           </fieldset>
         )}
+
+        {/* ── Idiomas y alineación ── */}
+        <fieldset className="abilities-input span2">
+          <legend>Idiomas y alineación</legend>
+          <label className="field"><span>Alineación</span>
+            <select value={alignment} onChange={(e) => setAlignment(e.target.value)}>
+              <option value="">— sin definir —</option>
+              {ALIGNMENTS.map((a) => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </label>
+          <p className="muted small span2" style={{ margin: "6px 0 0" }}>Idiomas (además de Común):</p>
+          <div className="chips span2">
+            {LANGUAGES.map((l) => {
+              const on = languages.includes(l);
+              return <button type="button" key={l} className={`chip${on ? " removable" : ""}`} onClick={() => setLanguages((c) => c.includes(l) ? c.filter((x) => x !== l) : [...c, l])}>{on ? "✓ " : ""}{l}</button>;
+            })}
+          </div>
+        </fieldset>
 
         {error && <p className="error span2">⚠️ {error}</p>}
         <div className="span2 form-actions">

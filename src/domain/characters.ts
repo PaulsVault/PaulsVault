@@ -30,6 +30,7 @@ export interface CreateCharacterInput {
   backgroundSkills?: string[];     // competencias de un trasfondo personalizado (elegidas a mano)
   originFeat?: string;             // dote de origen de un trasfondo personalizado
   ancestryChoices?: Record<string, string>; // ascendencia/linaje elegido por rasgo (trait → opción)
+  languages?: string[];            // idiomas del personaje (además de Común)
   alignment?: string;
   playerName?: string;
   appearance?: string;
@@ -206,7 +207,8 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
     throw new DomainError("conflict", `Ya existe un personaje llamado "${input.name}".`);
   }
   const level = input.level ?? 1;
-  const speed = input.speed ?? 30;
+  // Velocidad: la indicada, o la de la especie del contenido (Goliath 35, etc.), o 30.
+  const speed = input.speed ?? (findEntry(input.species, "species")?.data["speed"] as number | undefined) ?? 30;
   const def = classDefaults(input.className);
   // Aplica el bono de característica del trasfondo (+2/+1 en 2024) sobre las puntuaciones base.
   const abilities: Abilities = { ...input.abilities };
@@ -248,7 +250,7 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
       skills: input.skills ?? [],
       expertise: [],
       tools: input.tools ?? [],
-      languages: ["Common"],
+      languages: input.languages && input.languages.length ? [...new Set(["Common", ...input.languages])] : ["Common"],
       weapons: classWeapons,
       armor: classArmor,
     },
