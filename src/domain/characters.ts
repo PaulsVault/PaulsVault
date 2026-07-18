@@ -197,6 +197,39 @@ export function applyFeat(c: Character, featName: string, source: string, chosen
   if (tools?.length) c.proficiencies.tools = [...new Set([...c.proficiencies.tools, ...tools])];
 }
 
+/**
+ * PG máximos extra que otorgan dotes (Tough: +2/nivel), rasgos de especie (Dureza Enana: +1/nivel)
+ * y subclases (Resiliencia Dracónica: +1/nivel de clase). Función pura del estado actual; se usa para
+ * bakear los PG al crear y para ajustar por diferencia al subir/bajar de nivel u otorgar dotes.
+ */
+export function bonusHitPoints(c: Character): number {
+  let bonus = 0;
+  const charLevel = totalLevel(c);
+  const add = (data: Record<string, unknown> | undefined, level: number) => {
+    if (!data) return;
+    const per = data["hpPerLevel"];
+    const flat = data["hpFlat"];
+    if (typeof per === "number") bonus += per * level;
+    if (typeof flat === "number") bonus += flat;
+  };
+  // Dotes (por nivel de personaje). Los rasgos de clase/subclase/ancestría no coinciden con una dote.
+  for (const f of c.features) add(findEntry(f.name.replace(/\s*\(.*/, "").trim(), "feat")?.data as Record<string, unknown> | undefined, charLevel);
+  // Especie (por nivel de personaje).
+  add(findEntry(c.species, "species")?.data as Record<string, unknown> | undefined, charLevel);
+  // Subclase (por nivel de esa clase; solo existe desde que se elige, así el total sale correcto).
+  for (const cl of c.classes) if (cl.subclass) add(findEntry(cl.subclass, "subclass")?.data as Record<string, unknown> | undefined, cl.level);
+  return bonus;
+}
+
+/** Ajusta PG máx/actuales por el cambio en el bono de PG (dotes/rasgos/subclases) respecto a `before`. */
+function applyHpBonusDelta(c: Character, before: number): void {
+  const delta = bonusHitPoints(c) - before;
+  if (!delta) return;
+  c.hp.max = Math.max(1, c.hp.max + delta);
+  if (delta > 0) c.hp.current += delta;          // al subir el máximo, sube también el actual
+  c.hp.current = Math.max(0, Math.min(c.hp.current, c.hp.max));
+}
+
 /** Otorga una dote a un personaje EN CUALQUIER MOMENTO (regalo/buff de campaña), aplicando sus efectos. */
 export function grantFeat(c: Character, featName: string, source = "Regalo de campaña", chosenAbilities?: Partial<Abilities>): Character {
   const name = featName.trim();
@@ -204,7 +237,9 @@ export function grantFeat(c: Character, featName: string, source = "Regalo de ca
   if (c.features.some((f) => f.name.toLowerCase() === name.toLowerCase())) {
     throw new DomainError("conflict", `${c.name} ya tiene "${name}".`);
   }
+  const hpBefore = bonusHitPoints(c);
   applyFeat(c, findEntry(name.replace(/\s*\(.*/, "").trim(), "feat")?.name ?? name, source, chosenAbilities);
+  applyHpBonusDelta(c, hpBefore); // p.ej. otorgar Tough como regalo sube los PG máximos
   touch(c);
   return c;
 }
@@ -323,6 +358,10 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
     c.features.push({ name, source: `${input.className} nivel 1`, description: entry?.data["summary"] as string | undefined });
   }
 
+  // PG extra por dotes/rasgos/subclase (Tough, Dureza Enana, Resiliencia Dracónica…) según el nivel.
+  const hpBonus = bonusHitPoints(c);
+  if (hpBonus) { c.hp.max += hpBonus; c.hp.current = c.hp.max; }
+
   recalcSlots(c);
   reconcileGrantedSpells(c); // conjuros otorgados por especie/subclase (Parte C)
   db.characters.push(c);
@@ -361,6 +400,7 @@ export function getCharacterView(c: Character, view: CharacterView = "sheet"): R
 }
 
 export function updateCharacter(c: Character, set: UpdateCharacterInput): Character {
+  const hpBefore = bonusHitPoints(c); // por si cambian especie o rasgos con bono de PG
   if (set.name !== undefined) c.name = set.name;
   if (set.species !== undefined) c.species = set.species;
   if (set.background !== undefined) c.background = set.background;
@@ -393,6 +433,7 @@ export function updateCharacter(c: Character, set: UpdateCharacterInput): Charac
   }
   if (set.removeFeatures) c.features = c.features.filter((f) => !lower(set.removeFeatures!).includes(f.name.toLowerCase()));
   if (set.spellcastingAbility !== undefined) c.spellcasting.ability = set.spellcastingAbility ?? undefined;
+  applyHpBonusDelta(c, hpBefore); // ajusta PG si cambió un rasgo/especie con bono de PG (p.ej. quitar un regalo)
   touch(c);
   return c;
 }
@@ -466,6 +507,7 @@ export function classChoicesAt(className: string, level: number, subclass?: stri
 
 export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   if (totalLevel(c) >= 20) throw new DomainError("rule", `${c.name} ya está a nivel 20 (máximo).`);
+  const hpBonusBefore = bonusHitPoints(c); // para sumar solo el incremento de PG por dotes/rasgos/subclase
 
   let cls = input.className
     ? c.classes.find((x) => x.name.toLowerCase() === input.className!.toLowerCase())
@@ -532,6 +574,10 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   c.hp.max += gain;
   c.hp.current += gain;
 
+  // Incremento de PG por dotes/rasgos/subclase a este nivel (Tough +2, Dureza Enana +1, Resiliencia Dracónica…).
+  const hpBonusDelta = bonusHitPoints(c) - hpBonusBefore;
+  if (hpBonusDelta) { c.hp.max += hpBonusDelta; c.hp.current += hpBonusDelta; }
+
   let hd = c.hitDice.find((h) => h.die === cls!.hitDie);
   if (!hd) { hd = { die: cls.hitDie, total: 0, used: 0 }; c.hitDice.push(hd); }
   hd.total += 1;
@@ -544,7 +590,7 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
     className: cls.name,
     classLevel: cls.level,
     levelTotal: totalLevel(c),
-    hpGained: gain,
+    hpGained: gain + hpBonusDelta,
     isNewClass,
     subclass: input.subclass,
   };
@@ -562,6 +608,7 @@ export function levelDown(c: Character, className?: string): LevelDownResult {
     : c.classes[c.classes.length - 1];
   if (!cls) throw new DomainError("not_found", `${c.name} no tiene la clase "${className}".`);
   const oldLevel = cls.level;
+  const hpBonusBefore = bonusHitPoints(c); // PG por dotes/rasgos/subclase antes de bajar
 
   // Quita los rasgos ganados en este nivel (clase, subclase y dote), identificados por su fuente.
   c.features = c.features.filter((f) => f.source !== `${cls.name} nivel ${oldLevel}`
@@ -593,10 +640,14 @@ export function levelDown(c: Character, className?: string): LevelDownResult {
     classRemoved = true;
   }
 
+  // Baja también los PG por dotes/rasgos/subclase que se pierden a este nivel (delta negativo).
+  const hpBonusDelta = bonusHitPoints(c) - hpBonusBefore;
+  if (hpBonusDelta) { c.hp.max = Math.max(1, c.hp.max + hpBonusDelta); c.hp.current = Math.min(c.hp.current, c.hp.max); }
+
   recalcSlots(c);
   reconcileGrantedSpells(c); // quita los conjuros otorgados por encima del nuevo nivel (Parte C)
   touch(c);
-  return { character: c, className: cls.name, classLevel: cls.level, levelTotal: totalLevel(c), hpLost, classRemoved };
+  return { character: c, className: cls.name, classLevel: cls.level, levelTotal: totalLevel(c), hpLost: hpLost - hpBonusDelta, classRemoved };
 }
 
 // ─── Diario de campaña/sesión ───

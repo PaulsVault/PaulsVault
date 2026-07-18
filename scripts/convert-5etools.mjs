@@ -345,12 +345,30 @@ function parseFeatAbility(ability) {
   if (choice) out.abilityChoice = choice;
   return out;
 }
+// Bono a los PG máximos descrito en el texto de una dote/rasgo/subclase.
+// hpPerLevel: se multiplica por el nivel (de personaje para dotes/especie; de clase para subclases).
+// hpFlat: se suma una sola vez. Cubre Tough (+2/nivel), Dureza Enana (+1/nivel), Resiliencia Dracónica
+// (+1/nivel de clase) y dotes de +N fijo (p.ej. +40).
+function parseHpBonus(txt) {
+  const t = String(txt || "");
+  if (!/Hit Point maximum increases/i.test(t)) return {};
+  // "twice your (character) level" → +2 por nivel.
+  if (/Hit Point maximum increases by an amount equal to twice your (?:character )?level/i.test(t)) return { hpPerLevel: 2 };
+  // "increases by N, and (it increases) by M ... whenever you gain (a|another) ... level" → +M por nivel.
+  let m = t.match(/Hit Point maximum increases by \d+[^.]*?\bby (\d+)\b[^.]*?whenever you gain (?:a|another)[^.]*?level/i);
+  if (m) return { hpPerLevel: Number(m[1]) };
+  // "increases by N." fijo (una vez).
+  m = t.match(/Hit Point maximum increases by (\d+)\./i);
+  if (m) return { hpFlat: Number(m[1]) };
+  return {};
+}
 function convertFeat(ft) {
   return { id: slug(ft.name, "feat"), type: "feat", name: ft.name, data: {
     summary: text(ft.entries),
     category: ft.category,
     prerequisite: renderPrereq(ft.prerequisite),
     ...parseFeatAbility(ft.ability),
+    ...parseHpBonus(text(ft.entries)),
     source: ft.source,
   } };
 }
@@ -431,6 +449,7 @@ function convertRace(r) {
     traits,
     ...(skillChoice ? { skillChoice } : {}),   // habilidad a elegir de la especie (Human)
     ...(featChoices ? { featChoices } : {}),    // dote(s) a elegir de la especie (Human Versatile)
+    ...parseHpBonus(traits.join(" ")),          // PG extra de especie (Dureza Enana: +1/nivel)
     ...parseAdditionalSpells(r.additionalSpells), // conjuros otorgados (nivel = nivel de personaje)
     ...(extractAncestryChoices(r) ? { ancestryChoices: extractAncestryChoices(r) } : {}), // ascendencias/linajes a elegir
     source: r.source,
@@ -619,6 +638,7 @@ function convertSubclasses(classJson) {
       class: sc.className,
       summary,
       features: feats.filter((_, i) => i !== introIdx),
+      ...parseHpBonus(feats.map((f) => f.summary).join(" ")), // PG extra de subclase (Resiliencia Dracónica: +1/nivel de clase)
       ...parseAdditionalSpells(sc.additionalSpells), // conjuros de subclase (nivel = nivel de clase)
       source: sc.source,
     } });
