@@ -495,40 +495,60 @@ body {
 :root[data-theme="light"] .auth-brand { color: var(--gold-2); text-shadow: none; }
 :root[data-theme="light"] .auth-tagline { color: var(--muted); }
 
-/* ─── Hoja imprimible (PDF) ─── */
-.print-root { position: fixed; inset: 0; z-index: 3000; background: #6b6b6b; overflow: auto; padding: 20px 0 60px; }
+/* ─── Hoja imprimible (PDF) — disposición de la hoja oficial D&D 2024 ─── */
+.print-root { --psA: #7a1524; position: fixed; inset: 0; z-index: 3000; background: #555; overflow: auto; padding: 18px 0 60px;
+  color: #111; font-family: Georgia, "Times New Roman", serif; }
 .ps-toolbar { position: sticky; top: 0; z-index: 1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-  justify-content: center; padding: 10px; background: #2a2a2a; margin: -20px 0 20px; }
-.ps-sheet { max-width: 820px; margin: 0 auto; background: #fff; color: #111; padding: 26px 30px; border-radius: 4px;
-  box-shadow: 0 8px 40px rgba(0,0,0,.5); font-family: Georgia, "Times New Roman", serif; }
-.ps-head { border-bottom: 3px double #111; padding-bottom: 8px; margin-bottom: 12px; }
-.ps-head h1 { margin: 0; font-size: 30px; letter-spacing: .5px; }
-.ps-head p { margin: 2px 0; font-size: 14px; }
-.ps-sub { color: #444; }
-.ps-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-bottom: 14px; }
-.ps-box { border: 2px solid #111; border-radius: 6px; padding: 6px 4px; text-align: center; display: flex; flex-direction: column; }
-.ps-box-l { font-size: 10px; text-transform: uppercase; letter-spacing: .4px; color: #333; }
-.ps-box-v { font-size: 20px; line-height: 1.1; }
-.ps-box-s { font-size: 10px; color: #555; }
-.ps-cols { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
-.ps-col { display: flex; flex-direction: column; gap: 12px; }
-.ps-card { border: 1px solid #999; border-radius: 6px; padding: 8px 10px; break-inside: avoid; }
-.ps-card.ps-wide { margin-top: 14px; }
-.ps-card h2 { font-size: 13px; margin: 0 0 6px; border-bottom: 1px solid #ccc; padding-bottom: 3px; text-transform: uppercase; letter-spacing: .3px; }
-.ps-line { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; padding: 1px 0; border-bottom: 1px dotted #ddd; }
-.ps-feat { font-size: 12px; margin: 3px 0; }
-.ps-spell-line { font-size: 12px; margin: 3px 0; }
-.ps-slots { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 6px; }
-.ps-slot { font-size: 12px; border: 1px solid #999; border-radius: 10px; padding: 1px 8px; }
-.ps-muted { color: #777; font-size: 11px; }
-.ps-card p { font-size: 12px; margin: 3px 0; }
+  justify-content: center; padding: 10px; background: #222; color: #eee; margin: -18px 0 18px; }
+.ps-page { width: 210mm; max-width: 96vw; min-height: 270mm; margin: 0 auto 18px; background: #fff; padding: 12mm 11mm;
+  box-shadow: 0 8px 40px rgba(0,0,0,.5); box-sizing: border-box; }
+.ps-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-start;
+  border-bottom: 3px solid var(--psA); padding-bottom: 8px; margin-bottom: 10px; }
+.ps-name h1 { margin: 0; font-size: 27px; color: var(--psA); letter-spacing: .3px; }
+.ps-name p { margin: 3px 0 0; font-size: 12.5px; }
+.ps-topboxes { display: flex; gap: 6px; }
+.ps-topbox { border: 1.5px solid var(--psA); border-radius: 6px; padding: 4px 8px; text-align: center; min-width: 74px;
+  display: flex; flex-direction: column; justify-content: center; }
+.ps-topbox-l { font-size: 8.5px; text-transform: uppercase; letter-spacing: .3px; color: var(--psA); font-weight: bold; }
+.ps-topbox-v { font-size: 18px; line-height: 1.1; }
+.ps-topbox-s { font-size: 8px; color: #666; }
+.ps-topline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 10px; }
+.ps-body { display: grid; grid-template-columns: 1.1fr 1.4fr; gap: 12px; }
+.ps-abilities { display: flex; flex-direction: column; gap: 7px; }
+.ps-abil { border: 1px solid #bbb; border-radius: 6px; padding: 5px 8px; break-inside: avoid; }
+.ps-abil-head { display: flex; align-items: baseline; gap: 8px; border-bottom: 1px solid #eee; padding-bottom: 3px; margin-bottom: 3px; }
+.ps-abil-name { font-size: 11px; text-transform: uppercase; letter-spacing: .3px; color: var(--psA); font-weight: bold; flex: 1; }
+.ps-abil-mod { font-size: 18px; }
+.ps-abil-score { font-size: 11px; color: #666; border: 1px solid #ccc; border-radius: 10px; padding: 0 6px; }
+.ps-abil-save { font-size: 11.5px; margin-bottom: 2px; }
+.ps-skill { display: flex; align-items: center; gap: 5px; font-size: 11.5px; padding: 1px 0; }
+.ps-skill span:not(.ps-dot) { flex: 1; }
+.ps-dot { width: 8px; height: 8px; border-radius: 50%; border: 1.3px solid var(--psA); display: inline-block; flex: none; box-sizing: border-box; }
+.ps-dot.on { background: var(--psA); }
+.ps-right { display: flex; flex-direction: column; gap: 9px; }
+.ps-card { border: 1px solid #bbb; border-radius: 6px; padding: 6px 9px; break-inside: avoid; }
+.ps-card h2 { font-size: 11.5px; margin: 0 0 4px; color: var(--psA); border-bottom: 1.5px solid var(--psA); padding-bottom: 2px;
+  text-transform: uppercase; letter-spacing: .3px; }
+.ps-sub2 { font-size: 11px; margin: 6px 0 2px; color: var(--psA); }
+.ps-card p { font-size: 11.5px; margin: 2px 0; }
+.ps-inline { line-height: 1.5; }
+.ps-feat { font-size: 11px; margin: 2px 0; }
+.ps-spell-line { font-size: 11px; margin: 2px 0; }
+.ps-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.ps-table th { text-align: left; color: #666; font-size: 9.5px; text-transform: uppercase; border-bottom: 1px solid #ccc; }
+.ps-table td { border-bottom: 1px dotted #ddd; padding: 1px 0; }
+.ps-spellhead { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.ps-slots { display: flex; flex-wrap: wrap; gap: 5px; }
+.ps-slot { font-size: 10.5px; border: 1px solid var(--psA); border-radius: 10px; padding: 0 7px; }
+.ps-muted { color: #888; font-size: 10.5px; }
 
 @media print {
   body { background: #fff !important; }
   body * { visibility: hidden; }
   .print-root, .print-root * { visibility: visible; }
   .print-root { position: absolute; inset: 0; background: #fff; padding: 0; overflow: visible; }
-  .ps-sheet { box-shadow: none; max-width: none; margin: 0; padding: 0 6mm; border-radius: 0; }
+  .ps-page { width: auto; max-width: none; min-height: auto; margin: 0; padding: 8mm; box-shadow: none; page-break-after: always; }
+  .ps-page2 { page-break-before: always; }
   .no-print { display: none !important; }
-  .ps-card, .ps-stats, .ps-head { break-inside: avoid; }
+  .ps-abil, .ps-card, .ps-head, .ps-topline { break-inside: avoid; }
 }

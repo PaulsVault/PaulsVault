@@ -81,6 +81,9 @@ export interface Sheet {
   classList: { name: string; subclass: string | null; level: number }[];
   features: { name: string; source: string; description: string | null; uses?: { used: number; max: number; recharge: string } | null }[];
   speciesTraits: string[];
+  size?: string | null;
+  armorProficiencies?: string[];
+  weaponProficiencies?: string[];
   resistances?: string[];
   weaponMastery?: { max: number; chosen: { weapon: string; mastery: string; description: string | null }[] };
   wildShape?: WildShapeState | null;

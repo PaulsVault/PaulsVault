@@ -66,7 +66,9 @@ export function characterSheet(c: Character): Record<string, unknown> {
   }));
 
   // Rasgos raciales de la especie (del contenido) para la sección de información.
-  const speciesTraits = (findEntry(c.species, "species")?.data["traits"] as string[] | undefined) ?? [];
+  const speciesData = findEntry(c.species, "species")?.data as Record<string, unknown> | undefined;
+  const speciesTraits = (speciesData?.["traits"] as string[] | undefined) ?? [];
+  const size = (speciesData?.["size"] as string | undefined) ?? null;
   // Descripción del trasfondo (para roleplay).
   const backgroundDescription = (findEntry(c.background, "background")?.data["description"] as string | undefined) ?? null;
   // Diario ordenado por fecha descendente (lo más reciente primero).
@@ -91,6 +93,9 @@ export function characterSheet(c: Character): Record<string, unknown> {
     classList,
     features,
     speciesTraits,
+    size,
+    armorProficiencies: c.proficiencies.armor,
+    weaponProficiencies: c.proficiencies.weapons,
     backgroundDescription,
     resistances: c.resistances ?? [],
     weaponMastery: weaponMasteryView(c),
