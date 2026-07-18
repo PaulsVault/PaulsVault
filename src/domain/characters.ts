@@ -230,6 +230,21 @@ function applyHpBonusDelta(c: Character, before: number): void {
   c.hp.current = Math.max(0, Math.min(c.hp.current, c.hp.max));
 }
 
+/**
+ * Ajusta los PG por un cambio del modificador de CON (regla 2024: al subir el mod de CON, el máximo de
+ * PG sube 1 por cada nivel, de forma retroactiva). `conModBefore` = mod antes del cambio; `levels` = niveles
+ * afectados (en levelUp el nivel nuevo ya usó el mod nuevo en su tirada, así que se pasan los anteriores).
+ */
+function applyConHpDelta(c: Character, conModBefore: number, levels: number): number {
+  const delta = abilityMod(c.abilities.con) - conModBefore;
+  if (!delta || levels <= 0) return 0;
+  const d = delta * levels;
+  c.hp.max = Math.max(1, c.hp.max + d);
+  if (d > 0) c.hp.current += d;
+  c.hp.current = Math.max(0, Math.min(c.hp.current, c.hp.max));
+  return d;
+}
+
 /** Otorga una dote a un personaje EN CUALQUIER MOMENTO (regalo/buff de campaña), aplicando sus efectos. */
 export function grantFeat(c: Character, featName: string, source = "Regalo de campaña", chosenAbilities?: Partial<Abilities>): Character {
   const name = featName.trim();
@@ -238,8 +253,10 @@ export function grantFeat(c: Character, featName: string, source = "Regalo de ca
     throw new DomainError("conflict", `${c.name} ya tiene "${name}".`);
   }
   const hpBefore = bonusHitPoints(c);
+  const conModBefore = abilityMod(c.abilities.con);
   applyFeat(c, findEntry(name.replace(/\s*\(.*/, "").trim(), "feat")?.name ?? name, source, chosenAbilities);
   applyHpBonusDelta(c, hpBefore); // p.ej. otorgar Tough como regalo sube los PG máximos
+  applyConHpDelta(c, conModBefore, totalLevel(c)); // p.ej. una dote que sube la CON (Resistente) sube PG retroactivos
   touch(c);
   return c;
 }
@@ -401,6 +418,7 @@ export function getCharacterView(c: Character, view: CharacterView = "sheet"): R
 
 export function updateCharacter(c: Character, set: UpdateCharacterInput): Character {
   const hpBefore = bonusHitPoints(c); // por si cambian especie o rasgos con bono de PG
+  const conModBefore = abilityMod(c.abilities.con); // por si editan la CON (PG retroactivos)
   if (set.name !== undefined) c.name = set.name;
   if (set.species !== undefined) c.species = set.species;
   if (set.background !== undefined) c.background = set.background;
@@ -434,6 +452,7 @@ export function updateCharacter(c: Character, set: UpdateCharacterInput): Charac
   if (set.removeFeatures) c.features = c.features.filter((f) => !lower(set.removeFeatures!).includes(f.name.toLowerCase()));
   if (set.spellcastingAbility !== undefined) c.spellcasting.ability = set.spellcastingAbility ?? undefined;
   applyHpBonusDelta(c, hpBefore); // ajusta PG si cambió un rasgo/especie con bono de PG (p.ej. quitar un regalo)
+  applyConHpDelta(c, conModBefore, totalLevel(c)); // ajusta PG (todos los niveles) si editaron la CON
   touch(c);
   return c;
 }
@@ -508,6 +527,7 @@ export function classChoicesAt(className: string, level: number, subclass?: stri
 export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   if (totalLevel(c) >= 20) throw new DomainError("rule", `${c.name} ya está a nivel 20 (máximo).`);
   const hpBonusBefore = bonusHitPoints(c); // para sumar solo el incremento de PG por dotes/rasgos/subclase
+  const conModBefore = abilityMod(c.abilities.con); // por si una mejora/dote sube la CON (PG retroactivos)
 
   let cls = input.className
     ? c.classes.find((x) => x.name.toLowerCase() === input.className!.toLowerCase())
@@ -577,6 +597,8 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   // Incremento de PG por dotes/rasgos/subclase a este nivel (Tough +2, Dureza Enana +1, Resiliencia Dracónica…).
   const hpBonusDelta = bonusHitPoints(c) - hpBonusBefore;
   if (hpBonusDelta) { c.hp.max += hpBonusDelta; c.hp.current += hpBonusDelta; }
+  // Si una mejora/dote subió la CON, los niveles ANTERIORES también ganan PG (el nuevo ya usó el mod nuevo en su tirada).
+  const conRetro = applyConHpDelta(c, conModBefore, totalLevel(c) - 1);
 
   let hd = c.hitDice.find((h) => h.die === cls!.hitDie);
   if (!hd) { hd = { die: cls.hitDie, total: 0, used: 0 }; c.hitDice.push(hd); }
@@ -590,7 +612,7 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
     className: cls.name,
     classLevel: cls.level,
     levelTotal: totalLevel(c),
-    hpGained: gain + hpBonusDelta,
+    hpGained: gain + hpBonusDelta + conRetro,
     isNewClass,
     subclass: input.subclass,
   };

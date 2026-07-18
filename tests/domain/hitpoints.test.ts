@@ -63,6 +63,17 @@ describe("PG con dotes, rasgos y subclases", () => {
     await removePack("test-hp-flat");
   });
 
+  it("subir la CON al subir de nivel recalcula los PG de niveles anteriores (retroactivo)", () => {
+    const ABIL14: Abilities = { str: 8, dex: 14, con: 14, int: 10, wis: 12, cha: 15 }; // CON 14 → mod +2
+    const c = createCharacter(db(), { name: "H" + Math.random(), className: "D6 Caster", level: 5, species: "Plain Test", background: "NoBg", abilities: ABIL14 });
+    // base nivel 5, CON 14: 6+2 + 4×(4+2) = 8 + 24 = 32.
+    expect(c.hp.max).toBe(32);
+    levelUp(c, { className: "D6 Caster", abilityIncreases: { con: 2 }, hpRoll: 6 }); // CON→16 (mod +3)
+    // Con CON 16 en todos los niveles: 6+3 + 4×(4+3) + (6+3) = 9 + 28 + 9 = 46.
+    expect(c.hp.max).toBe(46);
+    expect(c.abilities.con).toBe(16);
+  });
+
   it("bajar de nivel revierte el bono de PG", () => {
     const c = createCharacter(db(), { name: "H" + Math.random(), className: "D6 Caster", level: 3, species: "Dwarf Test", background: "NoBg", abilities: ABIL, subclass: "Draconic Test", originFeat: "Tough Test" });
     const at3 = c.hp.max;
