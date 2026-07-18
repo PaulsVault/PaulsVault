@@ -79,6 +79,8 @@ export function HomebrewFeatEditor({ initial, onDone, onCancel }: {
   const [rows, setRows] = useState<EffectRow[]>(((d["mechanics"] as StatMod[]) ?? []).map(fromStatMod));
   const [usesMax, setUsesMax] = useState((d["uses"] as { max: number } | undefined)?.max ?? 0);
   const [usesRecharge, setUsesRecharge] = useState((d["uses"] as { recharge: string } | undefined)?.recharge ?? "long_rest");
+  const [hpPerLevel, setHpPerLevel] = useState((d["hpPerLevel"] as number) ?? 0);
+  const [hpFlat, setHpFlat] = useState((d["hpFlat"] as number) ?? 0);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
 
@@ -98,6 +100,8 @@ export function HomebrewFeatEditor({ initial, onDone, onCancel }: {
         skills: skills.length ? skills : undefined,
         tools: toolsArr.length ? toolsArr : undefined,
         uses: usesMax > 0 ? { max: Number(usesMax), recharge: usesRecharge } : undefined,
+        hpPerLevel: hpPerLevel > 0 ? Number(hpPerLevel) : undefined,
+        hpFlat: hpFlat > 0 ? Number(hpFlat) : undefined,
       });
       onDone();
     } catch (e) { setNote("⚠️ " + (e as Error).message); } finally { setBusy(false); }
@@ -119,6 +123,15 @@ export function HomebrewFeatEditor({ initial, onDone, onCancel }: {
             <select value={abKey} onChange={(e) => setAbKey(e.target.value)}><option value="">— ninguno —</option>{ABILS.map((a) => <option key={a.k} value={a.k}>{a.label}</option>)}</select>
             {abKey && <input type="number" min={1} max={5} value={abVal} onChange={(e) => setAbVal(Number(e.target.value))} style={{ maxWidth: 90 }} />}
           </div>
+        </fieldset>
+
+        <fieldset className="abilities-input span2">
+          <legend>Bono a los puntos de golpe (opcional)</legend>
+          <div className="row wrap">
+            <label className="field"><span>PG por nivel</span><input type="number" min={0} max={10} value={hpPerLevel} onChange={(e) => setHpPerLevel(Number(e.target.value))} style={{ maxWidth: 100 }} /></label>
+            <label className="field"><span>PG fijos (una vez)</span><input type="number" min={0} value={hpFlat} onChange={(e) => setHpFlat(Number(e.target.value))} style={{ maxWidth: 110 }} /></label>
+          </div>
+          <p className="muted small" style={{ margin: "4px 0 0" }}>«PG por nivel» suma esa cantidad por cada nivel de personaje (como Tough = 2). «PG fijos» suma una sola vez (como Don de Fortaleza = 40). Se aplican al máximo de PG y suben con el nivel.</p>
         </fieldset>
 
         <fieldset className="abilities-input span2">

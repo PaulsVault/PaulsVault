@@ -376,7 +376,9 @@ export function buildApp(): Express {
     const data = {
       summary: keep(b["summary"]), category: keep(b["category"]), prerequisite: keep(b["prerequisite"]),
       mechanics: keep(b["mechanics"]), abilityBonus: keep(b["abilityBonus"]), skills: keep(b["skills"]),
-      tools: keep(b["tools"]), uses: keep(b["uses"]), homebrew: true,
+      tools: keep(b["tools"]), uses: keep(b["uses"]),
+      hpPerLevel: keep(num(b["hpPerLevel"])), hpFlat: keep(num(b["hpFlat"])), // PG extra (por nivel / fijo)
+      homebrew: true,
     };
     res.status(201).json(await content.saveHomebrewEntry({ id, type: "feat", name, data }));
   });
