@@ -69,11 +69,13 @@ export function characterSheet(c: Character): Record<string, unknown> {
   const speciesData = findEntry(c.species, "species")?.data as Record<string, unknown> | undefined;
   const speciesTraits = (speciesData?.["traits"] as string[] | undefined) ?? [];
   const size = (speciesData?.["size"] as string | undefined) ?? null;
-  // Resistencias: las del personaje (afinidad dracónica…) + las de objetos equipados o sintonizados.
+  // Resistencias: las del personaje (afinidad dracónica…) + las raciales (Resistencia Enana → Veneno)
+  // + las de objetos equipados o sintonizados.
+  const speciesResistances = (speciesData?.["resistances"] as string[] | undefined) ?? [];
   const itemResistances = c.inventory
     .filter((i) => i.equipped || i.attuned)
     .flatMap((i) => (i.resistances ?? (findEntry(i.name, "item")?.data["resistances"] as string[] | undefined)) ?? []);
-  const resistances = [...new Set([...(c.resistances ?? []), ...itemResistances])];
+  const resistances = [...new Set([...(c.resistances ?? []), ...speciesResistances, ...itemResistances])];
 
   // Descripción del trasfondo (para roleplay).
   const backgroundDescription = (findEntry(c.background, "background")?.data["description"] as string | undefined) ?? null;

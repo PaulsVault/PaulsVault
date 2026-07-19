@@ -362,6 +362,24 @@ function parseHpBonus(txt) {
   if (m) return { hpFlat: Number(m[1]) };
   return {};
 }
+// Tipos de daño en español (para las resistencias de la hoja; coincide con la afinidad dracónica).
+const DMG_ES = { poison: "Veneno", fire: "Fuego", cold: "Frío", acid: "Ácido", lightning: "Relámpago",
+  thunder: "Trueno", necrotic: "Necrótico", radiant: "Radiante", force: "Fuerza", psychic: "Psíquico",
+  slashing: "Cortante", piercing: "Perforante", bludgeoning: "Contundente" };
+// Resistencias FIJAS descritas en el texto ("Resistance to Poison damage" → Dwarven Resilience).
+// Solo capta tipos de daño explícitos; ignora las condicionales o dependientes de linaje.
+function parseResistances(txt) {
+  const out = new Set();
+  const re = /Resistance to ([A-Za-z, and]+?) damage/gi;
+  let m;
+  while ((m = re.exec(String(txt || "")))) {
+    for (const w of m[1].split(/,|\band\b/)) {
+      const key = w.trim().toLowerCase();
+      if (DMG_ES[key]) out.add(DMG_ES[key]);
+    }
+  }
+  return [...out];
+}
 function convertFeat(ft) {
   return { id: slug(ft.name, "feat"), type: "feat", name: ft.name, data: {
     summary: text(ft.entries),
@@ -450,6 +468,7 @@ function convertRace(r) {
     ...(skillChoice ? { skillChoice } : {}),   // habilidad a elegir de la especie (Human)
     ...(featChoices ? { featChoices } : {}),    // dote(s) a elegir de la especie (Human Versatile)
     ...parseHpBonus(traits.join(" ")),          // PG extra de especie (Dureza Enana: +1/nivel)
+    ...(parseResistances(traits.join(" ")).length ? { resistances: parseResistances(traits.join(" ")) } : {}), // Resistencia Enana: Veneno
     ...parseAdditionalSpells(r.additionalSpells), // conjuros otorgados (nivel = nivel de personaje)
     ...(extractAncestryChoices(r) ? { ancestryChoices: extractAncestryChoices(r) } : {}), // ascendencias/linajes a elegir
     source: r.source,

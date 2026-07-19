@@ -13,6 +13,7 @@ beforeAll(async () => {
     entries: [
       { id: "classfeature:monk-1-ma", type: "classfeature", name: "Martial Arts", data: { class: "Monk", level: 1, summary: "Dominas artes marciales sin armas." } },
       { id: "item:armadura-resist-test", type: "item", name: "Armadura Resistencia Test", data: { itemType: "armor", armorClass: 14, armorCategory: "medium", resistances: ["Fuego"], homebrew: true } },
+      { id: "species:enano-test", type: "species", name: "Enano Test", data: { size: "Medium", speed: 30, traits: ["Resistencia Enana: resistencia a Veneno."], resistances: ["Veneno"] } },
     ],
   });
 });
@@ -37,5 +38,12 @@ describe("hoja: descripción de rasgos de clase", () => {
     equipItem(c, "Armadura Resistencia Test");
     sheet = characterSheet(c) as { resistances: string[] };
     expect(sheet.resistances).toContain("Fuego"); // equipada → aporta la resistencia
+  });
+
+  it("la resistencia racial (Resistencia Enana → Veneno) aparece en la hoja", () => {
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "Enano" + Math.random(), className: "Fighter", level: 1, species: "Enano Test", background: "Soldier", abilities: ABIL });
+    const sheet = characterSheet(c) as { resistances: string[] };
+    expect(sheet.resistances).toContain("Veneno");
   });
 });
