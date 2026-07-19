@@ -370,6 +370,11 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
   for (let l = 1; l <= level; l++) addClassFeatures(c, input.className, l);
   if (input.subclass && level >= 3) for (let l = 3; l <= level; l++) addSubclassFeatures(c, input.subclass, l);
 
+  // Idiomas fijos que conceden la clase (Druídico del Druida, Jerga de Ladrones del Pícaro) y la subclase.
+  const classLangs = (findEntry(input.className, "class")?.data["languages"] as string[] | undefined) ?? [];
+  const subLangs = (input.subclass && level >= 3 ? findEntry(input.subclass, "subclass")?.data["languages"] as string[] | undefined : undefined) ?? [];
+  if (classLangs.length || subLangs.length) c.proficiencies.languages = [...new Set([...c.proficiencies.languages, ...classLangs, ...subLangs])];
+
   // Elecciones de clase de nivel 1 (estilo de combate del Guerrero, etc.).
   for (const name of input.options ?? []) {
     if (c.features.some((f) => f.name === name)) continue;
@@ -558,6 +563,12 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
       c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...input.skills.slice(0, mc.skillCount)])];
     }
   }
+
+  // Idiomas fijos de la clase (al multiclasear a Druida/Pícaro) y de la subclase (al elegirla a nivel 3).
+  const newLangs: string[] = [];
+  if (isNewClass) newLangs.push(...((findEntry(cls.name, "class")?.data["languages"] as string[] | undefined) ?? []));
+  if (input.subclass) newLangs.push(...((findEntry(cls.subclass!, "subclass")?.data["languages"] as string[] | undefined) ?? []));
+  if (newLangs.length) c.proficiencies.languages = [...new Set([...c.proficiencies.languages, ...newLangs])];
 
   // Elecciones de clase (estilo de combate, invocaciones, metamagia…) como rasgos.
   if (input.options?.length) {

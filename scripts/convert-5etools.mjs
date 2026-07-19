@@ -385,6 +385,23 @@ function parseResistances(txt) {
   }
   return [...out];
 }
+// Idiomas conocidos (inglés → español para la hoja). Solo se auto-conceden los FIJOS; los "de tu elección"
+// los elige el jugador en la creación.
+const LANG_ES = { draconic: "Dracónico", primordial: "Primordial", druidic: "Druídico", sylvan: "Silvano",
+  giant: "Gigante", "thieves' cant": "Jerga de Ladrones", dwarvish: "Enano", elvish: "Élfico", gnomish: "Gnómico",
+  goblin: "Goblin", halfling: "Mediano", orc: "Orco", abyssal: "Abisal", celestial: "Celestial", infernal: "Infernal",
+  undercommon: "Infracomún", "deep speech": "Habla Profunda", aquan: "Acuano", auran: "Áurico", ignan: "Ígneo", terran: "Terráqueo" };
+// Idiomas fijos que un rasgo (de clase/subclase) concede, según su texto ("You can speak, read, and write Draconic").
+function parseGrantedLanguages(txt) {
+  const out = new Set();
+  const re = /(?:speak, read, and write|\bYou know|\byou learn(?: to speak, read, and write)?)\s+([A-Z][A-Za-z' ]{2,20}?)(?=,|\.| or | and | the|$)/g;
+  let m;
+  while ((m = re.exec(String(txt || "")))) {
+    const es = LANG_ES[m[1].trim().toLowerCase()];
+    if (es) out.add(es); // whitelist: solo idiomas reales → sin falsos positivos
+  }
+  return [...out];
+}
 // Resistencia que otorga una opción de ascendencia/linaje elegida (Dragonborn: "Damage Type: Acid";
 // Tiefling: "Resistance to Poison damage"). Devuelve el tipo en español o undefined.
 function optionResistance(desc) {
@@ -672,6 +689,7 @@ function convertSubclasses(classJson) {
       summary,
       features: feats.filter((_, i) => i !== introIdx),
       ...parseHpBonus(feats.map((f) => f.summary).join(" ")), // PG extra de subclase (Resiliencia Dracónica: +1/nivel de clase)
+      ...(parseGrantedLanguages(feats.map((f) => f.summary).join(" ")).length ? { languages: parseGrantedLanguages(feats.map((f) => f.summary).join(" ")) } : {}), // idioma de subclase (Dracónico)
       ...parseAdditionalSpells(sc.additionalSpells), // conjuros de subclase (nivel = nivel de clase)
       source: sc.source,
     } });
@@ -800,10 +818,15 @@ if (want("classes")) {
   const seen = new Set();
   for (const file of fs.readdirSync(dir)) {
     if (!file.startsWith("class-") || !file.endsWith(".json")) continue;
-    for (const f of readJson(path.join(dir, file)).class ?? []) {
+    const j = readJson(path.join(dir, file));
+    for (const f of j.class ?? []) {
       if (!SOURCES_2024.has(f.source)) continue;
       const e = convertClass(f);
       if (seen.has(e.id)) continue; seen.add(e.id);
+      // Idiomas fijos que concede la clase (Druídico del Druida, Jerga de Ladrones del Pícaro), de sus rasgos.
+      const cfText = (j.classFeature ?? []).filter((cf) => cf.className === f.name && cf.source === "XPHB").map((cf) => text(cf.entries)).join(" ");
+      const langs = parseGrantedLanguages(cfText);
+      if (langs.length) e.data.languages = langs;
       entries.push(e);
     }
   }

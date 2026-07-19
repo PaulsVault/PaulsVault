@@ -14,6 +14,9 @@ beforeAll(async () => {
       { id: "optionalfeature:test-inv-lvl5", type: "optionalfeature", name: "Test Invocation L5", data: { featureType: ["EI"], prerequisite: "Nivel 5", summary: "Invocación que exige nivel 5." } },
       { id: "optionalfeature:test-maneuver", type: "optionalfeature", name: "Test Maneuver", data: { featureType: ["MV:B"], summary: "Una maniobra de prueba." } },
       { id: "feat:test-half", type: "feat", name: "Test Half Feat", data: { category: "G", summary: "+1 a Fuerza o Destreza.", abilityChoice: { from: ["str", "dex"], count: 1, amount: 1 } } },
+      // Clase/subclase que conceden un idioma fijo (Druídico / Dracónico).
+      { id: "class:lang-class", type: "class", name: "Lang Class", data: { hitDie: 8, saves: ["wis"], weapons: ["simple"], languages: ["Druídico"] } },
+      { id: "subclass:lang-sub", type: "subclass", name: "Lang Sub", data: { class: "Lang Class", features: [], languages: ["Dracónico"] } },
     ],
   });
 });
@@ -49,6 +52,21 @@ describe("elecciones de clase por nivel", () => {
     expect(man).toBeTruthy();
     expect(man!.count).toBe(3);
     expect(man!.options.some((o) => o.name === "Test Maneuver")).toBe(true);
+  });
+
+  it("la clase y la subclase conceden sus idiomas fijos a la hoja", () => {
+    const c1 = createCharacter({ characters: [] } as Database,
+      { name: "L" + Math.random(), className: "Lang Class", level: 1, species: "Human", background: "Sage", abilities: ABIL });
+    expect(c1.proficiencies.languages).toContain("Druídico"); // idioma de clase (nivel 1)
+    const c3 = createCharacter({ characters: [] } as Database,
+      { name: "L" + Math.random(), className: "Lang Class", level: 3, species: "Human", background: "Sage", abilities: ABIL, subclass: "Lang Sub" });
+    expect(c3.proficiencies.languages).toContain("Druídico"); // clase
+    expect(c3.proficiencies.languages).toContain("Dracónico"); // subclase (nivel 3)
+    // Al elegir la subclase subiendo de nivel también se añade.
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "L" + Math.random(), className: "Lang Class", level: 2, species: "Human", background: "Sage", abilities: ABIL });
+    levelUp(c, { className: "Lang Class", subclass: "Lang Sub" });
+    expect(c.proficiencies.languages).toContain("Dracónico");
   });
 
   it("#14 el Hechicero Dracónico elige tipo de daño (afinidad elemental) a nivel 6", () => {
