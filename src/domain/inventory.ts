@@ -102,6 +102,7 @@ export function addItem(c: Character, item: string, quantity = 1, details?: Item
     damage: details?.damage ?? (cd["damage"] as string | undefined),
     properties: details?.properties ?? (cd["properties"] as string[] | undefined),
     magicBonus: details?.magicBonus ?? (cd["magicBonus"] as number | undefined),
+    resistances: (cd["resistances"] as string[] | undefined),
     containerId: null,
   };
   // Cargas y conjuros del objeto (Staff of Power, varitas, etc.).

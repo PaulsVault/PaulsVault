@@ -10,6 +10,8 @@ const ITEM_TYPES: { k: string; label: string }[] = [
 ];
 const WEAPON_PROPS = ["finesse", "light", "heavy", "thrown", "versatile", "two-handed", "reach", "ammunition", "loading"];
 const DMG_TYPES = ["slashing", "piercing", "bludgeoning", "fire", "cold", "acid", "lightning", "thunder", "poison", "necrotic", "radiant", "force", "psychic"];
+// Tipos de daño para resistencias, con etiqueta en español (coincide con la afinidad dracónica).
+const RESIST_TYPES = ["Ácido", "Frío", "Fuego", "Relámpago", "Veneno", "Trueno", "Necrótico", "Radiante", "Fuerza", "Psíquico", "Cortante", "Perforante", "Contundente"];
 
 export function HomebrewItemEditor({ initial, onDone, onCancel }: {
   initial: { name: string; data: Record<string, unknown> } | null;
@@ -44,6 +46,7 @@ export function HomebrewItemEditor({ initial, onDone, onCancel }: {
   const [recharge, setRecharge] = useState((d["recharge"] as string) ?? "dawn");
   const [rechargeAmount, setRechargeAmount] = useState((d["rechargeAmount"] as string) ?? "");
   const [spells, setSpells] = useState<SpellRow[]>((d["spells"] as SpellRow[]) ?? []);
+  const [resistances, setResistances] = useState<string[]>((d["resistances"] as string[]) ?? []);
 
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -52,6 +55,7 @@ export function HomebrewItemEditor({ initial, onDone, onCancel }: {
   const isArmor = itemType === "armor";
   const isShield = itemType === "shield";
   const toggleProp = (p: string) => setProps((c) => c.includes(p) ? c.filter((x) => x !== p) : [...c, p]);
+  const toggleResist = (r: string) => setResistances((c) => c.includes(r) ? c.filter((x) => x !== r) : [...c, r]);
 
   async function save() {
     if (!name.trim()) { setNote("Ponle un nombre al objeto."); return; }
@@ -75,6 +79,7 @@ export function HomebrewItemEditor({ initial, onDone, onCancel }: {
         recharge: charges !== "" ? recharge : undefined,
         rechargeAmount: charges !== "" && rechargeAmount.trim() ? rechargeAmount.trim() : undefined,
         spells: spells.filter((s) => s.name.trim()).length ? spells.filter((s) => s.name.trim()) : undefined,
+        resistances: resistances.length ? resistances : undefined,
       });
       onDone();
     } catch (e) { setNote("⚠️ " + (e as Error).message); } finally { setBusy(false); }
@@ -117,6 +122,12 @@ export function HomebrewItemEditor({ initial, onDone, onCancel }: {
             </div>
           </fieldset>
         )}
+
+        <fieldset className="abilities-input span2">
+          <legend>Resistencias a daño que otorga (mientras esté equipado/sintonizado)</legend>
+          <div className="chips">{RESIST_TYPES.map((r) => <button type="button" key={r} className={`chip${resistances.includes(r) ? " removable" : ""}`} onClick={() => toggleResist(r)}>{resistances.includes(r) ? "✓ " : ""}{r}</button>)}</div>
+          <p className="muted small" style={{ margin: "4px 0 0" }}>Aparecen en la sección «Resistencias» de la hoja cuando el objeto está equipado o sintonizado (p.ej. Armadura de Resistencia, Anillo de Resistencia).</p>
+        </fieldset>
 
         <fieldset className="abilities-input span2">
           <legend>Bonos pasivos a la hoja (mientras esté equipado/sintonizado)</legend>

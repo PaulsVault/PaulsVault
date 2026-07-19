@@ -69,6 +69,12 @@ export function characterSheet(c: Character): Record<string, unknown> {
   const speciesData = findEntry(c.species, "species")?.data as Record<string, unknown> | undefined;
   const speciesTraits = (speciesData?.["traits"] as string[] | undefined) ?? [];
   const size = (speciesData?.["size"] as string | undefined) ?? null;
+  // Resistencias: las del personaje (afinidad dracónica…) + las de objetos equipados o sintonizados.
+  const itemResistances = c.inventory
+    .filter((i) => i.equipped || i.attuned)
+    .flatMap((i) => (i.resistances ?? (findEntry(i.name, "item")?.data["resistances"] as string[] | undefined)) ?? []);
+  const resistances = [...new Set([...(c.resistances ?? []), ...itemResistances])];
+
   // Descripción del trasfondo (para roleplay).
   const backgroundDescription = (findEntry(c.background, "background")?.data["description"] as string | undefined) ?? null;
   // Diario ordenado por fecha descendente (lo más reciente primero).
@@ -97,7 +103,7 @@ export function characterSheet(c: Character): Record<string, unknown> {
     armorProficiencies: c.proficiencies.armor,
     weaponProficiencies: c.proficiencies.weapons,
     backgroundDescription,
-    resistances: c.resistances ?? [],
+    resistances,
     weaponMastery: weaponMasteryView(c),
     wildShape: wildShapeState(c),
     languages: c.proficiencies.languages,

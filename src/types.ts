@@ -47,6 +47,7 @@ export interface InventoryItem {
   damage?: string;             // "1d8 slashing"
   properties?: string[];       // ["finesse", "light", ...]
   magicBonus?: number;         // +1, +2, +3
+  resistances?: string[];      // resistencias a daño que otorga mientras equipado/sintonizado
   containerId?: string | null; // si está dentro de otro objeto (mochila, bolsa)
   charges?: { current: number; max: number; recharge?: string; rechargeAmount?: string };
   spells?: { cost: number; name: string }[]; // conjuros que lanza el objeto, con su coste en cargas

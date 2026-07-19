@@ -397,6 +397,7 @@ export function buildApp(): Express {
       armorClass: n(b["armorClass"]), armorCategory: keep(b["armorCategory"]),
       bonusAc: n(b["bonusAc"]), bonusSave: n(b["bonusSave"]), bonusSpellAttack: n(b["bonusSpellAttack"]), bonusSpellDc: n(b["bonusSpellDc"]),
       charges: n(b["charges"]), recharge: keep(b["recharge"]), rechargeAmount: keep(b["rechargeAmount"]), spells: keep(b["spells"]),
+      resistances: keep(b["resistances"]), // resistencias a daño mientras esté equipado/sintonizado
       homebrew: true,
     };
     res.status(201).json(await content.saveHomebrewEntry({ id, type: "item", name, data }));
