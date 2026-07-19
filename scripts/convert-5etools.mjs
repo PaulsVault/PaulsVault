@@ -204,6 +204,11 @@ function extractAncestryChoices(r) {
       }
     }
   }
+  // Resistencia según la ascendencia/linaje elegido (Dragonborn: tipo de dragón; Tiefling: legado).
+  for (const ch of out) for (const opt of ch.options) {
+    const res = optionResistance(opt.description);
+    if (res) opt.resistance = res;
+  }
   return out.length ? out : undefined;
 }
 
@@ -379,6 +384,15 @@ function parseResistances(txt) {
     }
   }
   return [...out];
+}
+// Resistencia que otorga una opción de ascendencia/linaje elegida (Dragonborn: "Damage Type: Acid";
+// Tiefling: "Resistance to Poison damage"). Devuelve el tipo en español o undefined.
+function optionResistance(desc) {
+  const r = parseResistances(desc);
+  if (r.length) return r[0];
+  const m = String(desc || "").match(/Damage Type:\s*(\w+)/i);
+  if (m && DMG_ES[m[1].toLowerCase()]) return DMG_ES[m[1].toLowerCase()];
+  return undefined;
 }
 function convertFeat(ft) {
   return { id: slug(ft.name, "feat"), type: "feat", name: ft.name, data: {

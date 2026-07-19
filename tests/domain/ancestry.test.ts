@@ -24,6 +24,14 @@ beforeAll(async () => {
           { name: "Wood Elf", description: "Tu velocidad sube a 35.", speed: 35 },
         ] }],
       } },
+      // Especie cuya ascendencia/linaje elegido da una resistencia (Dragonborn/Tiefling).
+      { id: "species:draco-test", type: "species", name: "Draco Test", data: {
+        size: "Medium", speed: 30, traits: [],
+        ancestryChoices: [{ trait: "Draconic Ancestry", options: [
+          { name: "Red", description: "Damage Type: Fire", resistance: "Fuego" },
+          { name: "White", description: "Damage Type: Cold", resistance: "Frío" },
+        ] }],
+      } },
       // Especie con elección de habilidad y dote de origen (estilo Human Skillful/Versatile).
       { id: "species:human-test", type: "species", name: "Human Test", data: {
         size: "Medium", speed: 30, traits: [],
@@ -79,6 +87,15 @@ describe("ascendencia/linaje de especie", () => {
     expect(f.uses!.used).toBe(3);
     adjustFeatureUse(c, "Giant Ancestry: Fire's Burn", -10); // no baja de 0
     expect(f.uses!.used).toBe(0);
+  });
+
+  it("la ascendencia/linaje elegido otorga su resistencia (Dragonborn Rojo → Fuego)", () => {
+    const c = createCharacter({ characters: [] } as Database, {
+      name: "Dr" + Math.random(), className: "Fighter", species: "Draco Test", background: "Soldier",
+      abilities: ABIL, ancestryChoices: { "Draconic Ancestry": "Red" },
+    });
+    expect(c.resistances).toContain("Fuego");
+    expect(c.resistances).not.toContain("Frío"); // no la opción no elegida
   });
 
   it("#11 aplica habilidad de especie y dote de origen elegidas (estilo Human)", () => {

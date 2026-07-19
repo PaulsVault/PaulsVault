@@ -343,7 +343,7 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
   // Ascendencia/linaje de la especie elegido (Giant Ancestry del Goliath, linaje del Elfo…) como rasgo.
   if (input.ancestryChoices) {
     const speciesData = findEntry(input.species, "species")?.data as Record<string, unknown> | undefined;
-    const choices = (speciesData?.["ancestryChoices"] as { trait: string; usesPb?: boolean; options: { name: string; description: string; speed?: number }[] }[] | undefined) ?? [];
+    const choices = (speciesData?.["ancestryChoices"] as { trait: string; usesPb?: boolean; options: { name: string; description: string; speed?: number; resistance?: string }[] }[] | undefined) ?? [];
     for (const [trait, optName] of Object.entries(input.ancestryChoices)) {
       const ch = choices.find((x) => x.trait === trait);
       const opt = ch?.options.find((o) => o.name === optName);
@@ -353,6 +353,8 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
         c.features.push({ name: `${trait}: ${opt.name}`, source: "Especie (ascendencia)", description: opt.description || undefined, uses });
         // El linaje puede subir la velocidad base (Wood Elf → 35 ft).
         if (typeof opt.speed === "number" && opt.speed > c.speed) c.speed = opt.speed;
+        // La ascendencia/linaje puede dar resistencia (Dragonborn: tipo de dragón; Tiefling: legado).
+        if (opt.resistance) c.resistances = [...new Set([...(c.resistances ?? []), opt.resistance])];
       }
     }
   }
