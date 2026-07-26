@@ -180,17 +180,27 @@ export function addSubclassFeatures(c: Character, subclassName: string, level: n
 export function applyFeat(c: Character, featName: string, source: string, chosenAbilities?: Partial<Abilities>): void {
   const d = findEntry(featName.replace(/\s*\(.*/, "").trim(), "feat")?.data as Record<string, unknown> | undefined;
   const uses = d?.["uses"] as { max: number; recharge?: FeatureUses["recharge"] } | undefined;
+  // Aplica el aumento de característica (fijo + elegido) y registra el delta REAL (tras el tope 20) para poder revertirlo.
+  const abilityDelta: Partial<Abilities> = {};
+  const bump = (map: Partial<Abilities> | undefined) => {
+    if (!map) return;
+    for (const [k, v] of Object.entries(map)) {
+      const key = k as AbilityKey;
+      const before = c.abilities[key] ?? 10;
+      const after = Math.min(20, before + (v ?? 0));
+      if (after !== before) abilityDelta[key] = (abilityDelta[key] ?? 0) + (after - before);
+      c.abilities[key] = after;
+    }
+  };
+  bump(d?.["abilityBonus"] as Partial<Abilities> | undefined); // mejora fija de la dote
+  bump(chosenAbilities);                                       // media dote: mejora elegida por el jugador
   c.features.push({
     name: featName,
     source,
     description: d?.["summary"] as string | undefined,
     uses: uses && uses.max > 0 ? { max: uses.max, used: 0, recharge: uses.recharge ?? "long_rest" } : undefined,
+    ...(Object.keys(abilityDelta).length ? { abilityDelta } : {}),
   });
-  const bump = (map: Partial<Abilities> | undefined) => {
-    if (map) for (const [k, v] of Object.entries(map)) c.abilities[k as AbilityKey] = Math.min(20, (c.abilities[k as AbilityKey] ?? 10) + (v ?? 0));
-  };
-  bump(d?.["abilityBonus"] as Partial<Abilities> | undefined); // mejora fija de la dote
-  bump(chosenAbilities);                                       // media dote: mejora elegida por el jugador
   const skills = d?.["skills"] as string[] | undefined;
   if (skills?.length) c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...skills])];
   const tools = d?.["tools"] as string[] | undefined;
@@ -591,9 +601,18 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
   }
 
   if (input.abilityIncreases) {
+    // Aplica la mejora y la guarda como rasgo con su delta REAL, para poder revertirla al borrar el nivel.
+    const abilityDelta: Partial<Abilities> = {};
     for (const [k, v] of Object.entries(input.abilityIncreases)) {
       const key = k as AbilityKey;
-      c.abilities[key] = Math.min(20, c.abilities[key] + (v ?? 0));
+      const before = c.abilities[key];
+      const after = Math.min(20, before + (v ?? 0));
+      if (after !== before) abilityDelta[key] = after - before;
+      c.abilities[key] = after;
+    }
+    if (Object.keys(abilityDelta).length) {
+      const label = Object.entries(abilityDelta).map(([k, v]) => `+${v} ${k.toUpperCase()}`).join(", ");
+      c.features.push({ name: "Mejora de característica", source: `${cls.name} nivel ${cls.level}`, description: label, abilityDelta });
     }
   }
 
@@ -644,15 +663,22 @@ export function levelDown(c: Character, className?: string): LevelDownResult {
   if (!cls) throw new DomainError("not_found", `${c.name} no tiene la clase "${className}".`);
   const oldLevel = cls.level;
   const hpBonusBefore = bonusHitPoints(c); // PG por dotes/rasgos/subclase antes de bajar
+  const conModBefore = abilityMod(c.abilities.con); // mod de CON al ganar el nivel (por si la mejora/dote la subió)
 
-  // Quita los rasgos ganados en este nivel (clase, subclase y dote), identificados por su fuente.
-  c.features = c.features.filter((f) => f.source !== `${cls.name} nivel ${oldLevel}`
-    && (!cls.subclass || f.source !== `${cls.subclass} nivel ${oldLevel}`)
-    && f.source !== `Dote (nivel ${oldLevel})`);
+  // Fuentes de los rasgos ganados a este nivel (clase, subclase y dote).
+  const removedSources = new Set([`${cls.name} nivel ${oldLevel}`, `Dote (nivel ${oldLevel})`]);
+  if (cls.subclass) removedSources.add(`${cls.subclass} nivel ${oldLevel}`);
+  // Revierte los aumentos de característica (mejora de característica o dote) de esos rasgos ANTES de quitarlos,
+  // así el aumento NO persiste al borrar el nivel.
+  for (const f of c.features) {
+    if (f.abilityDelta && removedSources.has(f.source)) {
+      for (const [k, v] of Object.entries(f.abilityDelta)) c.abilities[k as AbilityKey] = Math.max(1, (c.abilities[k as AbilityKey] ?? 10) - (v ?? 0));
+    }
+  }
+  c.features = c.features.filter((f) => !removedSources.has(f.source));
 
-  // PG: reversa del promedio (dado/2+1 + mod CON).
-  const conMod = abilityMod(c.abilities.con);
-  const hpLost = Math.max(1, Math.floor(cls.hitDie / 2) + 1 + conMod);
+  // PG: reversa del promedio (dado/2+1 + mod CON que tenía al ganar el nivel).
+  const hpLost = Math.max(1, Math.floor(cls.hitDie / 2) + 1 + conModBefore);
   c.hp.max = Math.max(1, c.hp.max - hpLost);
   c.hp.current = Math.min(c.hp.current, c.hp.max);
 
@@ -678,6 +704,8 @@ export function levelDown(c: Character, className?: string): LevelDownResult {
   // Baja también los PG por dotes/rasgos/subclase que se pierden a este nivel (delta negativo).
   const hpBonusDelta = bonusHitPoints(c) - hpBonusBefore;
   if (hpBonusDelta) { c.hp.max = Math.max(1, c.hp.max + hpBonusDelta); c.hp.current = Math.min(c.hp.current, c.hp.max); }
+  // Si al revertir la mejora bajó el mod de CON, revierte también los PG retroactivos de los niveles restantes.
+  applyConHpDelta(c, conModBefore, totalLevel(c));
 
   recalcSlots(c);
   reconcileGrantedSpells(c); // quita los conjuros otorgados por encima del nuevo nivel (Parte C)

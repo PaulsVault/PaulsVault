@@ -25,6 +25,7 @@ export interface Feature {
   source: string;        // "Wizard 2", "Species: Elf", "Feat: Alert", "Background"
   description?: string;
   uses?: FeatureUses;
+  abilityDelta?: Partial<Abilities>; // aumento de característica que aplicó (mejora/dote) — se revierte al borrar el nivel
 }
 
 export type ItemType =

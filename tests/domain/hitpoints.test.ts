@@ -13,6 +13,8 @@ beforeAll(async () => {
       { id: "class:d6caster", type: "class", name: "D6 Caster", data: { hitDie: 6, saves: ["con", "cha"], weapons: ["simple"], casterType: "full" } },
       // Dote Tough: +2 PG por nivel de personaje.
       { id: "feat:tough-test", type: "feat", name: "Tough Test", data: { category: "G", summary: "Your Hit Point maximum increases by an amount equal to twice your character level when you gain this feat. Whenever you gain a character level thereafter, your Hit Point maximum increases by an additional 2 Hit Points.", hpPerLevel: 2 } },
+      // Dote que sube una característica fija (para probar la reversión al bajar de nivel).
+      { id: "feat:resilient-test", type: "feat", name: "Resilient Test", data: { category: "G", summary: "+1 a Constitución.", abilityBonus: { con: 1 } } },
       // Especie enana: Dureza Enana +1 PG por nivel de personaje.
       { id: "species:dwarf-test", type: "species", name: "Dwarf Test", data: { size: "Medium", speed: 30, traits: ["Dwarven Toughness: Your Hit Point maximum increases by 1, and it increases by 1 again whenever you gain a level."], hpPerLevel: 1 } },
       // Subclase con Resiliencia Dracónica: +1 PG por nivel de clase (base 3 a nivel 3).
@@ -72,6 +74,29 @@ describe("PG con dotes, rasgos y subclases", () => {
     // Con CON 16 en todos los niveles: 6+3 + 4×(4+3) + (6+3) = 9 + 28 + 9 = 46.
     expect(c.hp.max).toBe(46);
     expect(c.abilities.con).toBe(16);
+  });
+
+  it("bajar de nivel REVIERTE la mejora de característica del nivel (no persiste)", () => {
+    const ABIL14: Abilities = { str: 8, dex: 14, con: 14, int: 10, wis: 12, cha: 15 };
+    const c = createCharacter(db(), { name: "A" + Math.random(), className: "D6 Caster", level: 3, species: "Plain Test", background: "NoBg", abilities: ABIL14 });
+    levelUp(c, { className: "D6 Caster", abilityIncreases: { con: 2 }, hpRoll: 6 }); // nivel 4: CON 14 → 16
+    expect(c.abilities.con).toBe(16);
+    expect(c.features.some((f) => f.name === "Mejora de característica")).toBe(true);
+    const hpAt4 = c.hp.max;
+    levelDown(c, "D6 Caster"); // borra el nivel 4
+    expect(c.abilities.con).toBe(14); // la mejora NO persiste
+    expect(c.features.some((f) => f.name === "Mejora de característica")).toBe(false);
+    expect(c.hp.max).toBeLessThan(hpAt4); // los PG del nivel (y el retroactivo de CON) se revierten
+  });
+
+  it("bajar de nivel revierte también la característica que subió una dote de ese nivel", () => {
+    const ABIL14: Abilities = { str: 8, dex: 14, con: 14, int: 10, wis: 12, cha: 15 };
+    const c = createCharacter(db(), { name: "R" + Math.random(), className: "D6 Caster", level: 3, species: "Plain Test", background: "NoBg", abilities: ABIL14 });
+    levelUp(c, { className: "D6 Caster", feat: "Resilient Test" }); // nivel 4: dote +1 CON → 15
+    expect(c.abilities.con).toBe(15);
+    levelDown(c, "D6 Caster");
+    expect(c.abilities.con).toBe(14); // la dote y su +1 se revierten
+    expect(c.features.some((f) => f.name === "Resilient Test")).toBe(false);
   });
 
   it("bajar de nivel revierte el bono de PG", () => {
