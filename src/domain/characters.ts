@@ -52,6 +52,9 @@ export interface UpdateCharacterInput {
   initiativeBonus?: number;
   inspiration?: boolean;
   xp?: number;
+  hpMax?: number;      // ajuste manual del máximo de PG
+  hpCurrent?: number;  // ajuste manual de los PG actuales
+  hpTemp?: number;     // ajuste manual de los PG temporales
   appearance?: string;
   backstory?: string;
   notes?: string;
@@ -470,6 +473,10 @@ export function updateCharacter(c: Character, set: UpdateCharacterInput): Charac
   if (set.spellcastingAbility !== undefined) c.spellcasting.ability = set.spellcastingAbility ?? undefined;
   applyHpBonusDelta(c, hpBefore); // ajusta PG si cambió un rasgo/especie con bono de PG (p.ej. quitar un regalo)
   applyConHpDelta(c, conModBefore, totalLevel(c)); // ajusta PG (todos los niveles) si editaron la CON
+  // Ajuste MANUAL de PG (gana sobre los cálculos anteriores: es una customización explícita del usuario).
+  if (set.hpMax !== undefined) { c.hp.max = Math.max(1, Math.floor(set.hpMax)); c.hp.current = Math.min(c.hp.current, c.hp.max); }
+  if (set.hpCurrent !== undefined) c.hp.current = Math.max(0, Math.min(Math.floor(set.hpCurrent), c.hp.max));
+  if (set.hpTemp !== undefined) c.hp.temp = Math.max(0, Math.floor(set.hpTemp));
   touch(c);
   return c;
 }

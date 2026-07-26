@@ -97,6 +97,9 @@ export interface Sheet {
   backstory: string | null;
   notes: string | null;
   alignment: string | null;
+  acOverride?: number | null;
+  initiativeBonusManual?: number;
+  xp?: number;
   spellcasting: null | {
     dc: number; attack: number; ability: string;
     slots: Record<string, { max: number; used: number }>;

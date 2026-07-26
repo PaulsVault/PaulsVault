@@ -116,6 +116,9 @@ export function characterSheet(c: Character): Record<string, unknown> {
     backstory: c.backstory ?? null,
     notes: c.notes ?? null,
     alignment: c.alignment ?? null,
+    acOverride: c.acOverride ?? null,       // CA fija manual (null = automática)
+    initiativeBonusManual: c.initiativeBonus ?? 0, // bono de iniciativa manual
+    xp: c.xp ?? 0,
     modifiers: mods,
   };
 }

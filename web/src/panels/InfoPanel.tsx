@@ -1,9 +1,17 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import { FeatureDesc } from "../FeatureDesc";
-import { ABILITY_LABEL, type AbilityKey, type ContentHit, type Personality, type Sheet } from "../types";
+import { ABILITIES, ABILITY_LABEL, type AbilityKey, type ContentHit, type Personality, type Sheet } from "../types";
 
 type FeatChoice = { from: string[]; count: number; amount: number };
+
+// Valores manuales editables de la hoja, tomados de la hoja actual.
+type Adj = { hpMax: number; hpCurrent: number; hpTemp: number; acOverride: number | ""; speed: number; initiativeBonus: number; xp: number; abilities: Record<AbilityKey, number> };
+const initAdj = (s: Sheet): Adj => ({
+  hpMax: s.hp.max, hpCurrent: s.hp.current, hpTemp: s.hp.temp,
+  acOverride: s.acOverride ?? "", speed: s.speedBase, initiativeBonus: s.initiativeBonusManual ?? 0, xp: s.xp ?? 0,
+  abilities: Object.fromEntries(ABILITIES.map((a) => [a, s.abilities[a].score])) as Record<AbilityKey, number>,
+});
 
 export function InfoPanel({ id, sheet: s, reload }: { id: string; sheet: Sheet; reload: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
@@ -14,6 +22,17 @@ export function InfoPanel({ id, sheet: s, reload }: { id: string; sheet: Sheet; 
   const [feats, setFeats] = useState<ContentHit[]>([]);
   // Media dote a otorgar: exige elegir característica antes de confirmar el regalo.
   const [pending, setPending] = useState<{ name: string; choice: FeatChoice; abil: Partial<Record<AbilityKey, number>> } | null>(null);
+  // Ajustes manuales de la hoja (se re-sincronizan con la hoja al recargar).
+  const [adj, setAdj] = useState<Adj>(() => initAdj(s));
+  const [showAdj, setShowAdj] = useState(false);
+  useEffect(() => { setAdj(initAdj(s)); /* eslint-disable-next-line */ }, [s.hp.max, s.hp.current, s.hp.temp, s.acOverride, s.speedBase, s.initiativeBonusManual, s.xp, s.abilities]);
+
+  const saveAdjustments = () => run(() => api.updateCharacter(id, {
+    hpMax: adj.hpMax, hpCurrent: adj.hpCurrent, hpTemp: adj.hpTemp,
+    acOverride: adj.acOverride === "" ? null : Number(adj.acOverride),
+    speed: Number(adj.speed), initiativeBonus: Number(adj.initiativeBonus), xp: Number(adj.xp),
+    abilities: adj.abilities,
+  }), "Ajustes manuales guardados");
 
   async function searchFeats() {
     if (featQuery.trim().length < 2) { setFeats([]); return; }
@@ -124,6 +143,48 @@ export function InfoPanel({ id, sheet: s, reload }: { id: string; sheet: Sheet; 
               <button className="btn small primary" disabled={busy || Object.keys(pending.abil).length !== pending.choice.count} onClick={() => grant(pending.name, pending.abil as Record<string, number>)}>Confirmar regalo</button>
             </div>
           </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <h2 className="collapse-h" onClick={() => setShowAdj((v) => !v)} title="Mostrar/ocultar">
+          <span>⚙️ Ajustes manuales de la hoja</span><span className="muted">{showAdj ? "▲" : "▼"}</span>
+        </h2>
+        {showAdj && (
+          <>
+            <p className="muted small">Edita valores a mano para mayor customización. Los ajustes se guardan tal cual; recalcular (subir de nivel, cambiar equipo) puede volver a moverlos.</p>
+            <fieldset className="abilities-input span2">
+              <legend>Puntos de golpe</legend>
+              <div className="row wrap">
+                <label className="field"><span>Máximo</span><input type="number" min={1} value={adj.hpMax} onChange={(e) => setAdj({ ...adj, hpMax: Number(e.target.value) })} style={{ maxWidth: 100 }} /></label>
+                <label className="field"><span>Actuales</span><input type="number" value={adj.hpCurrent} onChange={(e) => setAdj({ ...adj, hpCurrent: Number(e.target.value) })} style={{ maxWidth: 100 }} /></label>
+                <label className="field"><span>Temporales</span><input type="number" min={0} value={adj.hpTemp} onChange={(e) => setAdj({ ...adj, hpTemp: Number(e.target.value) })} style={{ maxWidth: 100 }} /></label>
+              </div>
+            </fieldset>
+            <fieldset className="abilities-input span2">
+              <legend>Otros valores</legend>
+              <div className="row wrap">
+                <label className="field"><span>CA fija (vacío = automática)</span><input type="number" value={adj.acOverride} onChange={(e) => setAdj({ ...adj, acOverride: e.target.value === "" ? "" : Number(e.target.value) })} style={{ maxWidth: 120 }} /></label>
+                <label className="field"><span>Velocidad (ft)</span><input type="number" min={0} value={adj.speed} onChange={(e) => setAdj({ ...adj, speed: Number(e.target.value) })} style={{ maxWidth: 110 }} /></label>
+                <label className="field"><span>Bono de iniciativa</span><input type="number" value={adj.initiativeBonus} onChange={(e) => setAdj({ ...adj, initiativeBonus: Number(e.target.value) })} style={{ maxWidth: 120 }} /></label>
+                <label className="field"><span>XP</span><input type="number" min={0} value={adj.xp} onChange={(e) => setAdj({ ...adj, xp: Number(e.target.value) })} style={{ maxWidth: 110 }} /></label>
+              </div>
+            </fieldset>
+            <fieldset className="abilities-input span2">
+              <legend>Características</legend>
+              <div className="abil-grid">
+                {ABILITIES.map((a) => (
+                  <label key={a} className="abil-field"><span>{ABILITY_LABEL[a]}</span>
+                    <input type="number" min={1} max={30} value={adj.abilities[a]} onChange={(e) => setAdj({ ...adj, abilities: { ...adj.abilities, [a]: Number(e.target.value) } })} />
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <div className="span2 form-actions">
+              <button className="btn" disabled={busy} onClick={() => setAdj(initAdj(s))}>Restablecer</button>
+              <button className="btn primary" disabled={busy} onClick={saveAdjustments}>Guardar ajustes</button>
+            </div>
+          </>
         )}
       </section>
 

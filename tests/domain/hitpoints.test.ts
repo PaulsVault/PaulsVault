@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { bonusHitPoints, createCharacter, grantFeat, levelDown, levelUp } from "../../src/domain/characters.js";
+import { bonusHitPoints, createCharacter, grantFeat, levelDown, levelUp, updateCharacter } from "../../src/domain/characters.js";
 import { importPack, removePack } from "../../src/domain/content.js";
 import type { Abilities, Database } from "../../src/types.js";
 
@@ -97,6 +97,18 @@ describe("PG con dotes, rasgos y subclases", () => {
     levelDown(c, "D6 Caster");
     expect(c.abilities.con).toBe(14); // la dote y su +1 se revierten
     expect(c.features.some((f) => f.name === "Resilient Test")).toBe(false);
+  });
+
+  it("ajuste manual de PG máx/actual/temp fija los valores (customización)", () => {
+    const c = createCharacter(db(), { name: "M" + Math.random(), className: "D6 Caster", level: 5, species: "Plain Test", background: "NoBg", abilities: ABIL });
+    updateCharacter(c, { hpMax: 99, hpCurrent: 40, hpTemp: 7 });
+    expect(c.hp.max).toBe(99);
+    expect(c.hp.current).toBe(40);
+    expect(c.hp.temp).toBe(7);
+    // el actual se limita al máximo
+    updateCharacter(c, { hpMax: 30 });
+    expect(c.hp.max).toBe(30);
+    expect(c.hp.current).toBe(30); // 40 → limitado a 30
   });
 
   it("bajar de nivel revierte el bono de PG", () => {
