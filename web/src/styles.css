@@ -23,7 +23,7 @@ body {
 
 .app { display: flex; flex-direction: column; min-height: 100%; }
 .topbar {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   padding: 12px 20px; border-bottom: 1px solid var(--line);
   background: rgba(20, 16, 31, 0.8); backdrop-filter: blur(8px);
   position: sticky; top: 0; z-index: 10;
@@ -446,12 +446,32 @@ body {
 .inv-desc { margin: 4px 0 0; font-size: .84rem; color: var(--platinum); font-family: "EB Garamond", Georgia, serif; line-height: 1.4; }
 .panel.inspire-on { border-color: var(--gold, var(--accent)); box-shadow: 0 0 16px rgba(232,196,122,.28); }
 
-@media (max-width: 560px) {
+@media (max-width: 640px) {
+  /* Barra superior: se apila en filas en vez de desbordar a lo ancho. */
+  .topbar { padding: 10px 12px; gap: 8px; row-gap: 6px; }
+  .topbar .spacer { flex-basis: 100%; height: 0; }   /* marca arriba; nav + controles debajo */
+  .topbar-user { display: none; }                     /* el correo ocupa mucho en móvil */
+  .brand { font-size: 1.05rem; }
+
+  .content { padding: 12px; }
   .form { grid-template-columns: 1fr; }
   .abil-grid { grid-template-columns: repeat(3, 1fr); }
-  .content { padding: 14px; }
   .coins { grid-template-columns: repeat(3, 1fr); }
+  .info-grid { grid-template-columns: repeat(2, 1fr); }
   .inv-row, .spell-row { flex-direction: column; align-items: stretch; }
+  .library-head h1 { font-size: 1.3rem; }
+
+  /* Deja que los flex-hijos con texto encojan (evita desbordes horizontales). */
+  .cbt-name, .sheet-id, .card-title { min-width: 0; }
+  .sheet-id h1 { font-size: 1.25rem; }
+}
+
+/* Pantallas muy angostas (teléfono en vertical): características a 3, tablas de monstruo a 3. */
+@media (max-width: 420px) {
+  .abil-cards { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .mon-abilities { grid-template-columns: repeat(3, 1fr); }
+  .coins { grid-template-columns: repeat(2, 1fr); }
+  .btn { padding: 8px 10px; font-size: .9rem; }
 }
 
 /* ═══════════════════ TEMA CLARO (tonos blancos, texto legible) ═══════════════════ */

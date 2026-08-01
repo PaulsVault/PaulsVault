@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "./api";
 import { FeatureDesc } from "./FeatureDesc";
+import { ManualAdjust } from "./ManualAdjust";
 import { ABILITIES, ABILITY_LABEL, type AbilityKey, type Sheet } from "./types";
 
 const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
@@ -245,16 +246,21 @@ export function CharacterSheet({ sheet: s, onRoll, id, reload }: { sheet: Sheet;
         <section className="panel">
           <h2>Habilidades</h2>
           <ul className="line-list skills">
-            {Object.entries(s.skills).map(([k, v]) => (
-              <li key={k} className="clickable" title={s.skillDetails[k]}
-                onClick={() => onRoll({ type: "skill", target: k, label: SKILL_LABEL[k] ?? k })}>
-                <span>{SKILL_LABEL[k] ?? k}</span><span className="val">{fmt(v)}</span>
-              </li>
-            ))}
+            {Object.entries(s.skills).map(([k, v]) => {
+              const exp = (s.expertise ?? []).map((x) => x.toLowerCase()).includes(k.toLowerCase());
+              return (
+                <li key={k} className="clickable" title={s.skillDetails[k] + (exp ? " · pericia (doble competencia)" : "")}
+                  onClick={() => onRoll({ type: "skill", target: k, label: SKILL_LABEL[k] ?? k })}>
+                  <span>{exp && <span className="accent" title="Pericia">⟡ </span>}{SKILL_LABEL[k] ?? k}</span><span className="val">{fmt(v)}</span>
+                </li>
+              );
+            })}
           </ul>
         </section>
         </div>
       </div>
+
+      <ManualAdjust id={id} sheet={s} reload={reload} />
 
       {s.style.customCss && <style>{s.style.customCss}</style>}
     </div>
