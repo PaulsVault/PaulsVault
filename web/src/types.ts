@@ -16,7 +16,7 @@ export interface ContentHit {
 export interface CreateInput {
   name: string; className: string; species: string; background: string;
   level?: number; abilities: Record<AbilityKey, number>;
-  abilityBonuses?: Partial<Record<AbilityKey, number>>; skills?: string[]; tools?: string[];
+  abilityBonuses?: Partial<Record<AbilityKey, number>>; skills?: string[]; expertise?: string[]; tools?: string[];
   backgroundSkills?: string[]; originFeat?: string; // trasfondo personalizado
   featAbilities?: Partial<Record<AbilityKey, number>>; // media dote de origen elegida
   ancestryChoices?: Record<string, string>;         // ascendencia/linaje elegido por rasgo
@@ -90,6 +90,8 @@ export interface Sheet {
   backgroundDescription?: string | null;
   languages?: string[];
   tools?: string[];
+  skillProficiencies?: string[];
+  expertise?: string[];
   critRange: number;
   personality: Personality;
   journal: JournalEntry[];

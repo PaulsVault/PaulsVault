@@ -16,9 +16,11 @@ const SKILL_LABEL: Record<string, string> = {
 };
 interface Mc { armor?: string[]; weapons?: string[]; tools?: string[]; skillCount?: number; skillOptions?: string[] }
 
-export function LevelUpDialog({ id, classList, onClose, onDone }: {
+export function LevelUpDialog({ id, classList, skillProficiencies = [], expertise = [], onClose, onDone }: {
   id: string;
   classList: { name: string; subclass: string | null; level: number }[];
+  skillProficiencies?: string[]; // habilidades competentes (para elegir pericia)
+  expertise?: string[];          // pericias ya obtenidas (se excluyen)
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -38,6 +40,8 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   const [mcSkills, setMcSkills] = useState<string[]>([]);
   const [choices, setChoices] = useState<LevelChoice[]>([]);
   const [chosen, setChosen] = useState<Record<string, string[]>>({});
+  const [expertiseCount, setExpertiseCount] = useState(0);
+  const [expChosen, setExpChosen] = useState<string[]>([]);
   const [classData, setClassData] = useState<{ keyFeatures?: Record<string, string[]> } | null>(null);
   const [subData, setSubData] = useState<{ features?: { level: number; name: string; summary?: string }[] } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -74,7 +78,7 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
   // Elecciones que concede la clase/subclase a este nivel (estilo de combate, invocaciones, maniobras, metamagia…).
   useEffect(() => {
     if (!className) { setChoices([]); return; }
-    void api.classChoices(className, resultingLevel, effectiveSubclass || undefined).then((ch) => { setChoices(ch); setChosen({}); }).catch(() => setChoices([]));
+    void api.classChoices(className, resultingLevel, effectiveSubclass || undefined).then((r) => { setChoices(r.choices); setExpertiseCount(r.expertise); setChosen({}); setExpChosen([]); }).catch(() => { setChoices([]); setExpertiseCount(0); });
   }, [className, resultingLevel, effectiveSubclass]);
 
   // Media dote: si la dote elegida da "+1 a X o Y", cargamos la elección para pedir la característica.
@@ -154,6 +158,7 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
       const opts = Object.values(optChosen).flat();
       if (opts.length) body["options"] = opts;
       if (resChosen?.length) body["resistances"] = resChosen;
+      if (expChosen.length) body["expertise"] = expChosen;
       await api.levelUp(id, body);
       onDone();
     } catch (e) { setError((e as Error).message); setBusy(false); }
@@ -250,6 +255,25 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
             </fieldset>
           ))}
 
+          {expertiseCount > 0 && (
+            <fieldset className="abilities-input span2">
+              <legend>Pericia (Expertise) — elige {expertiseCount} ({expChosen.length}/{expertiseCount})</legend>
+              <p className="muted small" style={{ margin: "0 0 4px" }}>Doble competencia. Elige entre tus habilidades competentes.</p>
+              <div className="chips">
+                {skillProficiencies.filter((s) => !expertise.includes(s)).map((s) => {
+                  const on = expChosen.includes(s);
+                  return (
+                    <button type="button" key={s} className={`chip${on ? " removable" : ""}`}
+                      onClick={() => setExpChosen((cur) => cur.includes(s) ? cur.filter((x) => x !== s) : cur.length < expertiseCount ? [...cur, s] : cur)}>
+                      {on ? "✓ " : ""}{SKILL_LABEL[s] ?? s}
+                    </button>
+                  );
+                })}
+                {skillProficiencies.filter((s) => !expertise.includes(s)).length === 0 && <span className="muted small">No tienes habilidades competentes disponibles.</span>}
+              </div>
+            </fieldset>
+          )}
+
           <fieldset className="abilities-input span2">
             <legend>Puntos de golpe</legend>
             <div className="row wrap">
@@ -312,7 +336,7 @@ export function LevelUpDialog({ id, classList, onClose, onDone }: {
           {error && <p className="error span2">⚠️ {error}</p>}
           <div className="span2 form-actions">
             <button className="btn" onClick={onClose}>Cancelar</button>
-            <button className="btn primary" disabled={busy || (grantsASI && asiMode === "feat" && !featChoiceComplete)} onClick={submit}>{busy ? "Subiendo…" : "Confirmar"}</button>
+            <button className="btn primary" disabled={busy || (grantsASI && asiMode === "feat" && !featChoiceComplete) || (expertiseCount > 0 && expChosen.length !== expertiseCount)} onClick={submit}>{busy ? "Subiendo…" : "Confirmar"}</button>
           </div>
         </div>
       </div>

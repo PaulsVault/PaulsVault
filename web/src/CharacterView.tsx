@@ -113,7 +113,7 @@ export function CharacterView({ id, onBack }: { id: string; onBack: () => void }
       </div>
 
       {levelUp && (
-        <LevelUpDialog id={id} classList={s.classList} onClose={() => setLevelUp(false)} onDone={() => { setLevelUp(false); void reload(); }} />
+        <LevelUpDialog id={id} classList={s.classList} skillProficiencies={s.skillProficiencies} expertise={s.expertise} onClose={() => setLevelUp(false)} onDone={() => { setLevelUp(false); void reload(); }} />
       )}
 
       {printing && <PrintSheet id={id} sheet={s} onClose={() => setPrinting(false)} />}

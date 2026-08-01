@@ -84,13 +84,15 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   // Elecciones de clase de nivel 1 (estilo de combate del Guerrero, etc.).
   const [choices, setChoices] = useState<LevelChoice[]>([]);
   const [chosen, setChosen] = useState<Record<string, string[]>>({});
+  const [expertiseCount, setExpertiseCount] = useState(0);
+  const [expChosen, setExpChosen] = useState<string[]>([]);
 
   // Idiomas y alineación
   const [alignment, setAlignment] = useState("");
   const [languages, setLanguages] = useState<string[]>([]);
 
   // Creación guiada a nivel alto: tras crear a nivel 1, se sube nivel a nivel eligiendo todo.
-  const [guide, setGuide] = useState<{ id: string; classList: ClassLine[]; target: number } | null>(null);
+  const [guide, setGuide] = useState<{ id: string; classList: ClassLine[]; target: number; skillProficiencies?: string[]; expertise?: string[] } | null>(null);
 
   useEffect(() => {
     void (async () => {
@@ -115,7 +117,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   // Elecciones que la clase concede a nivel 1 (estilo de combate, invocación de nivel 1…).
   useEffect(() => {
     if (!className) { setChoices([]); return; }
-    void api.classChoices(className, 1).then((ch) => { setChoices(ch); setChosen({}); }).catch(() => setChoices([]));
+    void api.classChoices(className, 1).then((r) => { setChoices(r.choices); setExpertiseCount(r.expertise); setChosen({}); setExpChosen([]); }).catch(() => { setChoices([]); setExpertiseCount(0); });
   }, [className]);
 
   // Media dote de origen (trasfondo personalizado): si da "+1 a X o Y", pide la característica.
@@ -172,6 +174,9 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const ancestryList = speciesData?.ancestryChoices ?? [];
   const ancestryOk = ancestryList.every((ch) => ancestry[ch.trait]);
   const choicesOk = choices.every((ch) => (chosen[ch.kind] ?? []).length === ch.count);
+  // Pericia (Rogue nivel 1): se elige entre las habilidades competentes ya elegidas.
+  const profSkills = [...new Set([...chosenSkills, ...bgSkills, ...speciesSkills])];
+  const expertiseOk = expertiseCount === 0 || expChosen.length === expertiseCount;
   const customFeatOk = !customFeatChoice || Object.keys(customFeatAbil).length === customFeatChoice.count;
   // Rasgos de especie (Human): habilidad(es) + dote(s) a elegir.
   const speciesSkillChoice = speciesData?.skillChoice;
@@ -179,7 +184,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
   const speciesNeedsFeat = (speciesData?.featChoices?.length ?? 0) > 0;
   const speciesSkillsOk = !speciesSkillChoice || speciesSkills.length === speciesSkillChoice.count;
   const speciesFeatOk = !speciesNeedsFeat || (!!speciesFeat && (!speciesFeatChoice || Object.keys(speciesFeatAbil).length === speciesFeatChoice.count));
-  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk && ancestryOk && choicesOk && customFeatOk && speciesSkillsOk && speciesFeatOk;
+  const canSubmit = !!name && !!className && assignedOk && bonusOk && skillsOk && customOk && ancestryOk && choicesOk && customFeatOk && speciesSkillsOk && speciesFeatOk && expertiseOk;
 
   function setAssignFor(a: AbilityKey, idx: number | null) {
     setAssign((prev) => {
@@ -230,6 +235,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
         name, className, species: speciesName, level: 1,
         background: isCustomBg ? (customName.trim() || "Personalizado") : background,
         abilities: base, abilityBonuses, skills: chosenSkills,
+        ...(expChosen.length ? { expertise: expChosen } : {}),
         alignment: alignment || undefined,
         languages: languages.length ? languages : undefined,
         ...(choices.length ? { options: Object.values(chosen).flat() } : {}),
@@ -243,7 +249,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
           ...(customFeatChoice && Object.keys(customFeatAbil).length ? { featAbilities: customFeatAbil } : {}),
         } : {}),
       });
-      if (level > 1) setGuide({ id: sheet.id, classList: sheet.classList, target: level });
+      if (level > 1) setGuide({ id: sheet.id, classList: sheet.classList, target: level, skillProficiencies: sheet.skillProficiencies, expertise: sheet.expertise });
       else onCreated(sheet);
     } catch (err) { setError((err as Error).message); setBusy(false); }
   }
@@ -253,7 +259,7 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
     if (!guide) return;
     const sheet = await api.getSheet(guide.id);
     if (totalOf(sheet.classList) >= guide.target) onCreated(sheet);
-    else setGuide({ id: guide.id, classList: sheet.classList, target: guide.target });
+    else setGuide({ id: guide.id, classList: sheet.classList, target: guide.target, skillProficiencies: sheet.skillProficiencies, expertise: sheet.expertise });
   }
   // Salir del guiado antes de tiempo: se conserva el personaje en su nivel actual.
   async function finishGuidedEarly() {
@@ -272,6 +278,8 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
           key={current}
           id={guide.id}
           classList={guide.classList}
+          skillProficiencies={guide.skillProficiencies}
+          expertise={guide.expertise}
           onClose={() => void finishGuidedEarly()}
           onDone={() => void afterGuidedLevel()}
         />
@@ -501,6 +509,26 @@ export function CreateCharacter({ onCancel, onCreated }: { onCancel: () => void;
                 )}
               </div>
             )}
+          </fieldset>
+        )}
+
+        {/* ── Pericia (Expertise) de clase de nivel 1 (Rogue) ── */}
+        {expertiseCount > 0 && (
+          <fieldset className="abilities-input span2">
+            <legend>Pericia (Expertise) — elige {expertiseCount} ({expChosen.length}/{expertiseCount})</legend>
+            <p className="muted small" style={{ margin: "0 0 4px" }}>Doble competencia. Elige entre tus habilidades competentes (de clase y trasfondo).</p>
+            <div className="chips">
+              {profSkills.map((sk) => {
+                const on = expChosen.includes(sk);
+                return (
+                  <button type="button" key={sk} className={`chip${on ? " removable" : ""}`}
+                    onClick={() => setExpChosen((cur) => cur.includes(sk) ? cur.filter((x) => x !== sk) : cur.length < expertiseCount ? [...cur, sk] : cur)}>
+                    {on ? "✓ " : ""}{SKILL_LABEL[sk] ?? sk}
+                  </button>
+                );
+              })}
+              {profSkills.length === 0 && <span className="muted small">Primero elige tus habilidades competentes arriba.</span>}
+            </div>
           </fieldset>
         )}
 

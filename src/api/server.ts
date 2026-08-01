@@ -191,7 +191,10 @@ export function buildApp(): Express {
 
   // Elecciones de clase/subclase (estilo de combate, invocaciones, maniobras, metamagia…) a un nivel dado.
   app.get("/api/class-choices/:className/:level", (req, res) =>
-    res.json({ choices: chars.classChoicesAt(req.params.className, Number(req.params.level), req.query["subclass"] as string | undefined) }));
+    res.json({
+      choices: chars.classChoicesAt(req.params.className, Number(req.params.level), req.query["subclass"] as string | undefined),
+      expertise: chars.expertiseCountAt(req.params.className, Number(req.params.level)),
+    }));
 
   // Diario de campaña/sesión
   app.post("/api/characters/:id/journal", async (req, res) =>

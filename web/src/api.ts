@@ -61,7 +61,7 @@ export const api = {
   wildShape: (id: string, delta: number) => req<Sheet>(`/characters/${enc(id)}/wild-shape`, { method: "POST", body: JSON.stringify({ delta }) }),
   wildShapeBeasts: (id: string) => req<{ beasts: BeastForm[] }>(`/characters/${enc(id)}/wild-shape-beasts`).then((r) => r.beasts),
   multiclass: (className: string) => req<{ armor?: string[]; weapons?: string[]; tools?: string[]; skillCount?: number; skillOptions?: string[] }>(`/multiclass/${enc(className)}`),
-  classChoices: (className: string, level: number, subclass?: string) => req<{ choices: LevelChoice[] }>(`/class-choices/${enc(className)}/${level}${subclass ? `?subclass=${enc(subclass)}` : ""}`).then((r) => r.choices),
+  classChoices: (className: string, level: number, subclass?: string) => req<{ choices: LevelChoice[]; expertise: number }>(`/class-choices/${enc(className)}/${level}${subclass ? `?subclass=${enc(subclass)}` : ""}`),
 
   // Diario de campaña/sesión
   addJournal: (id: string, body: Dict) => req<Sheet>(`/characters/${enc(id)}/journal`, { method: "POST", body: JSON.stringify(body) }),

@@ -110,6 +110,8 @@ export function characterSheet(c: Character): Record<string, unknown> {
     wildShape: wildShapeState(c),
     languages: c.proficiencies.languages,
     tools: c.proficiencies.tools,
+    skillProficiencies: c.proficiencies.skills, // habilidades con competencia (para elegir pericia)
+    expertise: c.proficiencies.expertise,       // habilidades con pericia (doble competencia)
     personality: c.personality ?? {},
     journal,
     appearance: c.appearance ?? null,

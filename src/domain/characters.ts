@@ -26,6 +26,7 @@ export interface CreateCharacterInput {
   abilities: Abilities;            // puntuaciones base (antes del bono de trasfondo)
   abilityBonuses?: Partial<Abilities>; // +2/+1 del trasfondo (2024), a sumar sobre las base
   skills?: string[];               // habilidades elegidas de la clase
+  expertise?: string[];            // pericias elegidas (Rogue/Bard nivel 1/2) — de entre las habilidades competentes
   tools?: string[];
   backgroundSkills?: string[];     // competencias de un trasfondo personalizado (elegidas a mano)
   originFeat?: string;             // dote de origen de un trasfondo personalizado
@@ -80,6 +81,7 @@ export interface LevelUpInput {
   skills?: string[]; // habilidad(es) elegidas al multiclasear (clases que la conceden)
   options?: string[]; // elecciones de clase (estilo de combate, invocaciones, metamagia…)
   resistances?: string[]; // tipo(s) de daño elegidos (afinidad dracónica): concede resistencia
+  expertise?: string[]; // pericias elegidas a este nivel (Rogue 6, Bard 9, Ranger 2/9…)
 }
 
 export interface LevelUpResult {
@@ -276,6 +278,14 @@ export function grantFeat(c: Character, featName: string, source = "Regalo de ca
 
 // ─── Operaciones ───
 
+/** Añade pericia (Expertise) a las habilidades indicadas, solo si el personaje ya es competente en ellas. */
+function addExpertise(c: Character, skills: string[] | undefined): void {
+  if (!skills?.length) return;
+  const prof = new Set(c.proficiencies.skills.map((s) => s.toLowerCase()));
+  const valid = skills.filter((s) => prof.has(s.toLowerCase()));
+  if (valid.length) c.proficiencies.expertise = [...new Set([...c.proficiencies.expertise, ...valid])];
+}
+
 export function createCharacter(db: Database, input: CreateCharacterInput): Character {
   if (db.characters.some((c) => c.name.toLowerCase() === input.name.toLowerCase())) {
     throw new DomainError("conflict", `Ya existe un personaje llamado "${input.name}".`);
@@ -394,6 +404,9 @@ export function createCharacter(db: Database, input: CreateCharacterInput): Char
     const entry = findEntry(name);
     c.features.push({ name, source: `${input.className} nivel 1`, description: entry?.data["summary"] as string | undefined });
   }
+
+  // Pericia (Expertise) elegida en la creación (Rogue nivel 1) — de entre las habilidades competentes.
+  addExpertise(c, input.expertise);
 
   // PG extra por dotes/rasgos/subclase (Tough, Dureza Enana, Resiliencia Dracónica…) según el nivel.
   const hpBonus = bonusHitPoints(c);
@@ -539,6 +552,17 @@ function resolveOptions(def: ChoiceDef, level: number): ChoiceOption[] {
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Nº de pericias (Expertise) que concede una clase a un nivel (2024). Se elige entre las habilidades con competencia.
+const EXPERTISE_AT: Record<string, Record<number, number>> = {
+  rogue: { 1: 2, 6: 2 },
+  bard: { 2: 2, 9: 2 },
+  ranger: { 2: 1, 9: 2 },
+};
+/** Cuántas pericias (Expertise) concede la clase a ese nivel (0 si ninguna). */
+export function expertiseCountAt(className: string, level: number): number {
+  return EXPERTISE_AT[className.toLowerCase()]?.[level] ?? 0;
+}
+
 /** Elecciones (estilo de combate, invocaciones, maniobras, metamagia…) que concede una clase/subclase a un nivel. */
 export function classChoicesAt(className: string, level: number, subclass?: string): LevelChoice[] {
   const defs = [
@@ -580,6 +604,9 @@ export function levelUp(c: Character, input: LevelUpInput): LevelUpResult {
       c.proficiencies.skills = [...new Set([...c.proficiencies.skills, ...input.skills.slice(0, mc.skillCount)])];
     }
   }
+
+  // Pericia (Expertise) elegida a este nivel (Rogue 6, Bard 9, Ranger 2/9…).
+  addExpertise(c, input.expertise);
 
   // Idiomas fijos de la clase (al multiclasear a Druida/Pícaro) y de la subclase (al elegirla a nivel 3).
   const newLangs: string[] = [];

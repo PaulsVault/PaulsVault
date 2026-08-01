@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { classChoicesAt, createCharacter, grantFeat, levelUp } from "../../src/domain/characters.js";
+import { classChoicesAt, createCharacter, expertiseCountAt, grantFeat, levelUp } from "../../src/domain/characters.js";
 import { importPack, removePack } from "../../src/domain/content.js";
 import type { Abilities, Database } from "../../src/types.js";
 
@@ -84,6 +84,26 @@ describe("elecciones de clase por nivel", () => {
 
   it("Wizard no ofrece elecciones de este tipo", () => {
     expect(classChoicesAt("Wizard", 2)).toHaveLength(0);
+  });
+
+  it("expertise: el conteo por clase/nivel es correcto y solo aplica a habilidades competentes", () => {
+    expect(expertiseCountAt("Rogue", 1)).toBe(2);
+    expect(expertiseCountAt("Rogue", 6)).toBe(2);
+    expect(expertiseCountAt("Bard", 2)).toBe(2);
+    expect(expertiseCountAt("Ranger", 2)).toBe(1);
+    expect(expertiseCountAt("Wizard", 1)).toBe(0);
+    // Al crear, la pericia elegida se aplica solo si es una habilidad competente.
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "R" + Math.random(), className: "Rogue", level: 1, species: "Human", background: "Criminal", abilities: ABIL, skills: ["stealth", "acrobatics"], expertise: ["stealth", "arcana"] });
+    expect(c.proficiencies.expertise).toContain("stealth");   // competente → aplica
+    expect(c.proficiencies.expertise).not.toContain("arcana"); // sin competencia → ignorada
+  });
+
+  it("expertise: subir de nivel añade la pericia elegida (Rogue 6)", () => {
+    const c = createCharacter({ characters: [] } as Database,
+      { name: "R" + Math.random(), className: "Rogue", level: 5, species: "Human", background: "Criminal", abilities: ABIL, skills: ["stealth", "acrobatics", "perception"] });
+    levelUp(c, { className: "Rogue", expertise: ["perception"] });
+    expect(c.proficiencies.expertise).toContain("perception");
   });
 
   it("levelUp aplica las opciones elegidas como rasgos", () => {
