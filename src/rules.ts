@@ -207,6 +207,7 @@ export function effectiveCasterLevel(c: Character): number {
   for (const cl of c.classes) {
     const n = cl.name.toLowerCase();
     if (FULL.includes(n)) lvl += cl.level;
+    else if (n === "artificer") lvl += Math.ceil(cl.level / 2); // semi-lanzador que REDONDEA HACIA ARRIBA (slot desde nivel 1)
     else if (HALF.includes(n)) lvl += Math.floor(cl.level / 2);
     else if (cl.subclass && THIRD_SUBS.includes(cl.subclass.toLowerCase())) lvl += Math.floor(cl.level / 3);
   }

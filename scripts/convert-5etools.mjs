@@ -22,8 +22,13 @@ const want = (t) => TYPES.length === 0 || TYPES.includes(t);
 const OUT_DIR = path.resolve("data-private");
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
-// Fuentes 2024 que queremos importar (abreviaturas de 5etools).
-const SOURCES_2024 = new Set(["XPHB", "XDMG", "XMM"]);
+// Fuentes 2024 (regla nueva/edición "one") que queremos importar (abreviaturas de 5etools).
+// Núcleo: XPHB (PHB 2024), XDMG (DMG 2024), XMM (MM 2025).
+// Libros y suplementos 2024+: EFA (Eberron: Forge of the Artificer — clase Artífice, especies, trasfondos),
+// FRHoF (Heroes of Faerûn — subclases, trasfondos), RHW (Ravenloft: The Horrors Within — especies, subclases),
+// ABH (Astarion's Book of Hungers), LFL (Lorwyn: First Light), NF (Netheril's Fall),
+// FRAiF (FR: Adventures in Faerûn), PaF (Puncheons and Flagons).
+const SOURCES_2024 = new Set(["XPHB", "XDMG", "XMM", "EFA", "FRHoF", "RHW", "ABH", "LFL", "NF", "FRAiF", "PaF"]);
 
 const SCHOOL = { A: "Abjuration", C: "Conjuration", D: "Divination", E: "Enchantment", V: "Evocation", I: "Illusion", N: "Necromancy", T: "Transmutation" };
 const AREA_SHAPE = { S: "sphere", N: "cone", L: "line", C: "cube", Y: "cylinder", H: "emanation", R: "emanation", Q: "cube", W: "line" };
