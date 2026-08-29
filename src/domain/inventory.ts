@@ -194,8 +194,8 @@ export function useItem(c: Character, idOrName: string): ItemUseResult {
 
 /** Recarga los objetos con cargas cuyo periodo coincide con el descanso. Devuelve notas. */
 export function rechargeItemsOnRest(c: Character, type: "short" | "long"): string[] {
-  const LONG = ["dawn", "dusk", "midnight", "daily", "long rest", "restlong", "long"];
-  const SHORT = ["short rest", "restshort", "short"];
+  const LONG = ["dawn", "dusk", "midnight", "daily", "long rest", "long_rest", "restlong", "long"];
+  const SHORT = ["short rest", "short_rest", "restshort", "short"];
   const notes: string[] = [];
   for (const it of c.inventory) {
     if (!it.charges || it.charges.current >= it.charges.max) continue;

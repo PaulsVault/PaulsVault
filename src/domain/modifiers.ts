@@ -164,6 +164,21 @@ function collect(c: Character): { mods: SourcedMod[]; active: string[]; incapaci
     spellAttackFlat += (data["bonusSpellAttack"] as number | undefined) ?? 0;
     spellDcFlat += (data["bonusSpellDc"] as number | undefined) ?? 0;
   }
+
+  // Efectos que ESCALAN con las cargas gastadas del objeto (Licor Solar: bonos por sorbos bebidos).
+  // Se aplica el nivel más alto cuyo `atSpent` ≤ cargas gastadas (máx − actual). No requiere equipar.
+  for (const item of c.inventory) {
+    if (!item.charges) continue;
+    const tiers = findEntry(item.name, "item")?.data?.["chargeEffects"] as { atSpent: number; mechanics: StatModifier[] }[] | undefined;
+    if (!Array.isArray(tiers) || !tiers.length) continue;
+    const spent = item.charges.max - item.charges.current;
+    if (spent <= 0) continue;
+    const tier = tiers.filter((t) => t.atSpent <= spent).sort((a, b) => b.atSpent - a.atSpent)[0];
+    if (!tier) continue;
+    const src = `${item.name} (${spent} sorbo${spent > 1 ? "s" : ""})`;
+    active.push(src);
+    for (const m of tier.mechanics) mods.push({ ...m, source: src });
+  }
   return { mods, active, incapacitated, critRange, spellAttackFlat, spellDcFlat };
 }
 

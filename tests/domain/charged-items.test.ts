@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createCharacter } from "../../src/domain/characters.js";
 import { addItem, castItemSpell, useItemCharges } from "../../src/domain/inventory.js";
 import { rest } from "../../src/domain/combat.js";
+import { computeActiveModifiers } from "../../src/domain/modifiers.js";
 import { importPack, removePack } from "../../src/domain/content.js";
 import type { Abilities, Database } from "../../src/types.js";
 
@@ -15,6 +16,12 @@ beforeAll(async () => {
     entries: [
       { id: "item:test-staff", type: "item", name: "Bastón de Prueba", data: { itemType: "weapon", requiresAttunement: true, charges: 10, recharge: "dawn", rechargeAmount: "10", spells: [{ cost: 3, name: "Bola de Prueba" }] } },
       { id: "spell:test-fireball", type: "spell", name: "Bola de Prueba", data: { level: 3, summary: "Esfera de 20 ft: salvación DES, 8d6 de fuego." } },
+      // Objeto con efectos que escalan con las cargas gastadas (estilo Licor Solar por sorbos).
+      { id: "item:licor-test", type: "item", name: "Licor Test", data: { itemType: "wondrous", charges: 5, recharge: "long_rest",
+        chargeEffects: [
+          { atSpent: 1, mechanics: [{ target: "damage", op: "add", value: "1d6", note: "radiante" }] },
+          { atSpent: 2, mechanics: [{ target: "damage", op: "add", value: "2d6", note: "radiante" }, { target: "ac", op: "add", value: 2 }, { target: "damage", op: "resist", note: "radiante" }] },
+        ] } },
     ],
   });
 });
@@ -49,5 +56,29 @@ describe("objetos con cargas", () => {
     expect(staff.charges?.current).toBe(5);
     rest(c, "long");
     expect(staff.charges?.current).toBe(10);
+  });
+
+  it("los efectos escalan solos según las cargas gastadas (sorbos)", () => {
+    const c = mage();
+    const licor = addItem(c, "Licor Test");
+    // Sin gastar cargas: no aplica ningún efecto del licor.
+    let m = computeActiveModifiers(c);
+    expect(m.damage.some((d) => d.includes("radiante"))).toBe(false);
+    // 1 sorbo (gasta 1 carga → 4/5): aplica el nivel 1.
+    useItemCharges(c, licor.id, 1);
+    m = computeActiveModifiers(c);
+    expect(m.damage.some((d) => d.includes("1d6"))).toBe(true);
+    expect(m.resistances).not.toContain("radiante"); // la resistencia entra a los 2 sorbos
+    // 2 sorbos (3/5): sube al nivel 2 (+2d6, +2 CA, resistencia).
+    const acBefore = computeActiveModifiers(mage()).ac.final;
+    useItemCharges(c, licor.id, 1);
+    m = computeActiveModifiers(c);
+    expect(m.damage.some((d) => d.includes("2d6"))).toBe(true);
+    expect(m.resistances).toContain("radiante");
+    expect(m.ac.final).toBe(acBefore + 2);
+    // Descanso largo recarga (5/5) → sin sorbos → sin efectos.
+    rest(c, "long");
+    m = computeActiveModifiers(c);
+    expect(m.damage.some((d) => d.includes("radiante"))).toBe(false);
   });
 });
