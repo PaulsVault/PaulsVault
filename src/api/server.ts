@@ -12,6 +12,7 @@ import { verifyToken, signToken, SESSION_COOKIE, TOKEN_MAX_AGE_MS } from "../aut
 import { dice3dFrom } from "../dice.js";
 import { registerUser, loginUser } from "../domain/auth.js";
 import { isAdmin, createInviteFor, listInviteViews, revokeInvite } from "../domain/invites.js";
+import { createResetForEmail, getResetInfo, resetPassword } from "../domain/password-reset.js";
 import * as chars from "../domain/characters.js";
 import * as inv from "../domain/inventory.js";
 import * as spells from "../domain/spells.js";
@@ -102,6 +103,13 @@ export function buildApp(): Express {
     res.clearCookie(SESSION_COOKIE, { path: "/" });
     res.json({ ok: true });
   });
+  // Recuperar contraseña con un enlace de un solo uso (el admin lo emite; ver /api/admin/password-resets).
+  app.get("/api/auth/reset/:token", async (req, res) => res.json(await getResetInfo(req.params.token)));
+  app.post("/api/auth/reset", async (req: Req, res) => {
+    const user = await resetPassword(String(req.body?.token ?? ""), String(req.body?.password ?? ""));
+    setSession(res, user.id); // deja la sesión iniciada tras cambiar la contraseña
+    res.json({ user });
+  });
   app.get("/api/auth/me", async (req: Req, res) => {
     const u = req.userId ? await getUserById(req.userId) : undefined;
     if (!u) { res.status(401).json({ error: { code: "unauthorized", message: "No autenticado." } }); return; }
@@ -125,6 +133,10 @@ export function buildApp(): Express {
   app.post("/api/admin/invites", async (req: Req, res) =>
     res.status(201).json(await createInviteFor(req.userId!, req.body?.label, num(req.body?.expiresInDays), baseUrl(req))));
   app.delete("/api/admin/invites/:id", async (req, res) => { await revokeInvite(req.params.id); res.json({ ok: true }); });
+
+  // Genera un enlace de recuperación de contraseña para un usuario (el admin se lo pasa por fuera).
+  app.post("/api/admin/password-resets", async (req: Req, res) =>
+    res.status(201).json(await createResetForEmail(String(req.body?.email ?? ""), baseUrl(req))));
 
   // ─── Personajes ───
   app.get("/api/characters", async (_req, res) => res.json(chars.listCharacters(await loadDb())));

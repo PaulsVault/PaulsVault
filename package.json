@@ -11,7 +11,8 @@
     "dev": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sync:2024": "node scripts/sync-2024.mjs"
+    "sync:2024": "node scripts/sync-2024.mjs",
+    "reset-link": "node scripts/reset-link.mjs"
   },
   "keywords": [],
   "author": "",

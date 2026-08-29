@@ -41,10 +41,15 @@ export const api = {
   login: (email: string, password: string) => req<{ user: AuthUser }>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
   logout: () => req<{ ok: boolean }>("/auth/logout", { method: "POST" }),
 
+  // Recuperar contraseña (enlace de un solo uso)
+  resetInfo: (token: string) => req<{ email: string }>(`/auth/reset/${enc(token)}`),
+  resetPassword: (token: string, password: string) => req<{ user: AuthUser }>("/auth/reset", { method: "POST", body: JSON.stringify({ token, password }) }),
+
   // Administración: invitaciones (solo admin)
   listInvites: () => req<{ invites: Invite[] }>("/admin/invites").then((r) => r.invites),
   createInvite: (body: { label?: string; expiresInDays?: number }) => req<Invite>("/admin/invites", { method: "POST", body: JSON.stringify(body) }),
   deleteInvite: (id: string) => req<{ ok: boolean }>(`/admin/invites/${enc(id)}`, { method: "DELETE" }),
+  createPasswordReset: (email: string) => req<{ token: string; url: string; email: string; expiresAt: string }>("/admin/password-resets", { method: "POST", body: JSON.stringify({ email }) }),
 
   // Personajes
   listCharacters: () => req<CharacterSummary[]>("/characters"),

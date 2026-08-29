@@ -36,6 +36,7 @@ function ready(): Promise<void> {
     await c.execute("CREATE TABLE IF NOT EXISTS characters (id TEXT PRIMARY KEY, owner_id TEXT, data TEXT NOT NULL, updated_at TEXT)");
     await c.execute("CREATE TABLE IF NOT EXISTS content_packs (id TEXT PRIMARY KEY, data TEXT NOT NULL)");
     await c.execute("CREATE TABLE IF NOT EXISTS invites (id TEXT PRIMARY KEY, token TEXT UNIQUE NOT NULL, created_by TEXT, label TEXT, expires_at TEXT, used_by TEXT, used_at TEXT, created_at TEXT NOT NULL)");
+    await c.execute("CREATE TABLE IF NOT EXISTS password_resets (token TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at TEXT NOT NULL, used_at TEXT, created_at TEXT NOT NULL)");
     await c.execute("CREATE TABLE IF NOT EXISTS encounters (id TEXT PRIMARY KEY, owner_id TEXT, data TEXT NOT NULL, updated_at TEXT)");
     await refreshPacks();
   })();
@@ -201,6 +202,36 @@ export async function getFirstUserId(): Promise<string | null> {
   await ready();
   const rs = await client().execute("SELECT id FROM users ORDER BY created_at ASC LIMIT 1");
   return (rs.rows[0] as unknown as { id: string } | undefined)?.id ?? null;
+}
+
+export async function updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+  await ready();
+  await client().execute({ sql: "UPDATE users SET password_hash = ? WHERE id = ?", args: [passwordHash, userId] });
+}
+
+// ─── Recuperación de contraseña ───
+
+export interface PasswordResetRow { token: string; user_id: string; expires_at: string; used_at: string | null; created_at: string; }
+
+export async function createPasswordReset(row: PasswordResetRow): Promise<void> {
+  await ready();
+  // Invalida enlaces anteriores del mismo usuario: solo el más reciente sirve.
+  await client().execute({ sql: "DELETE FROM password_resets WHERE user_id = ? AND used_at IS NULL", args: [row.user_id] });
+  await client().execute({
+    sql: "INSERT INTO password_resets (token, user_id, expires_at, used_at, created_at) VALUES (?,?,?,?,?)",
+    args: [row.token, row.user_id, row.expires_at, row.used_at, row.created_at],
+  });
+}
+
+export async function getPasswordReset(token: string): Promise<PasswordResetRow | undefined> {
+  await ready();
+  const rs = await client().execute({ sql: "SELECT * FROM password_resets WHERE token = ?", args: [token] });
+  return rs.rows[0] as unknown as PasswordResetRow | undefined;
+}
+
+export async function markPasswordResetUsed(token: string): Promise<void> {
+  await ready();
+  await client().execute({ sql: "UPDATE password_resets SET used_at = ? WHERE token = ?", args: [new Date().toISOString(), token] });
 }
 
 // ─── Invitaciones ───

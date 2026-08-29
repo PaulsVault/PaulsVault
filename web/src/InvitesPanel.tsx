@@ -7,6 +7,8 @@ export function InvitesPanel({ onBack }: { onBack: () => void }) {
   const [expires, setExpires] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLink, setResetLink] = useState<string | null>(null);
 
   async function load() { setInvites(await api.listInvites()); }
   useEffect(() => { void load().catch((e) => setNote("⚠️ " + (e as Error).message)); }, []);
@@ -32,6 +34,17 @@ export function InvitesPanel({ onBack }: { onBack: () => void }) {
     finally { setBusy(false); }
   }
 
+  async function genReset() {
+    setBusy(true); setNote(null); setResetLink(null);
+    try {
+      const r = await api.createPasswordReset(resetEmail.trim());
+      setResetLink(r.url);
+      await copy(r.url);
+      setNote(`Enlace de recuperación creado y copiado. Válido 24 h. Envíaselo a ${r.email}.`);
+    } catch (e) { setNote("⚠️ " + (e as Error).message); }
+    finally { setBusy(false); }
+  }
+
   const status = (inv: Invite) =>
     inv.used ? <span className="chip">usada</span>
       : inv.expiresAt && Date.parse(inv.expiresAt) < Date.now() ? <span className="chip danger">expirada</span>
@@ -50,6 +63,21 @@ export function InvitesPanel({ onBack }: { onBack: () => void }) {
           <input type="number" min={1} placeholder="Expira en (días, opcional)" value={expires} onChange={(e) => setExpires(e.target.value)} style={{ maxWidth: 220 }} />
           <button className="btn primary" disabled={busy} onClick={create}>+ Crear enlace</button>
         </div>
+      </section>
+
+      <section className="panel">
+        <h2>Recuperar contraseña de un usuario</h2>
+        <p className="muted small">Si alguien de tu mesa olvidó su contraseña, genera un <b>enlace de recuperación</b> con su email y pásaselo (WhatsApp, etc.). Al abrirlo podrá crear una contraseña nueva. El enlace es de <b>un solo uso</b> y caduca en 24 h.</p>
+        <div className="row wrap">
+          <input type="email" placeholder="Email del usuario" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} />
+          <button className="btn primary" disabled={busy || !resetEmail.trim()} onClick={genReset}>Generar enlace</button>
+        </div>
+        {resetLink && (
+          <div className="row" style={{ marginTop: 8, justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+            <div className="muted small invite-url" style={{ minWidth: 0 }}>{resetLink}</div>
+            <button className="btn small" onClick={() => copy(resetLink)}>Copiar</button>
+          </div>
+        )}
       </section>
 
       <section className="panel">

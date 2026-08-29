@@ -114,4 +114,59 @@ describe("API smoke (con auth)", () => {
     const second = await api("/api/auth/register", { method: "POST", body: JSON.stringify({ email: "u2@test.com", password: "secret123", invite: token }) });
     expect(second.status).toBe(409);
   });
+
+  describe("recuperación de contraseña (enlace del admin)", () => {
+    const loginAdmin = () => { cookie = ""; return api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: "smoke@test.com", password: "secret123" }) }); };
+
+    it("un usuario no-admin no puede generar enlaces de recuperación (403)", async () => {
+      cookie = "";
+      await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: "otro@test.com", password: "secret123" }) });
+      const r = await api("/api/admin/password-resets", { method: "POST", body: JSON.stringify({ email: "otro@test.com" }) });
+      expect(r.status).toBe(403);
+    });
+
+    it("email inexistente → 404", async () => {
+      await loginAdmin();
+      const r = await api("/api/admin/password-resets", { method: "POST", body: JSON.stringify({ email: "fantasma@test.com" }) });
+      expect(r.status).toBe(404);
+    });
+
+    it("el admin genera un enlace y el usuario fija una contraseña nueva (y queda con sesión)", async () => {
+      await loginAdmin();
+      const gen = await api("/api/admin/password-resets", { method: "POST", body: JSON.stringify({ email: "otro@test.com" }) });
+      expect(gen.status).toBe(201);
+      const token = gen.body["token"] as string;
+      expect(gen.body["url"]).toContain("/?reset=");
+
+      // El formulario consulta de quién es el enlace (sin sesión).
+      cookie = "";
+      const info = await api(`/api/auth/reset/${token}`);
+      expect(info.status).toBe(200);
+      expect(info.body["email"]).toBe("otro@test.com");
+
+      // Fija la contraseña nueva → el servidor deja la sesión iniciada.
+      const done = await api("/api/auth/reset", { method: "POST", body: JSON.stringify({ token, password: "flamante99" }) });
+      expect(done.status).toBe(200);
+      expect(cookie).toContain("dnd_session");
+
+      // La contraseña vieja ya no sirve; la nueva sí.
+      cookie = "";
+      expect((await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: "otro@test.com", password: "secret123" }) })).status).toBe(400);
+      expect((await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email: "otro@test.com", password: "flamante99" }) })).status).toBe(200);
+    });
+
+    it("el enlace es de un solo uso (reusarlo falla)", async () => {
+      await loginAdmin();
+      const token = (await api("/api/admin/password-resets", { method: "POST", body: JSON.stringify({ email: "otro@test.com" }) })).body["token"] as string;
+      cookie = "";
+      expect((await api("/api/auth/reset", { method: "POST", body: JSON.stringify({ token, password: "otravez123" }) })).status).toBe(200);
+      expect((await api("/api/auth/reset", { method: "POST", body: JSON.stringify({ token, password: "denuevo123" }) })).status).toBe(400);
+    });
+
+    it("un token inventado se rechaza (404)", async () => {
+      cookie = "";
+      expect((await api("/api/auth/reset/token-falso")).status).toBe(404);
+      expect((await api("/api/auth/reset", { method: "POST", body: JSON.stringify({ token: "token-falso", password: "loquesea123" }) })).status).toBe(404);
+    });
+  });
 });
