@@ -8,6 +8,7 @@ export function CharacterLibrary({ onOpen }: { onOpen: (id: string) => void }) {
   const [list, setList] = useState<CharacterSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [filter, setFilter] = useState("");
 
@@ -26,12 +27,21 @@ export function CharacterLibrary({ onOpen }: { onOpen: (id: string) => void }) {
   useEffect(() => { void refresh(); }, []);
 
   async function importFile(file: File) {
-    setError(null);
+    setError(null); setNote(null);
     try {
-      const parsed = JSON.parse(await readFile(file)) as { format?: string; character?: unknown };
-      if (parsed?.format === "dndchar") await api.importPackage(parsed);
-      else await api.importCharacter(parsed.character ?? parsed);
+      const parsed = JSON.parse(await readFile(file)) as { format?: string; character?: unknown; entries?: unknown[]; name?: string };
+      // Paquete de personaje portable (.dndchar).
+      if (parsed?.format === "dndchar") { await api.importPackage(parsed); await refresh(); setNote("Personaje importado."); return; }
+      // Pack de contenido (dotes, objetos, conjuros…): tiene una lista `entries`.
+      if (Array.isArray(parsed?.entries)) {
+        const r = await api.importPack(parsed) as { entryCount?: number };
+        setNote(`✅ Pack «${parsed.name ?? "contenido"}» importado (${r.entryCount ?? 0} entrada${r.entryCount === 1 ? "" : "s"}). Búscalo/otórgalo desde Contenido o desde la ficha del personaje.`);
+        return;
+      }
+      // Si no, es un personaje (JSON exportado).
+      await api.importCharacter(parsed.character ?? parsed);
       await refresh();
+      setNote("Personaje importado.");
     } catch (e) {
       setError("No se pudo importar: " + (e as Error).message);
     }
@@ -60,7 +70,7 @@ export function CharacterLibrary({ onOpen }: { onOpen: (id: string) => void }) {
       <div className="library-head">
         <h1>Personajes</h1>
         <div className="row wrap">
-          <label className="btn" style={{ cursor: "pointer" }}>
+          <label className="btn" style={{ cursor: "pointer" }} title="Importa un personaje (.json/.dndchar) o un pack de contenido (dotes, objetos…)">
             ⬆ Importar
             <input type="file" accept=".json,.dndchar,application/json" hidden onChange={(e) => e.target.files?.[0] && importFile(e.target.files[0])} />
           </label>
@@ -74,6 +84,7 @@ export function CharacterLibrary({ onOpen }: { onOpen: (id: string) => void }) {
 
       {loading && <p className="muted">Cargando…</p>}
       {error && <p className="error">⚠️ {error}</p>}
+      {note && <p className="note">{note}</p>}
 
       {!loading && !error && list.length === 0 && (
         <div className="empty">
