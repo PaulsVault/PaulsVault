@@ -75,10 +75,12 @@ const titleCase = (s) => s.split(" ").map((w, i) => (i > 0 && SMALL_WORDS.has(w.
 const SIZE = { T: "Tiny", S: "Small", M: "Medium", L: "Large", H: "Huge", G: "Gargantuan" };
 
 // "magic initiate; cleric|xphb" → "Magic Initiate (Cleric)"
+// Nombre de la dote de origen de un trasfondo. Usa el nombre BASE de la dote (la app tiene una sola
+// "Magic Initiate"; la clase la elige el jugador). "anyFromCategory" = elige una dote → no es dote fija.
 function refName(ref) {
-  const base = String(ref).split("|")[0];
-  const [name, sub] = base.split(";").map((s) => s.trim());
-  return sub ? `${cap(name)} (${cap(sub)})` : cap(name);
+  const base = String(ref).split("|")[0].split(";")[0].trim(); // sin fuente ni "; clase"
+  if (/^anyfromcategory$/i.test(base)) return undefined;
+  return cap(base);
 }
 function renderPrereq(pre) {
   if (!Array.isArray(pre)) return undefined;
