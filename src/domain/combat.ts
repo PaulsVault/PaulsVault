@@ -5,7 +5,7 @@ import { findEntry } from "./content.js";
 import { DomainError } from "./errors.js";
 import { rechargeItemsOnRest } from "./inventory.js";
 import { abilityMod, newId, proficiencyBonus, totalLevel } from "../rules.js";
-import type { ActiveCondition, Character, Companion, Feature } from "../types.js";
+import type { ActiveCondition, Character, Companion, Feature, StatModifier } from "../types.js";
 
 const INCAPACITATING = ["incapacitated", "paralyzed", "petrified", "stunned", "unconscious"];
 
@@ -202,7 +202,7 @@ export function removeCondition(c: Character, condition: string, opts: Condition
 
 // ─── Efectos activos ───
 
-export interface AddEffectInput { name: string; description?: string; rounds?: number; concentration?: boolean; companion?: string; }
+export interface AddEffectInput { name: string; description?: string; rounds?: number; concentration?: boolean; companion?: string; mechanics?: StatModifier[]; }
 
 export function addEffect(c: Character, input: AddEffectInput): { broke?: string } {
   let companionId: string | undefined;
@@ -222,6 +222,7 @@ export function addEffect(c: Character, input: AddEffectInput): { broke?: string
     roundsRemaining: input.rounds ?? null, minutesRemaining: null,
     concentration: input.concentration ?? false,
     appliesTo: companionId ? "companion" : "self", companionId,
+    ...(input.mechanics?.length ? { mechanics: input.mechanics } : {}),
   });
   return { broke };
 }

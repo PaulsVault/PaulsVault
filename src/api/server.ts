@@ -329,8 +329,8 @@ export function buildApp(): Express {
 
   app.post("/api/characters/:id/effects", async (req, res) =>
     res.json(await onCharacter(req.params.id, (c) => {
-      const { action, name, description, rounds, concentration, companion } = req.body;
-      if (action === "add") combat.addEffect(c, { name, description, rounds, concentration, companion });
+      const { action, name, description, rounds, concentration, companion, mechanics } = req.body;
+      if (action === "add") combat.addEffect(c, { name, description, rounds, concentration, companion, mechanics });
       else if (action === "remove") combat.removeEffect(c, name);
       else if (action === "tick") return { ...combat.tickEffects(c, rounds ?? 1), combat: combat.combatView(c) };
       else if (action === "break_concentration") combat.breakConcentration(c);

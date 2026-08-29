@@ -60,6 +60,10 @@ export interface Modifiers {
   saveFlat: Record<AbilityKey, number>;
   spellAttackFlat: number;
   spellDcFlat: number;
+  damage: string[];
+  resistances: string[];
+  immunities: string[];
+  vulnerabilities: string[];
 }
 
 export interface Sheet {

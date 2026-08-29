@@ -111,12 +111,18 @@ export function CharacterSheet({ sheet: s, onRoll, id, reload }: { sheet: Sheet;
           </section>
         )}
 
-        {s.resistances && s.resistances.length > 0 && (
+        {((s.resistances?.length ?? 0) + m.damage.length + m.immunities.length + m.vulnerabilities.length) > 0 && (
           <section className="panel">
-            <h2>🛡️ Resistencias a daño</h2>
-            <div className="chips">
-              {s.resistances.map((r) => <span key={r} className="chip">{r}</span>)}
-            </div>
+            <h2>🛡️ Daño y resistencias</h2>
+            {m.damage.length > 0 && <p className="small" style={{ margin: "0 0 6px" }}><b>⚔️ Daño adicional:</b> {m.damage.join(" · ")}</p>}
+            {s.resistances && s.resistances.length > 0 && (
+              <div style={{ marginBottom: m.immunities.length || m.vulnerabilities.length ? 6 : 0 }}>
+                <span className="muted small">Resistencias</span>
+                <div className="chips">{s.resistances.map((r) => <span key={r} className="chip">{r}</span>)}</div>
+              </div>
+            )}
+            {m.immunities.length > 0 && <p className="small" style={{ margin: "2px 0" }}><b>Inmunidades:</b> {m.immunities.join(", ")}</p>}
+            {m.vulnerabilities.length > 0 && <p className="small" style={{ margin: "2px 0" }}><b>Vulnerabilidades:</b> {m.vulnerabilities.join(", ")}</p>}
           </section>
         )}
 

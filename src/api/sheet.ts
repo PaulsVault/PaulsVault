@@ -75,7 +75,7 @@ export function characterSheet(c: Character): Record<string, unknown> {
   const itemResistances = c.inventory
     .filter((i) => i.equipped || i.attuned)
     .flatMap((i) => (i.resistances ?? (findEntry(i.name, "item")?.data["resistances"] as string[] | undefined)) ?? []);
-  const resistances = [...new Set([...(c.resistances ?? []), ...speciesResistances, ...itemResistances])];
+  const resistances = [...new Set([...(c.resistances ?? []), ...speciesResistances, ...itemResistances, ...mods.resistances])];
 
   // Descripción del trasfondo (para roleplay).
   const backgroundDescription = (findEntry(c.background, "background")?.data["description"] as string | undefined) ?? null;

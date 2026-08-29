@@ -102,6 +102,10 @@ export interface ComputedModifiers {
   saveFlat: Record<AbilityKey, number>; // bono numérico de salvación por característica (objetos, Exhaustion…)
   spellAttackFlat: number; // bono a tiradas de ataque de conjuro (objetos)
   spellDcFlat: number;     // bono a la CD de salvación de conjuros (objetos)
+  damage: string[];        // bonos de daño activos ("+3d6 radiante (Licor)") — de efectos/rasgos
+  resistances: string[];   // resistencias por efectos/condiciones activos
+  immunities: string[];    // inmunidades a daño activas
+  vulnerabilities: string[]; // vulnerabilidades a daño activas
 }
 
 /** Reúne todos los modificadores activos (condiciones + Exhaustion + efectos + rasgos/dotes). */
@@ -225,6 +229,14 @@ export function computeActiveModifiers(c: Character): ComputedModifiers {
     }),
   ) as ComputedModifiers["saves"];
 
+  // Daño y resistencias/inmunidades/vulnerabilidades activas (de efectos, condiciones, rasgos).
+  const label = (m: SourcedMod) => (m.note ?? (m.value != null ? String(m.value) : "")).trim();
+  const damage = mods.filter((m) => m.target === "damage" && m.op === "add" && m.value != null)
+    .map((m) => `${formatBonus(m.value!)}${m.note ? " " + m.note : ""} (${m.source})`);
+  const resistances = [...new Set(mods.filter((m) => m.target === "damage" && m.op === "resist").map(label).filter(Boolean))];
+  const immunities = [...new Set(mods.filter((m) => m.target === "damage" && m.op === "immune").map(label).filter(Boolean))];
+  const vulnerabilities = [...new Set(mods.filter((m) => m.target === "damage" && m.op === "vulnerable").map(label).filter(Boolean))];
+
   return {
     ac: { base: acBase, final: ac, sources: acSources },
     speed: { base: speedBase, final: speed, sources: speedSources },
@@ -239,5 +251,9 @@ export function computeActiveModifiers(c: Character): ComputedModifiers {
     saveFlat,
     spellAttackFlat,
     spellDcFlat,
+    damage,
+    resistances,
+    immunities,
+    vulnerabilities,
   };
 }

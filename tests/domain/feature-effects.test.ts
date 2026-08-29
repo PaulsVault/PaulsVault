@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createCharacter, levelDown, levelUp } from "../../src/domain/characters.js";
+import { addEffect } from "../../src/domain/combat.js";
 import { computeActiveModifiers } from "../../src/domain/modifiers.js";
 import { computeAC } from "../../src/rules.js";
 import type { Abilities, Database } from "../../src/types.js";
@@ -13,6 +14,22 @@ describe("efectos mecánicos de rasgos y dotes", () => {
     const c = fighter(2);
     levelUp(c, { className: "Fighter", subclass: "Champion" }); // nivel 3
     expect(computeActiveModifiers(c).critRange).toBe(19);
+  });
+
+  it("un efecto personalizado con mecánicas aplica CA, daño y resistencia a la hoja", () => {
+    const c = fighter(3);
+    const acBefore = computeActiveModifiers(c).ac.final;
+    addEffect(c, { name: "Licor 3 sorbos", mechanics: [
+      { target: "ac", op: "add", value: 2 },
+      { target: "damage", op: "add", value: "3d6", note: "radiante" },
+      { target: "damage", op: "resist", note: "radiante" },
+      { target: "check", op: "disadvantage" },
+    ] });
+    const m = computeActiveModifiers(c);
+    expect(m.ac.final).toBe(acBefore + 2);                       // +2 CA
+    expect(m.damage.some((d) => d.includes("3d6") && d.includes("radiante"))).toBe(true); // daño adicional
+    expect(m.resistances).toContain("radiante");                 // resistencia
+    expect(m.check.mode).toBe("disadvantage");                   // desventaja en pruebas
   });
 
   it("Mobile suma +10 a la velocidad y Alert suma competencia a la iniciativa", () => {
