@@ -7,7 +7,7 @@ import { DomainError } from "./errors.js";
 import { multiclassProficiencies, type MulticlassProfs } from "./proficiency.js";
 import { reconcileGrantedSpells } from "./spells.js";
 import {
-  abilityMod, computedSheet, effectiveCasterLevel, newId,
+  abilityMod, computedSheet, newId,
   proficiencyBonus, slotsForCasterLevel, totalLevel,
 } from "../rules.js";
 import type {
@@ -131,8 +131,51 @@ export function classDefaults(className: string): {
   return { hitDie: 8, saves: [] };
 }
 
+/** Tipo de lanzador de una subclase (Embaucador Arcano/Caballero Arcano = "1/3"), leído del contenido. */
+function subclassCasterType(subclass: string | undefined): string | undefined {
+  if (!subclass) return undefined;
+  return (findEntry(subclass, "subclass")?.data["casterType"] as string | undefined) ?? undefined;
+}
+
+/**
+ * Nivel de lanzador efectivo para multiclase, leído del CONTENIDO (no de nombres fijos):
+ * full=1, "artificer"=½ redondeando ARRIBA (Paladín/Explorador/Artífice 2024, slot desde nivel 1),
+ * half=½ abajo, third=⅓ abajo (incluye subclases lanzadoras: Embaucador Arcano, Caballero Arcano).
+ * "pact" (Brujo) se maneja aparte con pactSlots.
+ */
+export function effectiveCasterLevel(c: Character): number {
+  let lvl = 0;
+  for (const cl of c.classes) {
+    const type = (classDefaults(cl.name).casterType ?? subclassCasterType(cl.subclass))?.toLowerCase();
+    if (!type || type === "pact") continue;
+    if (type === "full" || type === "1" || type === "1/1") lvl += cl.level;
+    else if (type === "artificer") lvl += Math.ceil(cl.level / 2);
+    else if (type === "1/2" || type === "half") lvl += Math.floor(cl.level / 2);
+    else if (type === "1/3" || type === "third") lvl += Math.floor(cl.level / 3);
+  }
+  return lvl;
+}
+
+/** Capacidad de conjuro del personaje según el contenido: la de la clase lanzadora, o la de una subclase lanzadora. */
+function resolveSpellAbility(c: Character): AbilityKey | undefined {
+  for (const cl of c.classes) {
+    const a = classDefaults(cl.name).spellAbility;
+    if (a) return a;
+  }
+  for (const cl of c.classes) {
+    const a = cl.subclass ? (findEntry(cl.subclass, "subclass")?.data["spellcastingAbility"] as AbilityKey | undefined) : undefined;
+    if (a) return a;
+  }
+  return undefined;
+}
+
 /** Recalcula slots de conjuro (full/half/third caster; Pact Magic aparte). Preserva usos. */
 export function recalcSlots(c: Character): void {
+  // Las subclases lanzadoras (Embaucador Arcano, Caballero Arcano) fijan la capacidad de conjuro al elegirse.
+  if (!c.spellcasting.ability) {
+    const a = resolveSpellAbility(c);
+    if (a) c.spellcasting.ability = a;
+  }
   const eff = effectiveCasterLevel(c);
   if (eff > 0) {
     const fresh = slotsForCasterLevel(eff);

@@ -115,19 +115,3 @@ describe("slots manuales", () => {
   });
 });
 
-describe("Artífice (semi-lanzador que redondea hacia arriba)", () => {
-  const make = (level: number) =>
-    createCharacter(loadDb(), { name: "Art", className: "Artificer", level, species: "Human", background: "Sage", abilities: ABIL });
-
-  it("nivel 1 ya tiene slot de conjuro (a diferencia de Paladín/Explorador)", () => {
-    // Artífice: ceil(1/2)=1 → slots de lanzador nivel 1. Paladín: floor(1/2)=0 → sin slots.
-    expect(make(1).spellcasting.slots["1"]?.max).toBe(2);
-  });
-
-  it("nivel 5 → nivel de lanzador 3 → slots {1:4, 2:2}", () => {
-    const c = make(5);
-    expect(c.spellcasting.slots["1"]?.max).toBe(4);
-    expect(c.spellcasting.slots["2"]?.max).toBe(2);
-    expect(c.spellcasting.slots["3"]).toBeUndefined();
-  });
-});

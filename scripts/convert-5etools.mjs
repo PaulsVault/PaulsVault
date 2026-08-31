@@ -239,7 +239,8 @@ function buildSpellClassMap(dataDir) {
   for (const bySource of Object.values(json)) {
     for (const [spellName, info] of Object.entries(bySource)) {
       const set = (map[spellName.toLowerCase()] ??= new Set());
-      for (const cl of info.class ?? []) if (cl.source === "XPHB") set.add(cl.name);
+      // Cualquier lista de clase de fuentes 2024 (incluye la del Artífice, que está en EFA, no en XPHB).
+      for (const cl of info.class ?? []) if (SOURCES_2024.has(cl.source)) set.add(cl.name);
     }
   }
   return map;
@@ -680,6 +681,20 @@ if (want("masteries")) {
 }
 
 // ─── Subclases (con rasgos por nivel) ───
+// Clase cuya LISTA de conjuros usa una subclase lanzadora (Embaucador Arcano / Caballero Arcano → Mago).
+// Sale de additionalSpells.expanded: {"all":"level=1|class=Wizard"} → "Wizard".
+function subclassSpellList(sc) {
+  for (const grp of sc.additionalSpells ?? []) {
+    for (const lvlArr of Object.values(grp.expanded ?? {})) {
+      for (const e of (Array.isArray(lvlArr) ? lvlArr : [])) {
+        const m = /class=([A-Za-z]+)/.exec(typeof e === "string" ? e : (e.all ?? ""));
+        if (m) return m[1];
+      }
+    }
+  }
+  return undefined;
+}
+
 function convertSubclasses(classJson) {
   const features = classJson.subclassFeature ?? [];
   const out = [];
@@ -698,6 +713,10 @@ function convertSubclasses(classJson) {
       ...parseHpBonus(feats.map((f) => f.summary).join(" ")), // PG extra de subclase (Resiliencia Dracónica: +1/nivel de clase)
       ...(parseGrantedLanguages(feats.map((f) => f.summary).join(" ")).length ? { languages: parseGrantedLanguages(feats.map((f) => f.summary).join(" ")) } : {}), // idioma de subclase (Dracónico)
       ...parseAdditionalSpells(sc.additionalSpells), // conjuros de subclase (nivel = nivel de clase)
+      // Subclase lanzadora (Embaucador Arcano, Caballero Arcano…): capacidad, progresión y lista de conjuros.
+      ...(sc.spellcastingAbility ? { spellcastingAbility: sc.spellcastingAbility } : {}),
+      ...(sc.casterProgression ? { casterType: sc.casterProgression } : {}),
+      ...(subclassSpellList(sc) ? { spellListClass: subclassSpellList(sc) } : {}),
       source: sc.source,
     } });
   }

@@ -22,7 +22,9 @@ export function SpellsPanel({ id, sheet, reload }: { id: string; sheet: Sheet; r
   const [open, setOpen] = useState<string | null>(null);
   const [castInfo, setCastInfo] = useState<CastInfo | null>(null);
   const [onlyMyClass, setOnlyMyClass] = useState(true);
-  const myClasses = sheet.classList?.map((cl) => cl.name) ?? [];
+  // Lista(s) de conjuros del personaje: la de cada clase lanzadora, o la que le presta una subclase
+  // lanzadora (Embaucador Arcano/Caballero Arcano → Mago). Así "solo mi clase" no sale vacío en el Pícaro.
+  const myClasses = [...new Set((sheet.classList ?? []).map((cl) => cl.spellList).filter((x): x is string => !!x))];
 
   async function refresh() { setView((await api.getSpells(id)) as unknown as SpellView); }
   useEffect(() => { void refresh(); }, [id]);

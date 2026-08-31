@@ -282,8 +282,11 @@ export function buildApp(): Express {
     res.json(await onCharacter(req.params.id, (c) => inv.adjustCurrency(c, req.body))));
 
   // ─── Hechizos ───
-  app.get("/api/characters/:id/spells", async (req, res) =>
-    res.json(spells.spellcastingView(chars.requireCharacter(await loadDb(), req.params.id))));
+  app.get("/api/characters/:id/spells", async (req, res) => {
+    const c = chars.requireCharacter(await loadDb(), req.params.id);
+    chars.recalcSlots(c); // repara capacidad/slots desde el contenido (subclases lanzadoras, Paladín 2024…) sin persistir en lectura
+    res.json(spells.spellcastingView(c));
+  });
 
   app.post("/api/characters/:id/spells", async (req, res) =>
     res.status(201).json(await onCharacter(req.params.id, (c) => { spells.learnSpell(c, req.body.spell, req.body.level, req.body.alwaysPrepared); return spells.spellcastingView(c); })));

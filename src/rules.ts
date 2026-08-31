@@ -198,21 +198,8 @@ export function slotsForCasterLevel(effectiveLevel: number): Record<string, { ma
   return out;
 }
 
-/** Nivel de lanzador efectivo para multiclase (full=1, half=1/2, third=1/3). */
-export function effectiveCasterLevel(c: Character): number {
-  const FULL = ["wizard", "sorcerer", "cleric", "druid", "bard"];
-  const HALF = ["paladin", "ranger"];
-  const THIRD_SUBS = ["eldritch knight", "arcane trickster"];
-  let lvl = 0;
-  for (const cl of c.classes) {
-    const n = cl.name.toLowerCase();
-    if (FULL.includes(n)) lvl += cl.level;
-    else if (n === "artificer") lvl += Math.ceil(cl.level / 2); // semi-lanzador que REDONDEA HACIA ARRIBA (slot desde nivel 1)
-    else if (HALF.includes(n)) lvl += Math.floor(cl.level / 2);
-    else if (cl.subclass && THIRD_SUBS.includes(cl.subclass.toLowerCase())) lvl += Math.floor(cl.level / 3);
-  }
-  return lvl;
-}
+// El nivel de lanzador efectivo (multiclase) vive en el dominio (characters.ts): se lee del CONTENIDO
+// (casterType de la clase/subclase), no de nombres fijos, para cubrir subclases lanzadoras y contenido nuevo.
 
 export function findItem(c: Character, idOrName: string): InventoryItem {
   const q = idOrName.trim().toLowerCase();

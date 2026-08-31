@@ -7,10 +7,14 @@ import { wildShapeState } from "../domain/wildshape.js";
 import { computeActiveModifiers } from "../domain/modifiers.js";
 import { armorPenalty, isProficientWithItem } from "../domain/proficiency.js";
 import { scaleCantripDamage, spellMechanics } from "../domain/spells.js";
+import { recalcSlots } from "../domain/characters.js";
 import { allEntries, findEntry } from "../domain/content.js";
 import type { Character } from "../types.js";
 
 export function characterSheet(c: Character): Record<string, unknown> {
+  // Auto-repara la capacidad y los slots de conjuro desde el contenido (subclases lanzadoras, Paladín/Explorador
+  // 2024 con slot desde nivel 1…). Idempotente: en lecturas no persiste; en escrituras se guarda al hacer saveDb.
+  recalcSlots(c);
   const base = computedSheet(c) as Record<string, unknown>;
   const mods = computeActiveModifiers(c);
 
@@ -59,7 +63,15 @@ export function characterSheet(c: Character): Record<string, unknown> {
       };
     });
 
-  const classList = c.classes.map((cl) => ({ name: cl.name, subclass: cl.subclass ?? null, level: cl.level }));
+  // Clase cuya LISTA de conjuros usa cada clase del personaje: la propia si lanza, o la de una subclase
+  // lanzadora (Embaucador Arcano/Caballero Arcano → Mago). Sirve para filtrar "solo mi clase" en el grimorio.
+  const spellListFor = (cl: { name: string; subclass?: string | null }): string | null => {
+    if (findEntry(cl.name, "class")?.data["spellcastingAbility"]) return cl.name;
+    const sd = cl.subclass ? findEntry(cl.subclass, "subclass")?.data : undefined;
+    if (sd?.["spellcastingAbility"]) return (sd["spellListClass"] as string | undefined) ?? cl.name;
+    return null;
+  };
+  const classList = c.classes.map((cl) => ({ name: cl.name, subclass: cl.subclass ?? null, level: cl.level, spellList: spellListFor(cl) }));
   const features = c.features.map((f) => ({
     name: f.name, source: f.source, description: f.description ?? describe(f.name, f.source),
     uses: f.uses ? { used: f.uses.used, max: effectiveFeatureMax(c, f), recharge: f.uses.recharge } : undefined,
